@@ -42,3 +42,6 @@ test('redirects German browsers', async ({ browser }) => {
 ## CI
 
 Run `tongue check` before tests; it is faster than a build and catches most i18n regressions.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

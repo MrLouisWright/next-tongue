@@ -43,3 +43,6 @@ Add translator context with a sibling `$description`:
 { "save": "Save", "save$description": "Button label in the editor toolbar; max 12 chars" }
 ```
 Used by `tongue translate` and stripped from compiled output.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

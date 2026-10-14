@@ -22,3 +22,6 @@ npx tongue migrate next-international --write
 | `getStaticParams()` | `localeParams` | ✅ |
 
 Rich values (React nodes as params) → `t.rich` with tags; flagged for review.
+
+---
+[Docs index](../README.md) · [API reference](../api-reference.md) · [Roadmap](../../ROADMAP.md)

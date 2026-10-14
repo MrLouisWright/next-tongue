@@ -70,3 +70,6 @@ Server-side `redirect` requires an explicit `locale` because reading it implicit
 ## Not found
 
 Add `app/[locale]/not-found.tsx` for localized 404s. Unknown locales should call `notFound()` in the root layout (`isLocale` helper). A global `app/not-found.tsx` handles requests the proxy did not match.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

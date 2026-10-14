@@ -68,3 +68,6 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 
 ## CLI
 See [CLI](cli.md): `tongue init | extract | check | translate | migrate`.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

@@ -44,3 +44,6 @@ Types regenerate on `next dev` file changes, on `next build`, and via `npx tongu
 import type { Locale, MessageKey, MessageArgs, Namespace } from 'next-tongue';
 type A = MessageArgs<'home.inbox'>; // { count: number }
 ```
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

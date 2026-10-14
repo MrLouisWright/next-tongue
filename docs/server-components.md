@@ -46,7 +46,7 @@ f.list(['a', 'b'], { type: 'conjunction' });
 
 ## Passing locale down
 
-Prefer passing `locale` as a prop to child server components. If that is inconvenient, children may `await params` themselves only in pages/layouts; in deeply nested components, pass it explicitly. There is deliberately **no** `getLocale()` that reads request headers (see [ADR 0002](adr/0002-locale-from-params-only.md)).
+Only pages, layouts, `generateMetadata` and route handlers receive `params`. Pass `locale` to nested server components as a typed prop (`{ locale: Locale }`). This is explicit by design and is what makes the component cacheable: the locale becomes part of its `'use cache'` key. There is deliberately **no** `getLocale()` that reads request headers (see [ADR 0002](adr/0002-locale-from-params-only.md)).
 
 ## Route handlers
 
@@ -61,3 +61,6 @@ export async function GET(_: Request, ctx: RouteContext<'/[locale]/api/hello'>) 
   return Response.json({ message: t('api.hello') });
 }
 ```
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

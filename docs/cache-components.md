@@ -61,3 +61,6 @@ async function Products({ locale }: { locale: Locale }) {
 ## Verification
 
 The v0.2 milestone includes an e2e fixture app built with `cacheComponents: true` asserting (a) `next build` reports localized routes as prerendered (static or partial prerender), and (b) no `headers()`/`cookies()` call originates from next-tongue code. See [ROADMAP](../ROADMAP.md).
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

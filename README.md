@@ -23,6 +23,15 @@ Next.js 16 made Cache Components and Partial Prerendering (PPR) the way to build
 
 next-tongue aims to combine the compiler approach with first-class Next.js 16 integration.
 
+## Design principles
+
+1. **Build time over run time.** If it can be parsed, validated, typed or tree-shaken at build time, it is. ([ADR 0001](docs/adr/0001-compile-messages-at-build-time.md))
+2. **The locale is a route param.** Only `proxy.ts` touches headers and cookies, so every translated scope can be cached and prerendered. ([ADR 0002](docs/adr/0002-locale-from-params-only.md))
+3. **Standards, not lock-in.** ICU MessageFormat, plain JSON files, any OpenAI-compatible model, MIT license.
+4. **Next.js-native, nothing else.** Next.js 16+ App Router only, so the API can follow the framework closely. ([ADR 0006](docs/adr/0006-nextjs-16-only.md))
+
+**Non-goals (v1):** Pages Router, Next.js ≤ 15, runtime-loaded catalogs from a CMS, a hosted translation service.
+
 ## Features (planned)
 
 - **Zero runtime JSON on the client** — messages compile to tree-shaken, per-locale ES modules. A client component ships only the messages it uses, for the active locale.

@@ -49,3 +49,6 @@ redirect({ href: '/thanks', locale });
 ## Validation libraries
 
 Return translation **keys** from schemas and translate at the edge of the action, or build the schema per request: `makeSchema(t)`. A Zod error-map helper is a candidate for v0.9+ (not committed).
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

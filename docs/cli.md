@@ -40,3 +40,6 @@ Flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency
 
 ## `tongue migrate <from>`
 Codemods: `tongue migrate next-intl` or `tongue migrate next-international`. See [Migration](migration/next-intl.md). Flags: `--dry-run` (default prints diff), `--write`, `--include <glob>`.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

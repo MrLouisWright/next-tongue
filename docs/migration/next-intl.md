@@ -33,3 +33,6 @@ Messages: next-intl JSON is already nested ICU, so files are reused as-is. The c
 1. Resolve `TODO(tongue)` comments (mostly passing `locale` into nested server components).
 2. Remove `next-intl` and run `npx tongue check`.
 3. If you relied on `getLocale()` from headers inside cached components, that code now becomes static — that is the point.
+
+---
+[Docs index](../README.md) · [API reference](../api-reference.md) · [Roadmap](../../ROADMAP.md)

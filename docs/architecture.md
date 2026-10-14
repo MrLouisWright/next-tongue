@@ -9,7 +9,7 @@ messages/*.json ──► parse (ICU AST) ──► validate (CLDR plurals, args
                                    ├──► .tongue/{locale}/{namespace}.js  (one exported fn per key)
                                    └──► .tongue/manifest.json          (keys, hashes, locales)
 
-source files ──► SWC/Babel-free AST scan (oxc) ──► key usage graph per module
+source files ──► fast AST scan (oxc parser, no Babel) ──► key usage graph per module
                                    │
 client modules ──► transform: useT('ns') + t('key') ──► import { key } from '#tongue/{locale}/ns'
 ```
@@ -43,3 +43,6 @@ From the default locale's AST: arg names and kinds (`plural` → `number`, `sele
 
 ## Open questions
 Tracked as ADRs and issues: chunk granularity (per namespace vs per route), RSC-only messages passed as strings to client components, YAML support.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

@@ -49,3 +49,6 @@ Commit it. Per locale and key it records a hash of the **source** text, a hash o
 ## Workflow suggestion
 
 `tongue translate --review` in a PR → humans review `*.review.json` → `tongue translate --accept` merges them.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

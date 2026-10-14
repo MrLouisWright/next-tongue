@@ -18,4 +18,15 @@
 
 **Does `tongue translate` send my code to an LLM?** No — only message text, descriptions, glossary and context. See [AI translation](ai-translation.md).
 
+**What are the known trade-offs?**
+- You pass `locale` explicitly on the server (`getT(locale, ns)`), which is more verbose than an implicit request store.
+- A build step is required; messages must exist at build time.
+- Truly dynamic keys need `t.dynamic()` and cost bundle size.
+- Next.js 16+ App Router only.
+
+**Will there be benchmarks?** Yes, at v0.9, with reproducible scripts in the repo. Until then we make no performance claims beyond what follows from the design.
+
 **License?** MIT.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

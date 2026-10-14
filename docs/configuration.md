@@ -63,7 +63,7 @@ export default defineConfig({
 |---|---|---|---|
 | `locales` | `readonly string[]` | — (required) | Validated as BCP 47. Becomes the `Locale` union type. |
 | `defaultLocale` | `Locale` | — (required) | |
-| `messages` | `string` | `'./messages/{locale}.json'` | Must contain `{locale}`; may contain `{namespace}`. JSON, JSONC and YAML planned for v0.1/v0.3. |
+| `messages` | `string` | `'./messages/{locale}.json'` | Must contain `{locale}`; may contain `{namespace}`. JSON in v0.1; JSONC and YAML are under consideration for v0.3. |
 | `fallback` | `Partial<Record<Locale, Locale>>` | `{}` | Resolved at compile time — missing keys are filled from the chain, so there is no runtime lookup. |
 | `routing.prefix` | `'always' \| 'as-needed' \| 'never'` | `'as-needed'` | `'never'` requires cookie- or domain-based routing; see routing docs. |
 | `routing.localeDetection` | `boolean` | `true` | Only the proxy reads headers/cookies. |
@@ -81,3 +81,6 @@ export default defineConfig({
 |---|---|---|
 | `TONGUE_API_KEY` (configurable) | `tongue translate` | LLM API key |
 | `TONGUE_DEBUG=1` | plugin, CLI | Verbose compiler logs |
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

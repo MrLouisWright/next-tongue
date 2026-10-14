@@ -123,3 +123,6 @@ npx tongue check   # fails on missing, unused or mismatched keys
 - [Routing & proxy](routing-and-proxy.md) — prefix strategies, domains, detection
 - [Cache Components & PPR](cache-components.md) — why locale comes from params
 - [Type safety](type-safety.md) — what is checked and how
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

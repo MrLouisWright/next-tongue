@@ -52,3 +52,6 @@ Set `lang={locale}` in the root layout. `getDir(locale)` (server) returns `'ltr'
 ## Open Graph
 
 `generateAlternates` does not set `openGraph.locale`; use `getOgLocale(locale)` from `next-tongue/server`.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

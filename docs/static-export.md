@@ -16,3 +16,6 @@ export default withTongue({ output: 'export', cacheComponents: true });
 ```
 
 `withTongue` warns at build time if `output: 'export'` is combined with `prefix: 'as-needed' | 'never'` or `domains`.
+
+---
+[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)
