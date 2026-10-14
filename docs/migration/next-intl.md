@@ -25,9 +25,10 @@ npx tongue migrate next-intl --write
 | `createNavigation(routing)` exports | `next-tongue/navigation` imports | ✅ |
 | `t.rich`, `t.markup` | `t.rich` (markup → rich with string tags) | ✅ / ⚠️ |
 | `t.raw`, `t.has` | `t.raw` not supported (use structured keys); `t.has` → `t.has` | ⚠️ |
+| `useExtracted()` / `getExtracted()` (experimental, inline source strings) | not converted in v0.5; flagged with `TODO(tongue)` — next-tongue is key-based | ❌ |
 | `global.d.ts` `AppConfig` augmentation | deleted (generated types) | ✅ |
 
-Messages: next-intl JSON is already nested ICU, so files are reused as-is. The codemod reports any key containing `.` or messages that fail strict ICU parsing.
+Messages: next-intl JSON is already nested ICU (`.po` catalogs from `useExtracted` are not supported in v0.5), so files are reused as-is. The codemod reports any key containing `.` or messages that fail strict ICU parsing.
 
 ## Manual steps
 1. Resolve `TODO(tongue)` comments (mostly passing `locale` into nested server components).

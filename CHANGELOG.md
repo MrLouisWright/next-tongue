@@ -5,6 +5,6 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 
 ### Added
-- Project planning and documentation: README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0006, community health files, issue/PR templates.
+- Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0006, community health files, issue/PR templates, wiki pages in `/wiki`.
 
 No package has been published yet.

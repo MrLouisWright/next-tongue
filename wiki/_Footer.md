@@ -1,0 +1,1 @@
+next-tongue is **pre-alpha** — all APIs are planned. Canonical docs: [`docs/`](https://github.com/MrLouisWright/next-tongue/blob/main/docs/README.md) · [MIT](https://github.com/MrLouisWright/next-tongue/blob/main/LICENSE) © 2026 Louis Wright
