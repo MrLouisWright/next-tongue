@@ -1,0 +1,14 @@
+name: Feature request
+description: Suggest an idea or missing capability
+labels: ["type: feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes: { label: Problem, description: What are you trying to do and what gets in the way? }
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes: { label: Proposed API, description: Code examples welcome. }
+  - type: textarea
+    id: alternatives
+    attributes: { label: Alternatives / prior art, description: How do next-intl, Paraglide, Lingui etc. handle it? }

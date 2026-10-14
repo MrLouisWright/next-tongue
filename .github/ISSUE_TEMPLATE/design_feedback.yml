@@ -1,0 +1,12 @@
+name: Design feedback
+description: Feedback on the planned API, docs or an ADR
+labels: ["type: design"]
+body:
+  - type: input
+    id: page
+    attributes: { label: Doc page or ADR, placeholder: docs/cache-components.md or ADR 0002 }
+    validations: { required: true }
+  - type: textarea
+    id: feedback
+    attributes: { label: Feedback }
+    validations: { required: true }

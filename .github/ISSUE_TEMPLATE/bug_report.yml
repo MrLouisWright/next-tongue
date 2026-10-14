@@ -1,0 +1,23 @@
+name: Bug report
+description: Something doesn't work as documented
+labels: ["type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "next-tongue is pre-alpha. Docs bugs (inconsistencies, inaccuracies) are welcome too."
+  - type: textarea
+    id: what
+    attributes: { label: What happened?, description: Include expected vs actual behaviour. }
+    validations: { required: true }
+  - type: textarea
+    id: repro
+    attributes: { label: Reproduction, description: Minimal repo or steps. Include tongue.config.ts. }
+    validations: { required: true }
+  - type: input
+    id: versions
+    attributes: { label: Versions, placeholder: "next-tongue x.y.z, next 16.x, react 19.x, node 22" }
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [compiler, types, plugin, proxy, server, client, navigation, metadata, cli, translate, codemod, docs, other]
