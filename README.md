@@ -123,6 +123,8 @@ Sources: each project's public docs and issue tracker, checked October 2026. Cor
 
 ## Documentation
 
+Also available as a [GitHub wiki](https://github.com/MrLouisWright/next-tongue/wiki) (same content as `docs/`).
+
 | Guides | Reference |
 |---|---|
 | [Getting started](docs/getting-started.md) | [API reference](docs/api-reference.md) |
@@ -149,7 +151,7 @@ Sources: each project's public docs and issue tracker, checked October 2026. Cor
 | v0.9 | Beta: API freeze, docs site, example apps, published benchmarks |
 | v1.0 | Stable, semver guarantees |
 
-Full detail with acceptance criteria: [ROADMAP.md](ROADMAP.md) · [Milestones](https://github.com/MrLouisWright/next-tongue/milestones).
+Full detail with acceptance criteria: [ROADMAP.md](ROADMAP.md) · [Milestones](https://github.com/MrLouisWright/next-tongue/milestones) · [Project board](https://github.com/users/MrLouisWright/projects/7).
 
 ## Contributing
 
