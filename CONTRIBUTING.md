@@ -20,13 +20,15 @@ pnpm lint
 pnpm e2e           # playwright against examples/
 pnpm changeset     # describe your change
 ```
-Repo layout (planned): `packages/next-tongue` (runtime + plugin), `packages/compiler`, `packages/cli`, `examples/*`, `docs/`.
+Repo layout (planned): `packages/next-tongue` (one published package: runtime, compiler, call-site loader, `withTongue` and the CLI, with zero dependencies beyond the `next`/`react` peers, see [ADR 0012](docs/adr/0012-zero-dependencies.md)), `packages/vscode` (v1.1), `examples/*`, `test/fixtures/` (incl. the vendored ICU conformance corpus), `docs/`.
+
+**Scope freeze:** no new features are accepted before v0.1 ships ([ROADMAP](ROADMAP.md)).
 
 ## Pull requests
 - One logical change per PR; link the issue (`Closes #123`).
 - Add tests (unit, type tests, e2e as relevant) and a changeset.
 - Conventional commit titles (`feat(compiler): …`, `docs: …`) are appreciated.
-- CI must pass (from v0.1: lint, typecheck, test, size-limit).
+- CI must pass (from v0.1: lint, typecheck, test, size-limit, dependency budget).
 
 ## Labels
 `type: *` (bug, feature, docs, design, adr, chore), `area: *` (compiler, types, plugin, proxy, server, client, navigation, metadata, cli, translate, codemod, testing, docs, infra), `priority: *`, `good first issue`, `help wanted`.
