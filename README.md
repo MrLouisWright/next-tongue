@@ -194,6 +194,10 @@ Full detail with acceptance criteria: [ROADMAP.md](ROADMAP.md) · [Milestones](h
 
 Design feedback is the most valuable contribution right now. Read [CONTRIBUTING.md](CONTRIBUTING.md), pick an issue labelled [`good first issue`](https://github.com/MrLouisWright/next-tongue/labels/good%20first%20issue) or comment on an [ADR](docs/adr/README.md). Please follow the [Code of Conduct](CODE_OF_CONDUCT.md); report vulnerabilities per [SECURITY.md](SECURITY.md).
 
+## Support
+
+If this project is useful to you, you can support its development with a donation: [Buy me a coffee](https://donate.stripe.com/aFa00lek3cvX4Ds2Fk9EI0b). It helps keep these tools maintained, documented and free for everyone.
+
 ## License
 
-[MIT](LICENSE) © 2026 Louis Wright
+MIT © Louis Wright ([Louis Wright](https://github.com/MrLouisWright))
