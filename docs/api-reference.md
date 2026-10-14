@@ -7,7 +7,7 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/config`
 | Export | Signature |
 |---|---|
-| `defineConfig` | `(config: TongueConfig) => TongueConfig` — identity, for type inference. See [Configuration](configuration.md). |
+| `defineConfig` | `(config: TongueConfig) => TongueConfig` — identity, for type inference. See [Configuration](configuration.md). **Build-time only**: import it only from `tongue.config.ts`. |
 
 ## `next-tongue/plugin`
 | Export | Signature |
@@ -28,6 +28,7 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 | `localeParams` | `() => { locale: Locale }[]` — use as `generateStaticParams` |
 | `generateAlternates` | `(input: { href: Href; locale: Locale; params?: Record<string,string> }) => { canonical: string; languages: Record<Locale \| 'x-default', string> }` |
 | `getDir` | `(locale: Locale) => 'ltr' \| 'rtl'` |
+| `getOgLocale` | `(locale: Locale) => string` — e.g. `'de-AT'` → `'de_AT'` for `openGraph.locale` |
 | `locales`, `defaultLocale` | configured values (`readonly Locale[]`, `Locale`) |
 
 ## `next-tongue/client` (all `'use client'`)
@@ -37,13 +38,14 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 | `useT` | `<N extends Namespace>(namespace?: N) => T<N>` |
 | `useFormat` | `() => Format` |
 | `useLocale` | `() => Locale` |
+| `locales`, `defaultLocale` | configured values, inlined at build time |
 
 ## `next-tongue/navigation`
 | Export | Signature |
 |---|---|
 | `Link` | `next/link` props with `href: Href \| { pathname: Href; params?; query? }` and optional `locale?: Locale` |
 | `redirect`, `permanentRedirect` | `(args: { href: Href \| {...}; locale: Locale }) => never` |
-| `useRouter` | `() => { push, replace, prefetch(href, { locale? }), back, forward, refresh }` |
+| `useRouter` | `() => { push(href, { locale?, scroll? }), replace(href, { locale?, scroll? }), prefetch(href, { locale? }), back, forward, refresh }` |
 | `usePathname` | `() => Href` (locale prefix and localized segments removed) |
 | `getPathname` | `(args: { href; locale: Locale }) => string` |
 

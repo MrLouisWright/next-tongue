@@ -51,4 +51,4 @@ Set `lang={locale}` in the root layout. `getDir(locale)` (server) returns `'ltr'
 
 ## Open Graph
 
-`generateAlternates` does not set `openGraph.locale`; use `locale.replace('-', '_')` or `getOgLocale(locale)` (planned helper).
+`generateAlternates` does not set `openGraph.locale`; use `getOgLocale(locale)` from `next-tongue/server`.

@@ -52,6 +52,8 @@ Prefer passing `locale` as a prop to child server components. If that is inconve
 
 ```ts
 // app/[locale]/api/hello/route.ts
+import { getT, isLocale } from 'next-tongue/server';
+
 export async function GET(_: Request, ctx: RouteContext<'/[locale]/api/hello'>) {
   const { locale } = await ctx.params;
   if (!isLocale(locale)) return new Response('Not found', { status: 404 });

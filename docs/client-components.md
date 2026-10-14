@@ -48,8 +48,7 @@ If the template's possible values are a finite string-literal union, the compile
 ```tsx
 'use client';
 import { Link, usePathname } from 'next-tongue/navigation';
-import { useLocale } from 'next-tongue/client';
-import { locales } from 'next-tongue/config';
+import { useLocale, locales } from 'next-tongue/client';
 
 export function LocaleSwitcher() {
   const pathname = usePathname();
@@ -59,4 +58,4 @@ export function LocaleSwitcher() {
   ));
 }
 ```
-(`locales` is a re-export of the configured tuple, inlined at build time.)
+(`locales` is the configured tuple, inlined at build time; it is also exported from `next-tongue/server`. `next-tongue/config` is build-time only and must not be imported from app code.)

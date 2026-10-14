@@ -102,9 +102,9 @@ Honest, feature-level comparison as of October 2026. next-tongue's column is **p
 | Approach | build-time compiler | runtime message catalogs | build-time compiler | runtime catalogs | macros + compiled catalogs |
 | Next.js App Router routing helpers | yes (`proxy.ts`, Link, redirect) | yes | via generic/framework-agnostic setup | yes | no (bring your own) |
 | Designed around Cache Components / PPR | yes (params-only locale) | supported with caveats (see #1493) | not Next-specific | no | not Next-specific |
-| Client gets only used messages | yes, per locale | no by default (you pick what to pass to the provider) | yes | partial (per-locale import) | per catalog |
-| Typed keys | yes | yes | yes (functions) | yes | n/a (source-string IDs) |
-| Typed ICU arguments | yes | opt-in (v4) | yes | params typed, no ICU | partial |
+| Client gets only used messages | yes, per locale | no — provider passes all messages by default (v4); can be narrowed manually | yes | partial (per-locale import) | per catalog |
+| Typed keys | yes | yes | yes (functions) | yes | n/a (source strings / macro IDs) |
+| Typed ICU arguments | yes | opt-in (v4, via generated declarations) | yes | params typed, no ICU | n/a (args come from JS template literals) |
 | Message format | ICU MessageFormat | ICU MessageFormat | inlang message format (plugins incl. ICU) | custom interpolation | ICU (PO / JSON) |
 | Extraction / CI check CLI | yes (`extract`, `check`) | via external tools | via inlang tooling | no | yes (`lingui extract`) |
 | Built-in LLM translate (BYO key) | yes | no (separate products) | via inlang ecosystem | no | no |

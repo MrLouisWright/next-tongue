@@ -16,7 +16,10 @@ Consequences:
 ## Examples
 
 ```tsx
-// Fully static, prerendered per locale
+// app/[locale]/page.tsx — fully static shell, prerendered per locale
+import { Suspense } from 'react';
+import { getT, localeParams } from 'next-tongue/server';
+
 export const generateStaticParams = localeParams;
 
 export default async function Page({ params }: PageProps<'/[locale]'>) {
@@ -35,6 +38,9 @@ export default async function Page({ params }: PageProps<'/[locale]'>) {
 
 ```tsx
 // Cached data component
+import { cacheLife } from 'next/cache';
+import type { Locale } from 'next-tongue';
+
 async function Products({ locale }: { locale: Locale }) {
   'use cache';
   cacheLife('hours');
