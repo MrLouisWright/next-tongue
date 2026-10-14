@@ -23,7 +23,7 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 | Export | Signature |
 |---|---|
 | `getT` | `<N extends Namespace>(locale: Locale, namespace?: N) => Promise<T<N>>` |
-| `getFormat` | `(locale: Locale) => Promise<Format>` |
+| `getFormat` | `(locale: Locale, options?: { timeZone?: string }) => Promise<Format>` — zone defaults to config `timeZone` |
 | `isLocale` | `(value: unknown) => value is Locale` |
 | `localeParams` | `() => { locale: Locale }[]` — use as `generateStaticParams` |
 | `generateAlternates` | `(input: { href: Href; locale: Locale; params?: Record<string,string> }) => { canonical: string; languages: Record<Locale \| 'x-default', string> }` |
@@ -34,7 +34,7 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/client` (all `'use client'`)
 | Export | Signature |
 |---|---|
-| `TongueProvider` | `({ locale: Locale; children }) => JSX.Element` |
+| `TongueProvider` | `({ locale: Locale; timeZone?: string; children }) => JSX.Element` |
 | `useT` | `<N extends Namespace>(namespace?: N) => T<N>` |
 | `useFormat` | `() => Format` |
 | `useLocale` | `() => Locale` |

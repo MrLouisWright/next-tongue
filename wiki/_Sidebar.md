@@ -23,5 +23,6 @@
 - [[Architecture|Architecture]]
 - [[FAQ|FAQ]]
 - [[Troubleshooting|Troubleshooting]]
+- [[Research 2025–2026|Research]]
 - [[Roadmap|Roadmap]]
 - [[Architecture Decision Records|Architecture-Decision-Records]]

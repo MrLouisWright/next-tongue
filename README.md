@@ -39,6 +39,9 @@ next-tongue aims to combine the compiler approach with first-class Next.js 16 in
 - **Fully typed** — keys, namespaces and ICU arguments (`{count, plural, ...}` → `count: number`) are checked by TypeScript.
 - **One API across the App Router** — server components, client components, server actions, `generateMetadata` with hreflang, and locale-aware `Link` / `redirect` / `useRouter`.
 - **CLI** — `tongue init`, `tongue extract`, `tongue check` (CI gate for missing / unused / mismatched keys) and `tongue translate` (bring your own LLM key via any OpenAI-compatible endpoint, with glossary and lockfile).
+- **Hydration-safe dates** — an explicit `timeZone` in config (default `'UTC'`). The server's default zone is never used, and per-user zones are scoped to dynamic boundaries ([ADR 0008](docs/adr/0008-explicit-time-zone.md)).
+- **Fast proxy at any locale count** — locale matching tables are precomputed at build time; the target is < 1 ms p50 with 150 locales.
+- **Monorepo-ready** — shared message packages in pnpm workspaces, with portable generated types.
 - **Migration codemods** from next-intl and next-international.
 
 ## Quick start (planned API)
@@ -118,6 +121,7 @@ Honest, feature-level comparison as of October 2026. next-tongue's column is **p
 | Extraction / CI check CLI | yes (`extract`, `check`) | experimental `useExtracted` (v4.5+); no built-in CI check | via inlang tooling | no | yes (`lingui extract`) |
 | Built-in LLM translate (BYO key) | yes | no (separate products) | via inlang ecosystem | no | no |
 | Codemods from next-intl / next-international | yes | — | no | — | no |
+| Uses `next/root-params` for implicit locale | not by default ([ADR 0007](docs/adr/0007-root-params-not-default.md)); explicit `locale` arg | required for Cache Components support ([#1493](https://github.com/amannn/next-intl/issues/1493)) | not Next-specific | no | yes, in example/docs on Next 16.3+ ([lingui#2645](https://github.com/lingui/js-lingui/issues/2645)) |
 
 Sources: each project's public docs and issue tracker, checked October 2026. Corrections welcome — open an issue if any cell is wrong.
 
@@ -138,6 +142,7 @@ Also available as a [GitHub wiki](https://github.com/MrLouisWright/next-tongue/w
 | [Cache Components & PPR](docs/cache-components.md) | [Testing](docs/testing.md) |
 | [Static export](docs/static-export.md) | [AI translation](docs/ai-translation.md) |
 | [Metadata, SEO & hreflang](docs/metadata-seo.md) | [Docs index](docs/README.md) |
+| [Research: i18n pain points 2025–2026](docs/research.md) | |
 
 ## Roadmap
 

@@ -18,6 +18,8 @@ Goal: turn message files into typed, tree-shakeable modules, independent of Next
 - [ ] Invalid ICU reports `file:key:line:col`.
 - [ ] `tsd`/`expect-type` tests cover every row of the "What is checked" table in [Type safety](docs/type-safety.md).
 - [ ] Type-checking a generated 10,000-key registry takes < 2 s on CI (measured, published in PR).
+- [ ] Default fallback follows CLDR parent locales and never crosses scripts (`zh-Hant-HK → zh-Hant`, never `zh-Hans`); explicit `fallback` overrides ([research A7](docs/research.md)).
+- [ ] Generated date formatters always pass the configured `timeZone` (default `'UTC'`); no code path uses the runtime default zone ([ADR 0008](docs/adr/0008-explicit-time-zone.md)).
 - [ ] CI green on Node 20 and 22.
 
 ## v0.2 — Next.js 16 integration
@@ -38,6 +40,13 @@ Goal: turn message files into typed, tree-shakeable modules, independent of Next
 - [ ] `generateAlternates` output validated against Google hreflang rules (reciprocal, `x-default`).
 - [ ] Client runtime ≤ 2 kB min+gz enforced by `size-limit`.
 - [ ] Works in both `next dev` (Turbopack) and `next build --webpack`.
+- [ ] No catalog JSON appears in the RSC payload or HTML of any example route (e2e assertion on the flight response) ([research A4](docs/research.md)).
+- [ ] `createProxy` locale resolution: p50 < 1 ms and p99 < 3 ms with 150 locales (benchmark in CI); no `Intl.*` construction per request ([research A3](docs/research.md)).
+- [ ] Locale cookie is `SameSite=Lax` by default and is sent on a cross-site navigation in Playwright ([research A5](docs/research.md)).
+- [ ] Hydration test: a page that formats a date in the static shell and a client component shows no hydration warning when the server process `TZ` differs from the browser zone ([ADR 0008](docs/adr/0008-explicit-time-zone.md)).
+- [ ] `getT` works in `generateMetadata` and a server action on a freshly started worker (cold-start test) ([research A8](docs/research.md)).
+- [ ] A pnpm-workspace fixture (shared messages package + 2 apps, `declaration: true`) builds and type-checks with no TS2742 ([research A6](docs/research.md)).
+- [ ] Dev watch mode: memory stays flat (< 10% growth) over a 30-minute soak with 1,000 message edits; no child process outlives `next dev` ([research A9](docs/research.md)).
 
 ## v0.3 — CLI: init, extract, check
 **Acceptance criteria**
@@ -65,6 +74,7 @@ Goal: turn message files into typed, tree-shakeable modules, independent of Next
 **Acceptance criteria**
 - [ ] No breaking changes for 4 weeks; 3+ external production-like apps report success.
 - [ ] All docs pages verified against real code (doc examples are type-checked in CI).
+- [ ] Decision recorded on an opt-in `getT(ns)` via `next/root-params` ([ADR 0007](docs/adr/0007-root-params-not-default.md)), with tests for two root layouts and locale switch under `"use cache"`.
 
 ## v1.0 — Stable
 **Acceptance criteria**

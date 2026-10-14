@@ -27,6 +27,10 @@ All pages live under `app/[locale]/`. The proxy guarantees that by the time a re
    `prefix: 'never'` → always **rewrite**.
 4. Localized `pathnames` are mapped in both directions (`/de/ueber-uns` ↔ `/de/about`).
 
+**Performance:** the plugin precomputes locale lookup tables at build time: exact tags, language/script/region parents, and the `Accept-Language` best-fit map. The proxy constructs no `Intl.*` objects per request. With many locales, per-request matching in other setups has been reported at 120–180 ms for about 140 locales ([r/nextjs](https://www.reddit.com/r/nextjs/comments/1ozfz0q/nextintl_middleware_becomes_extremely_slow_with/)). next-tongue's target is p50 < 1 ms with 150 locales (ROADMAP v0.2).
+
+**Cookie:** `TONGUE_LOCALE` is set with `SameSite=Lax` by default so it survives cross-site navigation; see [Configuration](Configuration).
+
 ## Prefix strategies
 
 | `prefix` | URL for `en` (default) | URL for `de` | Static-export friendly |

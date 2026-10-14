@@ -52,6 +52,22 @@ async function Products({ locale }: { locale: Locale }) {
 }
 ```
 
+## Why not `next/root-params`?
+
+Next.js 16.3 added `next/root-params`, which can read `[locale]` without passing it down. next-tongue keeps the explicit `locale` argument for now. Upstream issues in 2026 included missing types with two root layouts ([vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756)) and a stale `"use cache"` segment after switching locale ([#98493](https://github.com/vercel/next.js/issues/98493)). An opt-in will be re-evaluated at v0.9. See [ADR 0007](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0007-root-params-not-default.md).
+
+## Dates and time zones
+
+Formatting uses `timeZone` from `tongue.config.ts` (default `'UTC'`), never the server's default zone. The static shell and the browser therefore produce the same string, so there is no hydration mismatch. To show a user's own zone, scope it to a dynamic part of the tree:
+
+```tsx
+// Inside a <Suspense> boundary: reads the zone from a cookie set by your app
+const tz = (await cookies()).get('tz')?.value ?? 'UTC';
+const f = await getFormat(locale, { timeZone: tz });
+```
+
+On the client, wrap the subtree in `<TongueProvider locale={locale} timeZone={tz}>`. See [ADR 0008](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0008-explicit-time-zone.md).
+
 ## Things to avoid
 
 | Don't | Do |

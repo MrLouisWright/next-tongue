@@ -25,6 +25,7 @@
 - [Architecture Decision Records](adr/README.md)
 - [FAQ](faq.md)
 - [Troubleshooting](troubleshooting.md)
+- [Research: i18n pain points 2025–2026](research.md)
 
 ## Package entry points (planned)
 

@@ -6,7 +6,7 @@
 
 ## Setup
 
-`TongueProvider` (in your `[locale]` layout, see [Getting started](Getting-Started)) provides the **locale only**. It does not take a `messages` prop.
+`TongueProvider` (in your `[locale]` layout, see [Getting started](Getting-Started)) provides the **locale** (and optionally a `timeZone` for `useFormat`, see [ADR 0008](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0008-explicit-time-zone.md)). It does not take a `messages` prop.
 
 ## `useT(namespace?)`
 
