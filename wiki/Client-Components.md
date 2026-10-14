@@ -8,6 +8,20 @@
 
 `TongueProvider` (in your `[locale]` layout, see [Getting started](Getting-Started)) provides the **locale** (and optionally a `timeZone` for `useFormat`, see [ADR 0008](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0008-explicit-time-zone.md)). It does not take a `messages` prop.
 
+Outside `[locale]` (global `app/not-found.tsx`, the static-export root `app/page.tsx`) there is no provider: `useT` throws `TONGUE_E_NO_PROVIDER`. Wrap such trees in `<TongueProvider locale={defaultLocale}>` deliberately ([ADR 0002](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0002-locale-from-params-only.md)).
+
+## Preferred: translate on the server, pass strings
+
+The cheapest client messages are none. Render text in a Server Component and pass it down:
+
+```tsx
+// app/[locale]/page.tsx (Server Component)
+const t = await getT(locale, 'counter');
+return <Counter label={t('label')} />; // Counter is a client component; no message code ships
+```
+
+Use `useT` only when the client needs to format at runtime (e.g. a count that changes with state). See [ADR 0009](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0009-client-message-delivery.md).
+
 ## `useT(namespace?)`
 
 ```tsx
@@ -23,10 +37,11 @@ export function Counter() {
 
 ## How messages reach the browser
 
-At build time the compiler finds every `useT(...)` / `t(...)` call in client modules and rewrites it to import the compiled message functions directly from `.tongue/`, split per locale. The client bundle for a route contains only:
+A per-file loader rewrites each `t('key')` call in a client module into a static import of a per-key message module (`#tongue/msg/{namespace}/{key}`). The bundler then includes only the keys that client code calls, deduplicated across routes.
 
-- the message functions for keys referenced by client components on that route, and
-- only for the active locale (loaded via a small per-locale chunk).
+- **Default:** a per-key module contains **all locales** of that key and picks the provider's locale. No extra request, no Suspense.
+- **Opt-in (later):** per-locale splitting with dynamic imports and a Suspense contract, once the benchmark has measured when it pays off.
+- If `t` escapes the file (passed as a prop or argument, returned, stored in an object), the loader includes the whole namespace and warns with `file:line`.
 
 No JSON catalog is serialised into the RSC payload or HTML. See [Architecture](Architecture).
 
@@ -35,7 +50,13 @@ No JSON catalog is serialised into the RSC payload or HTML. See [Architecture](A
 ```tsx
 t(`status.${status}`)  // status: 'open' | 'closed'
 ```
-If the template's possible values are a finite string-literal union, the compiler includes all matching keys. Truly dynamic keys (`t(someString)`) are a **type error** in strict mode; use `t.dynamic(key)` to opt in, which includes the whole namespace in the bundle and emits a build warning.
+Non-literal keys must **declare their possible keys**; the loader has no type information, so it cannot infer a union from `status`'s type.
+
+```tsx
+t.dynamic(`status.${status}`, { from: ['status.open', 'status.closed'] }); // imports only these two
+const s = t.ns('status'); s(status);                                        // imports the whole `status` namespace
+```
+An undeclared non-literal key (`t(someString)`) is a build error, `TONGUE_E_DYNAMIC_KEY`.
 
 ## Other hooks
 
@@ -47,18 +68,26 @@ If the template's possible values are a finite string-literal union, the compile
 
 ## Locale switcher
 
+`next-tongue/navigation` ships a **headless, accessible** switcher (v0.3, [#44](https://github.com/MrLouisWright/next-tongue/issues/44)). It keeps the current page (including localized pathnames and dynamic params), persists the choice through the locale cookie (or the signed preference, see [User preferences](User-Preferences)), and labels each locale in its own language via `Intl.DisplayNames`.
+
 ```tsx
 'use client';
-import { Link, usePathname } from 'next-tongue/navigation';
-import { useLocale, locales } from 'next-tongue/client';
+import { LocaleSwitcher } from 'next-tongue/navigation';
 
-export function LocaleSwitcher() {
-  const pathname = usePathname();
-  const current = useLocale();
-  return locales.map((l) => (
-    <Link key={l} href={pathname} locale={l} aria-current={l === current ? 'true' : undefined}>{l}</Link>
-  ));
+export function LanguageMenu() {
+  return (
+    <LocaleSwitcher>
+      {(options) => (
+        <nav aria-label="Language">
+          {options.map(({ locale, label, href, current }) => (
+            <a key={locale} href={href} hrefLang={locale} lang={locale} aria-current={current ? 'true' : undefined}>{label}</a>
+          ))}
+        </nav>
+      )}
+    </LocaleSwitcher>
+  );
 }
 ```
-(`locales` is the configured tuple, inlined at build time; it is also exported from `next-tongue/server`. `next-tongue/config` is build-time only and must not be imported from app code.)
+It renders plain links, so it works without JavaScript. `useLocaleSwitcher()` returns the same options for custom UIs (e.g. a `<select>`).
 
+(`locales` is the configured tuple, inlined at build time; it is also exported from `next-tongue/server`. `next-tongue/config` is build-time only and must not be imported from app code.)

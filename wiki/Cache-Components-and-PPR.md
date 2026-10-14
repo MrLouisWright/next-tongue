@@ -74,9 +74,9 @@ On the client, wrap the subtree in `<TongueProvider locale={locale} timeZone={tz
 |---|---|
 | Read `Accept-Language` in a page | Let `proxy.ts` redirect/rewrite |
 | `new Date()` in a message arg in the shell | Pass a stable value, or render relative time inside a dynamic/Suspense boundary |
-| `t.dynamic(someString)` in hot client paths | Use typed keys so only used messages ship |
+| `t.ns(ns)` or undeclared dynamic keys in hot client paths | Declare keys with `t.dynamic(key, { from })`, or translate on the server and pass strings |
+| Forget `generateStaticParams` in the root `[locale]` layout | `export const generateStaticParams = localeParams` (params are runtime data otherwise) |
 
 ## Verification
 
-The v0.2 milestone includes an e2e fixture app built with `cacheComponents: true` asserting (a) `next build` reports localized routes as prerendered (static or partial prerender), and (b) no `headers()`/`cookies()` call originates from next-tongue code. See [ROADMAP](Roadmap).
-
+The v0.1 milestone includes `examples/cache-components`, an e2e fixture app built with `cacheComponents: true` asserting (a) `next build` reports localized routes as prerendered (static or partial prerender), and (b) no `headers()`/`cookies()` call originates from next-tongue code. See [ROADMAP](Roadmap).

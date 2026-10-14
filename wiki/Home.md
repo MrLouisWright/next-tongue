@@ -1,6 +1,6 @@
 # next-tongue wiki
 
-**Compiler-first, type-safe i18n for the Next.js 16 App Router — built for Cache Components.**
+**Compiler-first, type-safe i18n for the Next.js 16 App Router. Works with Turbopack, keeps the locale in route params, zero dependencies beyond `next` and `react`.**
 
 > ⚠️ **Pre-alpha.** No code is published yet; every page describes the **planned** API. The canonical docs live in the repo under [`docs/`](https://github.com/MrLouisWright/next-tongue/blob/main/docs/README.md); these wiki pages mirror them.
 
@@ -20,11 +20,16 @@
 - [[Cache Components and PPR|Cache-Components-and-PPR]]
 - [[Static Export|Static-Export]]
 - [[Metadata SEO and hreflang|Metadata-SEO-and-hreflang]]
+- [[Database and CMS Messages|Database-and-CMS-Messages]]
+- [[Dev Tools|Dev-Tools]]
+- [[Translator Workflow|Translator-Workflow]]
+- [[Per-user Preferred Language|User-Preferences]]
 - [[CLI|CLI]]
 - [[AI Translation|AI-Translation]]
 - [[Testing|Testing]]
+- [[VS Code Extension|VS-Code-Extension]]
 - [[Migration from next intl|Migration-from-next-intl]]
-- [[Migration from next international|Migration-from-next-international]]
+- [[Migration from next international (deferred)|Migration-from-next-international]]
 
 ## Reference
 - [[API Reference|API-Reference]]
@@ -32,6 +37,7 @@
 - [[FAQ|FAQ]]
 - [[Troubleshooting|Troubleshooting]]
 - [[Research 2025–2026|Research]]
+- [[Critical Review (Oct 2026)|Critical-Review]]
 - [[Roadmap|Roadmap]]
 - [[Architecture Decision Records|Architecture-Decision-Records]]
 

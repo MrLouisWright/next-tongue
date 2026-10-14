@@ -36,7 +36,7 @@
 |---|---|---|
 | Localized dynamic segments not cached under Cache Components | [vercel/next.js#86870](https://github.com/vercel/next.js/issues/86870), [#85240](https://github.com/vercel/next.js/issues/85240) | An upstream Next.js behaviour, not something an i18n library can fix. We link it from Troubleshooting only. |
 | "Internal-only" locale mode (locale in the route, never in the URL) | [i18next/next-i18next#2345](https://github.com/i18next/next-i18next/issues/2345) | Already `prefix: 'never'` (rewrite). No new mode needed. |
-| Runtime-loaded catalogs / CMS-driven messages, in-context editing | [tolgee/tolgee-js#3537](https://github.com/tolgee/tolgee-js/issues/3537), [aymericzip/intlayer#289](https://github.com/aymericzip/intlayer/issues/289) | These conflict with ADR 0001 (compile-time). They are already a v1 non-goal; MDX/content stays in "v1.x ideas". |
+| In-context editing; client-side runtime catalogs | [tolgee/tolgee-js#3537](https://github.com/tolgee/tolgee-js/issues/3537), [aymericzip/intlayer#289](https://github.com/aymericzip/intlayer/issues/289) | Client catalogs conflict with ADR 0001/0009. Database/CMS messages are **no longer rejected**: build-time `sources` and server `formatMessage` are planned ([ADR 0013](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0013-database-and-cms-messages.md), [Database messages](Database-and-CMS-Messages)). MDX/content stays in "v1.x ideas". |
 | Zod / form-validation messages, email and OG-image translation | — | We found no recent, verifiable reports for these topics in the sources searched. The existing `getT(locale)` already works in route handlers and server actions. We are not adding features without evidence. |
 | Pages Router API routes with `i18n` config | [vercel/next.js#97231](https://github.com/vercel/next.js/issues/97231) | Pages Router is out of scope ([ADR 0006](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0006-nextjs-16-only.md)). |
 | Hacker News | e.g. [Show HN: Localize React apps without rewriting code](https://news.ycombinator.com/item?id=44172428) | Product launches only. The search turned up no concrete pain reports. |
@@ -45,4 +45,3 @@
 - Reddit's JSON API returned 403, so we reached Reddit through web search. Reddit coverage is partial.
 - The GitHub search API rate-limited the last topic queries (RTL, monorepo, email), so those topics rely on the per-repository searches above.
 - X results were mostly promotional. Only the Lingui post was used, as a primary source for root-params adoption.
-

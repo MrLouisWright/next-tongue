@@ -21,7 +21,7 @@ export default async function Page({ params }: PageProps<'/[locale]/blog'>) {
 }
 ```
 
-- `locale` is **required** and typed as `Locale`. Passing a plain `string` is a type error — narrow with `isLocale()` first (or rely on the typed `params` the plugin generates).
+- `locale` is **required** and typed as `Locale`. Passing a plain `string` is a type error — narrow with `isLocale()` first (or rely on the typed `params` codegen generates).
 - `getT` is async because it `import()`s the compiled module for that locale+namespace. It is safe inside `'use cache'` (it reads no request data).
 - Without a namespace, keys are dotted paths: `t('blog.title')`.
 
@@ -63,4 +63,3 @@ export async function GET(_: Request, ctx: RouteContext<'/[locale]/api/hello'>) 
   return Response.json({ message: t('api.hello') });
 }
 ```
-

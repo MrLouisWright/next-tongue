@@ -12,7 +12,7 @@ import { createTestT } from 'next-tongue/testing';
 const t = createTestT('de', 'home');
 expect(t('inbox', { count: 2 })).toBe('2 Nachrichten');
 ```
-`createTestT` uses the same compiled modules as the app (run `tongue extract --types-only` or the Vitest plugin `next-tongue/testing/vite` to compile first).
+`createTestT` uses the same compiled modules as the app (run `tongue build` first, e.g. in a Vitest `globalSetup`; no Vite plugin needed).
 
 ## Component tests (Testing Library)
 
@@ -44,4 +44,3 @@ test('redirects German browsers', async ({ browser }) => {
 ## CI
 
 Run `tongue check` before tests; it is faster than a build and catches most i18n regressions.
-
