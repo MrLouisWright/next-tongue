@@ -53,5 +53,46 @@ Set `lang={locale}` in the root layout. `getDir(locale)` (server) returns `'ltr'
 
 `generateAlternates` does not set `openGraph.locale`; use `getOgLocale(locale)` from `next-tongue/server`.
 
+## Translated OG images (v0.3)
+
+`getT` reads no request data, so it works in `opengraph-image.tsx` and `twitter-image.tsx`, including when they are prerendered per locale:
+
+```tsx
+// app/[locale]/blog/[slug]/opengraph-image.tsx
+import { ImageResponse } from 'next/og';
+import { getT, getDir } from 'next-tongue/server';
+
+export const size = { width: 1200, height: 630 };
+export const contentType = 'image/png';
+
+export default async function Image({ params }: { params: Promise<{ locale: Locale; slug: string }> }) {
+  const { locale, slug } = await params;
+  const t = await getT(locale, 'og');
+  return new ImageResponse(
+    <div dir={getDir(locale)} style={{ fontSize: 64, display: 'flex' }}>{t('blogTitle', { slug })}</div>,
+    size,
+  );
+}
+```
+Load a font that covers the locale's script (e.g. Arabic, CJK) via `ImageResponse`'s `fonts` option; `getDir` sets the direction.
+
+## Translated emails (v0.3)
+
+Email rendering usually runs in a server action, route handler or background job, outside any page. Pass the user's stored locale explicitly:
+
+```tsx
+import { getT, getFormat } from 'next-tongue/server';
+
+export async function renderWelcomeEmail(locale: Locale, user: { name: string; createdAt: Date; timeZone?: string }) {
+  const t = await getT(locale, 'emails');
+  const f = await getFormat(locale, { timeZone: user.timeZone ?? 'UTC' });
+  return {
+    subject: t('welcome.subject', { name: user.name }),
+    html: renderToStaticMarkup(<WelcomeEmail t={t} joined={f.dateTime(user.createdAt, 'short')} />), // react-dom/server, or your email renderer
+  };
+}
+```
+`t.rich` works in email templates. For plain-text parts use `t()`. Never infer the locale from a request header in a job; store it with the user.
+
 ---
 [Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

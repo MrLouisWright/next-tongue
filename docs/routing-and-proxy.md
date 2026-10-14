@@ -14,6 +14,8 @@ export const proxy = createProxy();
 export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
 ```
 
+> **Matcher caveat:** `.*\\..*` skips every path containing a dot, so `/de/blog/v1.2` bypasses the proxy (no locale redirect). If you have dotted routes, exclude only real file extensions, e.g. `'/((?!api|_next|.*\\.(?:ico|png|jpg|svg|txt|xml|webmanifest)$).*)'`.
+
 All pages live under `app/[locale]/`. The proxy guarantees that by the time a request reaches the app, the `[locale]` segment is a valid locale.
 
 ## What the proxy does
@@ -21,11 +23,11 @@ All pages live under `app/[locale]/`. The proxy guarantees that by the time a re
 1. If the pathname starts with a known locale prefix → pass through (and refresh the locale cookie if enabled).
 2. Otherwise, determine the locale: domain match → cookie → `Accept-Language` → `defaultLocale`.
 3. `prefix: 'always'` → **redirect** to `/{locale}/...`.
-   `prefix: 'as-needed'` → for the default locale, **rewrite** internally to `/{defaultLocale}/...`; otherwise redirect.
-   `prefix: 'never'` → always **rewrite**.
-4. Localized `pathnames` are mapped in both directions (`/de/ueber-uns` ↔ `/de/about`).
+   `prefix: 'as-needed'` → for the default locale, **rewrite** internally to `/{defaultLocale}/...`; otherwise redirect. A request for `/{defaultLocale}/x` is **redirected (308) to `/x`**, so each page has one canonical URL ([#30](https://github.com/MrLouisWright/next-tongue/issues/30)).
+   `prefix: 'never'` (v0.4) → always **rewrite**.
+4. Localized `pathnames` (v0.4) are mapped in both directions (`/de/ueber-uns` ↔ `/de/about`), using a route manifest generated from `app/` at codegen time.
 
-**Performance:** the plugin precomputes locale lookup tables at build time: exact tags, language/script/region parents, and the `Accept-Language` best-fit map. The proxy constructs no `Intl.*` objects per request. With many locales, per-request matching in other setups has been reported at 120–180 ms for about 140 locales ([r/nextjs](https://www.reddit.com/r/nextjs/comments/1ozfz0q/nextintl_middleware_becomes_extremely_slow_with/)). next-tongue's target is p50 < 1 ms with 150 locales (ROADMAP v0.2).
+**Performance:** codegen precomputes locale lookup tables at build time: exact tags, language/script/region parents, and the `Accept-Language` best-fit map. The proxy constructs no `Intl.*` objects per request, and caches parsed `Accept-Language` strings in a bounded LRU. With many locales, per-request matching in other setups has been reported at 120–180 ms for about 140 locales ([r/nextjs](https://www.reddit.com/r/nextjs/comments/1ozfz0q/nextintl_middleware_becomes_extremely_slow_with/)). next-tongue's target is p50 < 1 ms with 150 locales (ROADMAP v0.2).
 
 **Cookie:** `TONGUE_LOCALE` is set with `SameSite=Lax` by default so it survives cross-site navigation; see [Configuration](configuration.md).
 
@@ -33,8 +35,8 @@ All pages live under `app/[locale]/`. The proxy guarantees that by the time a re
 
 | `prefix` | URL for `en` (default) | URL for `de` | Static-export friendly |
 |---|---|---|---|
-| `'always'` | `/en/about` | `/de/about` | ✅ |
-| `'as-needed'` | `/about` | `/de/about` | ⚠️ needs a host rewrite for `/` (see [Static export](static-export.md)) |
+| `'always'` | `/en/about` | `/de/about` | ✅ (the only option for `output: 'export'`) |
+| `'as-needed'` | `/about` | `/de/about` | ❌ (no proxy in static export; see [Static export](static-export.md)) |
 | `'never'` | `/about` | `/about` (cookie/domain) | ❌ |
 
 ## Composing with your own proxy logic

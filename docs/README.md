@@ -14,10 +14,15 @@
 9. [Cache Components & PPR](cache-components.md)
 10. [Static export](static-export.md)
 11. [Metadata, SEO & hreflang](metadata-seo.md)
-12. [CLI](cli.md)
-13. [AI translation](ai-translation.md)
-14. [Testing](testing.md)
-15. Migration: [from next-intl](migration/next-intl.md) · [from next-international](migration/next-international.md)
+12. [Database & CMS messages](database-messages.md)
+13. [Dev tools: overlay, pseudo-localisation, usage report](dev-tools.md)
+14. [Translator workflow: XLIFF, CSV and translator context](translator-workflow.md)
+15. [Per-user preferred language](user-preferences.md)
+16. [CLI](cli.md)
+17. [AI translation](ai-translation.md)
+18. [Testing](testing.md)
+19. [VS Code extension (v1.1)](vscode.md)
+20. Migration: [from next-intl](migration/next-intl.md) · [from next-international](migration/next-international.md) (deferred)
 
 ## Reference
 - [API reference](api-reference.md)
@@ -26,16 +31,19 @@
 - [FAQ](faq.md)
 - [Troubleshooting](troubleshooting.md)
 - [Research: i18n pain points 2025–2026](research.md)
+- [Critical review (Oct 2026)](review.md)
 
 ## Package entry points (planned)
 
 | Import | Runs in | Purpose |
 |---|---|---|
 | `next-tongue/config` | Node (build) | `defineConfig` |
-| `next-tongue/plugin` | Node (build) | `withTongue` Next.js plugin |
+| `next-tongue/next` | Node (build) | `withTongue` config wrapper: runs codegen, registers the per-file call-site loader |
 | `next-tongue/proxy` | proxy (Node runtime) | `createProxy` |
-| `next-tongue/server` | Server Components, actions, route handlers | `getT`, `getFormat`, `localeParams`, `generateAlternates`, `isLocale` |
+| `next-tongue/server` | Server Components, actions, route handlers | `getT`, `getFormat`, `formatMessage`, `translateIssues`, `withLocale`, `localeParams`, `generateAlternates`, `isLocale` |
 | `next-tongue/client` | Client Components | `TongueProvider`, `useT`, `useFormat`, `useLocale` |
 | `next-tongue/navigation` | both | `Link`, `redirect`, `permanentRedirect`, `useRouter`, `usePathname`, `getPathname` |
 | `next-tongue/testing` | tests | `createTestT`, `TongueTestProvider` |
-| `tongue` (bin) | CLI | `init`, `extract`, `check`, `translate`, `migrate` |
+| `tongue` (bin) | CLI (Node built-ins only) | `build`, `init`, `extract`, `check`, `translate`, `export`, `import`, `report` (`migrate` after v1.0) |
+
+The package has **zero dependencies** beyond the `next` and `react` peers ([ADR 0012](adr/0012-zero-dependencies.md)).

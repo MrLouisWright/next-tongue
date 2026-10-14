@@ -2,7 +2,7 @@
 
 > **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
 
-Server actions have no `params`. Pass the locale explicitly — either bound or as a form field — and validate it.
+Server actions have no `params`. Pass the locale explicitly — either bound or as a form field — and validate it ([ADR 0002](adr/0002-locale-from-params-only.md), [#26](https://github.com/MrLouisWright/next-tongue/issues/26)).
 
 ## Bound argument (recommended)
 
@@ -46,9 +46,36 @@ import { redirect } from 'next-tongue/navigation';
 redirect({ href: '/thanks', locale });
 ```
 
-## Validation libraries
+## Hidden form field
 
-Return translation **keys** from schemas and translate at the edge of the action, or build the schema per request: `makeSchema(t)`. A Zod error-map helper is a candidate for v0.9+ (not committed).
+```tsx
+<form action={sendMessage}><input type="hidden" name="locale" value={locale} />…</form>
+```
+Read it with `form.get('locale')` and validate with `isLocale()`. `withLocale(action)` (v0.2) wraps an action whose first argument is a bound locale, validates it and throws `TONGUE_E_LOCALE` otherwise.
+
+## Translated validation errors (v0.3)
+
+`translateIssues` turns validation issues into typed, translated messages. It is schema-agnostic: it accepts any array shaped like [Standard Schema](https://standardschema.dev) issues (`{ message: string; path?: ReadonlyArray<PropertyKey | { key: PropertyKey }> }`), so it works with any validator that emits that shape. next-tongue has no validator dependency.
+
+```ts
+'use server';
+import { getT, translateIssues, isLocale } from 'next-tongue/server';
+
+export async function signup(locale: string, prev: State, form: FormData): Promise<State> {
+  if (!isLocale(locale)) throw new Error('Invalid locale');
+  const result = await schema['~standard'].validate(Object.fromEntries(form)); // any Standard Schema validator
+  if (result.issues) {
+    const t = await getT(locale, 'validation');
+    return { errors: translateIssues(t, result.issues) }; // { email: ['Enter a valid email'], ... }
+  }
+  // ...
+}
+```
+
+- An issue's `message` is treated as a **key** in the namespace (typed: `translateIssues` accepts `T<'validation'>`, and unknown keys hit `fallback`).
+- `params` per issue (`{ message: 'tooShort', params: { min: 8 } }`) become ICU args.
+- Options: `{ fallback?: Key; formatPath?: (path) => string }`. Result: `Record<string, string[]>`, with root issues under `''`.
+- Works the same in route handlers and client components (`useT('validation')` + `translateIssues` from `next-tongue/client`).
 
 ---
 [Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

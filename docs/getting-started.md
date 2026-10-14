@@ -39,7 +39,7 @@ export default defineConfig({
 ```ts
 // next.config.ts
 import type { NextConfig } from 'next';
-import { withTongue } from 'next-tongue/plugin';
+import { withTongue } from 'next-tongue/next';
 
 const nextConfig: NextConfig = { cacheComponents: true };
 export default withTongue(nextConfig);
@@ -54,6 +54,8 @@ import { createProxy } from 'next-tongue/proxy';
 export const proxy = createProxy();
 export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
 ```
+
+> **Matcher caveat:** `.*\\..*` skips every path containing a dot, so `/de/blog/v1.2` bypasses the proxy (no locale redirect). If you have dotted routes, exclude only real file extensions, e.g. `'/((?!api|_next|.*\\.(?:ico|png|jpg|svg|txt|xml|webmanifest)$).*)'`.
 
 ## 4. Root layout
 

@@ -1,27 +1,23 @@
 # Migrating from next-international
 
-> **Status: planned / pre-release.** Codemods ship in v0.5. See [ROADMAP](../../ROADMAP.md).
+> **Status: deferred.** The next-international codemod has been **dropped** (no upstream release since October 2024; see the [critical review](../review.md)). This page is kept as a **manual** mapping guide only. See [ROADMAP](../../ROADMAP.md).
 
-```bash
-npx tongue migrate next-international --write
-```
-
-| next-international | next-tongue | Automated |
+| next-international | next-tongue | Notes |
 |---|---|---|
-| `locales/en.ts` (`export default { ... } as const`) | `messages/en.json` | ✅ (evaluates the module; functions are flagged) |
-| `{name}` interpolation | ICU `{name}` (same) | ✅ |
-| `key#zero/#one/#other` plural suffixes | ICU `{count, plural, =0 {…} one {…} other {…}}` | ✅ |
-| `createI18nServer` / `createI18nClient` setup files | removed; `tongue.config.ts` generated from the locale map | ✅ |
-| `createI18nMiddleware` | `createProxy()` in `proxy.ts` (`urlMappingStrategy: 'rewriteDefault'` → `prefix: 'as-needed'`) | ✅ |
-| `I18nProviderClient locale=…` | `TongueProvider locale=…` | ✅ |
-| `useI18n()` / `useScopedI18n('ns')` | `useT()` / `useT('ns')` | ✅ |
-| `getI18n()` / `getScopedI18n('ns')` | `getT(locale)` / `getT(locale, 'ns')` | ⚠️ needs locale (as for next-intl) |
-| `useCurrentLocale()` / `getCurrentLocale()` | `useLocale()` / params | ✅ / ⚠️ |
-| `useChangeLocale()` | `<Link locale>` or `useRouter().replace(pathname, { locale })` | ⚠️ |
-| `setStaticParamsLocale` | removed | ✅ |
-| `getStaticParams()` | `localeParams` | ✅ |
+| `locales/en.ts` (`export default { ... } as const`) | `messages/en.json` | convert manually; functions need ICU |
+| `{name}` interpolation | ICU `{name}` (same) | |
+| `key#zero/#one/#other` plural suffixes | ICU `{count, plural, =0 {…} one {…} other {…}}` | |
+| `createI18nServer` / `createI18nClient` setup files | removed; `tongue.config.ts` generated from the locale map | |
+| `createI18nMiddleware` | `createProxy()` in `proxy.ts` (`urlMappingStrategy: 'rewriteDefault'` → `prefix: 'as-needed'`) | |
+| `I18nProviderClient locale=…` | `TongueProvider locale=…` | |
+| `useI18n()` / `useScopedI18n('ns')` | `useT()` / `useT('ns')` | |
+| `getI18n()` / `getScopedI18n('ns')` | `getT(locale)` / `getT(locale, 'ns')` | needs an explicit locale |
+| `useCurrentLocale()` / `getCurrentLocale()` | `useLocale()` / params | |
+| `useChangeLocale()` | `<Link locale>` or `useRouter().replace(pathname, { locale })` | |
+| `setStaticParamsLocale` | removed | |
+| `getStaticParams()` | `localeParams` | |
 
-Rich values (React nodes as params) → `t.rich` with tags; flagged for review.
+Rich values (React nodes as params) → `t.rich` with tags.
 
 ---
 [Docs index](../README.md) · [API reference](../api-reference.md) · [Roadmap](../../ROADMAP.md)

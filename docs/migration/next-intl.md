@@ -1,15 +1,10 @@
 # Migrating from next-intl
 
-> **Status: planned / pre-release.** Codemods ship in v0.5. See [ROADMAP](../../ROADMAP.md).
+> **Status: planned / pre-release.** The `tongue migrate next-intl` codemod is **deferred until after v1.0** ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)). Before then, migrate manually with this mapping: message files are reusable as-is, and client `useTranslations` maps directly to `useT`. The hard part is server code: `getTranslations('ns')` relies on `i18n/request.ts`, so you must thread `locale` from `params` into every server call, `generateMetadata` and action. See [ROADMAP](../../ROADMAP.md).
 
-```bash
-npx tongue migrate next-intl            # dry run, prints diff
-npx tongue migrate next-intl --write
-```
+## Mapping (the future codemod will follow it)
 
-## What the codemod does
-
-| next-intl | next-tongue | Automated |
+| next-intl | next-tongue | Future codemod (post-1.0) |
 |---|---|---|
 | `i18n/routing.ts` `defineRouting({...})` | `tongue.config.ts` `defineConfig({...})` (`localePrefix` → `routing.prefix`, `pathnames` kept) | ✅ |
 | `createNextIntlPlugin()` in next.config | `withTongue()` | ✅ |
@@ -25,13 +20,13 @@ npx tongue migrate next-intl --write
 | `createNavigation(routing)` exports | `next-tongue/navigation` imports | ✅ |
 | `t.rich`, `t.markup` | `t.rich` (markup → rich with string tags) | ✅ / ⚠️ |
 | `t.raw`, `t.has` | `t.raw` not supported (use structured keys); `t.has` → `t.has` | ⚠️ |
-| `useExtracted()` / `getExtracted()` (experimental, inline source strings) | not converted in v0.5; flagged with `TODO(tongue)` — next-tongue is key-based | ❌ |
+| `useExtracted()` / `getExtracted()` (experimental, inline source strings) | not converted; flagged with `TODO(tongue)` — next-tongue is key-based | ❌ |
 | `global.d.ts` `AppConfig` augmentation | deleted (generated types) | ✅ |
 
-Messages: next-intl JSON is already nested ICU (`.po` catalogs from `useExtracted` are not supported in v0.5), so files are reused as-is. The codemod reports any key containing `.` or messages that fail strict ICU parsing.
+Messages: next-intl JSON is already nested ICU (`.po` catalogs from `useExtracted` are not supported), so files are reused as-is. `tongue check` reports any key containing `.` or messages outside next-tongue's [supported ICU subset](../icu-messages.md).
 
 ## Manual steps
-1. Resolve `TODO(tongue)` comments (mostly passing `locale` into nested server components).
+1. Pass `locale` into server components, `generateMetadata`, actions (`action.bind(null, locale)`) and utilities; `createTranslator(locale)` reduces repetition.
 2. Remove `next-intl` and run `npx tongue check`.
 3. If you relied on `getLocale()` from headers inside cached components, that code now becomes static — that is the point.
 
