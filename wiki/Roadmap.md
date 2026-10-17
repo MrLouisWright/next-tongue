@@ -106,7 +106,8 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - [x] API key never appears in logs, lockfile or error output (test).
 
 ## v0.9 — Beta (API freeze)
-- API freeze; docs site; security review of CLI; benchmarks re-run and published.
+- [x] API freeze documented ([API freeze](API-Freeze)).
+- [x] Docs site updated; CLI security review in SECURITY.md; benchmarks re-run under `benchmarks/results/`.
 
 **Acceptance criteria**
 - [x] Decision recorded on an opt-in `getT(ns)` via `next/root-params` ([ADR 0007](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0007-root-params-not-default.md), [#24](https://github.com/MrLouisWright/next-tongue/issues/24)): `routing.rootParams: true` + unit tests. Two-root-layout typing still blocked on [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756); stale-cache fix requires Next ≥ 16.3.8.
