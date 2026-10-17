@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.2] — 2026-10-17
+
+### Fixed
+- npm package ships `README.md` and `LICENSE`; package metadata (`repository`, `homepage`, `bugs`, `keywords`).
+- Publish tarball no longer includes source maps, declaration maps, or test emit leftovers.
+
 ## [0.9.1] — 2026-10-17
 
 ### Fixed

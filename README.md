@@ -10,8 +10,8 @@
 
 </div>
 
-> [!WARNING]
-> **next-tongue is at v0.9 (API freeze) — first npm publish pending.** Install from git until `0.9.0` is on the registry ([releasing](docs/releasing.md)). Public surfaces are frozen per [API freeze](docs/api-freeze.md). Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
+> [!NOTE]
+> **Beta 0.9 (API freeze).** Install with `npm install next-tongue`. Public surfaces are frozen per [API freeze](docs/api-freeze.md). Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
 
 ## Why
 
@@ -64,7 +64,7 @@ We make no claims about runtime speed or "only the active locale on the client" 
 ## Quick start (planned API)
 
 ```bash
-npm install next-tongue        # 0.9.0 — publish pending; until then: git+https://github.com/MrLouisWright/next-tongue.git
+npm install next-tongue
 npx tongue init
 ```
 

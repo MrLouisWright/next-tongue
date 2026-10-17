@@ -3,10 +3,17 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
+    "declarationMap": false,
+    "sourceMap": false,
     "rootDir": "src",
     "outDir": "dist"
   },
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.test-d.ts", "dist"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/vendor-shims/**/*.d.ts"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.test-d.ts",
+    "src/**/*.test-d.tsx",
+    "dist"
+  ]
 }

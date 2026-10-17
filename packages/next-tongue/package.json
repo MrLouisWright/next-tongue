@@ -1,6 +1,6 @@
 {
   "name": "next-tongue",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Compiler-first, type-safe i18n for the Next.js 16 App Router",
   "license": "MIT",
   "type": "module",
@@ -8,12 +8,37 @@
   "engines": {
     "node": ">=20"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrLouisWright/next-tongue.git",
+    "directory": "packages/next-tongue"
+  },
+  "homepage": "https://github.com/MrLouisWright/next-tongue#readme",
+  "bugs": {
+    "url": "https://github.com/MrLouisWright/next-tongue/issues"
+  },
+  "keywords": [
+    "i18n",
+    "l10n",
+    "internationalization",
+    "next.js",
+    "nextjs",
+    "icu",
+    "turbopack",
+    "app-router",
+    "typescript"
+  ],
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "README.md",
+    "LICENSE"
   ],
   "bin": {
     "tongue": "bin/tongue.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "exports": {
     ".": {
