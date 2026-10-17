@@ -35,7 +35,7 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 - [x] Early check: `cacheComponents: true` + `output: 'export'` — fails on Next 16.4.2 (PPR); documented in `examples/cache-export-probe/RESULT.md` ([#15](https://github.com/MrLouisWright/next-tongue/issues/15)).
 - [x] Published package.json has no dependencies beyond `next`/`react` peers (CI) ([#28](https://github.com/MrLouisWright/next-tongue/issues/28)).
 - [x] Benchmark published with reproducible scripts ([#25](https://github.com/MrLouisWright/next-tongue/issues/25)) — **no clear message-byte win vs Paraglide**; see provisional table above.
-- [ ] CI green on Node 20 and 22.
+- [x] CI green on Node 20 and 22.
 
 **Go/no-go gate:** if the benchmark does not show a clear client-bundle win over next-intl (precompile + `pick`) and Paraglide, stop and reconsider before building v0.2+ (options: change the delivery strategy, contribute upstream, or offer Paraglide-compatible output).
 
