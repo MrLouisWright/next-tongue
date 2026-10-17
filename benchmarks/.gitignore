@@ -14,4 +14,7 @@ apps/paraglide/src/client-entry.js
 apps/paraglide/src/runtime-stub.js
 apps/next-intl/messages/
 apps/next-intl/.next/
+apps/lingui/locales/
+apps/lingui/src/narrowed.json
+apps/lingui/src/client-entry.js
 node_modules/

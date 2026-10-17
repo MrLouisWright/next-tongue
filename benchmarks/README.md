@@ -34,5 +34,6 @@ Results land in `benchmarks/results/` as JSON (`summary.json` ranks by gzip).
 |---|---|
 | `apps/next-intl` | Next 16 + `precompile` + 2-of-500 narrowed catalog → `results/next-intl-app.json` |
 | `apps/paraglide` | `@inlang/paraglide-js compile` + esbuild of k0+k1 → `results/paraglide-real.json` |
+| `apps/lingui` | `@lingui/core` + narrowed 2-key catalog → `results/lingui.json` |
 
-Still open for the go/no-go gate: Lingui SWC app, hydration timing, build RSS, published ROADMAP decision.
+Provisional go/no-go recorded in ROADMAP. Still open: hydration timing, build RSS.

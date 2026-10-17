@@ -1,0 +1,20 @@
+{
+  "name": "@next-tongue/bench-lingui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "generate": "node ./scripts/generate-messages.mjs",
+    "compile": "node ./scripts/generate-messages.mjs && lingui compile --typescript",
+    "measure": "node ./scripts/generate-messages.mjs && lingui compile --typescript && node ./scripts/measure.mjs"
+  },
+  "dependencies": {
+    "@lingui/core": "^5.5.2",
+    "@lingui/react": "^5.5.2"
+  },
+  "devDependencies": {
+    "@lingui/cli": "^5.5.2",
+    "@lingui/conf": "^5.5.2",
+    "esbuild": "^0.25.10"
+  }
+}

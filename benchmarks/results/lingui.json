@@ -1,0 +1,11 @@
+{
+  "library": "lingui",
+  "config": "@lingui/core + catalog narrowed to 2 keys × 3 locales (best-case pick)",
+  "keysTotal": 500,
+  "keysUsed": 2,
+  "locales": 3,
+  "bytes": 5766,
+  "bytesGz": 2345,
+  "measuredAt": "2026-10-17T11:46:04.577Z",
+  "note": "Includes @lingui/core runtime. Catalog is manually narrowed to k0/k1 (SWC macro tree-shake would be similar for static ids)."
+}

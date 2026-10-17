@@ -39,7 +39,18 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 
 **Go/no-go gate:** if the benchmark does not show a clear client-bundle win over next-intl (precompile + `pick`) and Paraglide, stop and reconsider before building v0.2+ (options: change the delivery strategy, contribute upstream, or offer Paraglide-compatible output).
 
-**Provisional signal (2026-10-17, [#25](https://github.com/MrLouisWright/next-tongue/issues/25)):** on the 2-of-500 × 3-locale message-only fixture (esbuild minify + gzip), next-tongue (**213 B gz**) sits between the Paraglide-style proxy (**171 B**) and real Paraglide messages-only (**249 B**), and slightly under the next-intl `pick` proxy (**226 B**). That is **not a clear client-bundle win**. Full Paraglide client imports are dominated by locale runtime (~4 kB gz). Decision deferred until Lingui + hydration/build metrics land; options under consideration if the final gate stays red: Paraglide-compatible emit, per-locale client splitting, or repositioning on DX/Turbopack/types rather than raw bytes.
+**Provisional go/no-go (2026-10-17, [#25](https://github.com/MrLouisWright/next-tongue/issues/25)):** on the 2-of-500 × 3-locale fixture (esbuild minify + gzip):
+
+| Contender | gz | Notes |
+|---|---:|---|
+| Paraglide-style proxy | 171 | hand-rolled per-message |
+| **next-tongue** | **213** | real codegen, messages only |
+| next-intl pick proxy | 226 | narrowed JSON catalog |
+| Paraglide messages-only | 249 | real compile, runtime stubbed |
+| Lingui + `@lingui/core` | 2345 | narrowed catalog + runtime |
+| Paraglide + runtime | 4043 | default client import |
+
+**Verdict (message bytes): no clear win** over Paraglide. We beat Lingui’s runtime-inclusive best case and edge out next-intl’s pick proxy, but lose to Paraglide-style emit. Hydration/build RSS still open; until then treat the differentiator as **Turbopack-native loader + typed ICU + Cache Components**, not raw client bytes. Gate options if that holds: Paraglide-compatible output, per-locale splitting, or explicit repositioning before v0.2.
 
 ## v0.2 — Proxy, navigation, server formatting
 - `createProxy` for `proxy.ts`: `prefix: 'always' | 'as-needed'`, detection, cookie, `/en/*` canonical redirect ([#30](https://github.com/MrLouisWright/next-tongue/issues/30)).

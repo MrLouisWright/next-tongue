@@ -1,0 +1,4 @@
+node_modules/
+locales/
+src/narrowed.json
+src/client-entry.js
