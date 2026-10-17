@@ -27,5 +27,19 @@ Please **do not open a public issue.** Use GitHub's [private vulnerability repor
 - `proxy.ts` handling: open redirects, header/cookie injection, locale spoofing.
 - Build-time compiler: code injection via message content into generated modules (messages are escaped; any bypass is critical).
 - `tongue translate`: API key leakage (logs, lockfile, errors), prompt injection from message content that causes writes outside `messages/`.
-- Codemods (after v1.0) writing outside the project directory.
+- Codemods writing outside the project directory.
 - `formatMessage` or database strings producing markup.
+
+## CLI security review (v0.9)
+
+Reviewed 2026-10-17 against the threat model above. Findings and controls:
+
+| Command | Risk | Control |
+|---|---|---|
+| `tongue translate` | API key in logs/lockfile; writes outside `messages/` | Key read from env only; redaction tests; ICU parity gate; all writes via `resolveInsideProject` |
+| `tongue migrate` | Codemod overwrite / path escape | `--dry-run`; writes limited to walked source under cwd; report path gated by `resolveInsideProject` |
+| `tongue export` / `import` | Escape via `--out` / file path | `resolveInsideProject` on out dir and import file |
+| `tongue init` / `extract` | Scaffold / message overwrite | Init paths gated; extract only rewrites the configured default-locale messages file |
+| `tongue check` / `report` / `build` | Read-only / codegen under `outDir` | No network; codegen stays in configured `outDir` |
+
+Shared helper: `packages/next-tongue/src/cli/safe-path.ts` (`resolveInsideProject`). Unit tests cover `..` traversal and absolute escapes.

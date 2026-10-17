@@ -33,11 +33,11 @@
   <div class="grain" aria-hidden="true"></div>
   <div class="wrap wide fhero-grid">
     <div class="fhero-copy">
-      <p class="chips"><span class="chip-flag"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>Flagship</span><span class="chip warn"><span class="dot" aria-hidden="true"></span>Pre-alpha · planned API</span><span class="chip">Next.js 16 · MIT</span></p>
+      <p class="chips"><span class="chip-flag"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>Flagship</span><span class="chip warn"><span class="dot" aria-hidden="true"></span>Pre-alpha · v0.9 API freeze</span><span class="chip">Next.js 16 · MIT</span></p>
       <h1><span class="h1-name">next-tongue</span><span class="h1-a">i18n, compiled.</span> <span class="h1-b">For the Next.js 16 App Router.</span></h1>
       <p class="ftag">Compiler-first, type-safe i18n for the Next.js 16 App Router. Works with Turbopack, keeps the locale in route params, zero dependencies beyond next and react.</p>
-      <div class="install fi"><code><span class="prompt" aria-hidden="true">$</span> npm install next-tongue <span class="c"># not yet published</span></code><button class="fcopy" type="button" data-copy="npm install next-tongue" aria-label="Copy install command">Copy</button></div>
-      <p class="fnote"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.5v.01"/></svg><span>Not published to npm yet. No library code exists; everything here is the <strong>planned</strong> API from the README and design docs, open for feedback.</span></p>
+      <div class="install fi"><code><span class="prompt" aria-hidden="true">$</span> npm install next-tongue <span class="c"># npm tag pending</span></code><button class="fcopy" type="button" data-copy="npm install next-tongue" aria-label="Copy install command">Copy</button></div>
+      <p class="fnote"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.5v.01"/></svg><span>Library code lives in <code>packages/next-tongue</code> on <code>main</code>. Not on npm yet — install from git or wait for the first <strong>0.9</strong> tag. Public surface is under <a href="https://github.com/MrLouisWright/next-tongue/blob/main/docs/api-freeze.md">API freeze</a>.</span></p>
       <span class="sr-only" role="status" aria-live="polite" id="fcopy-status"></span>
       <div class="ctas">
         <a class="btn primary" href="https://github.com/MrLouisWright/next-tongue#readme"><svg class="ic" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15Z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5"/></svg><span>Read the design</span></a>
@@ -53,7 +53,7 @@
     <div class="ctrl"><label for="d-name">name</label><input id="d-name" type="text" value="Ada" maxlength="24" autocomplete="off" spellcheck="false"></div>
     <div class="render" aria-live="polite"><p class="r-k">t('title', { name })</p><p class="r-v" id="d-title">Welcome, Ada!</p><p class="r-k">t('inbox', { count })</p><p class="r-v" id="d-inbox">1 message</p><p class="r-cat">plural category: <code id="d-cat">one</code> · typed as <code>count: number</code></p></div>
   </div>
-  <p class="demo-note">Illustration: the README's example messages rendered in your browser with <code>Intl.PluralRules</code>. next-tongue is not published yet.</p>
+  <p class="demo-note">Illustration: example ICU plurals rendered in your browser with <code>Intl.PluralRules</code>. The real compiler lives in the repo.</p>
 </div></div>
   </div>
 </section>

@@ -1,6 +1,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import * as readline from 'node:readline';
+import { resolveInsideProject } from './safe-path.js';
 
 export type InitCliOptions = {
   cwd?: string;
@@ -281,7 +282,7 @@ export default withTongue(nextConfig);
   }
 
   for (const w of writes) {
-    const abs = join(cwd, w.path);
+    const abs = resolveInsideProject(cwd, w.path);
     await mkdir(dirname(abs), { recursive: true });
     await writeFile(abs, w.content, 'utf8');
     if (!opts.quiet) {

@@ -54,10 +54,26 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   });
 
   it('rewrites createNextIntlPlugin', () => {
-    const src = `import createNextIntlPlugin from 'next-intl/plugin';\nconst withNextIntl = createNextIntlPlugin();\n`;
+    const src = `import createNextIntlPlugin from 'next-intl/plugin';
+const withNextIntl = createNextIntlPlugin();
+export default withNextIntl({});
+`;
     const { text } = transformNextIntl(src, 'next.config.ts');
+    expect(text).toContain("from 'next-tongue/next'");
     expect(text).toContain('withTongue');
-    expect(text).toContain('next-tongue/next');
+    expect(text).toMatch(/export default withTongue\(/);
+    expect(text).not.toContain('createNextIntlPlugin');
+  });
+
+  it('rewrites getTranslations import binding', () => {
+    const src = `import { getTranslations } from 'next-intl/server';
+const { locale } = await params;
+const t = await getTranslations('home');
+`;
+    const { text } = transformNextIntl(src, 'page.tsx');
+    expect(text).toContain('getT');
+    expect(text).not.toContain('getTranslations');
+    expect(text).toContain("await getT(locale, 'home')");
   });
 });
 

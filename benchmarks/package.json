@@ -1,6 +1,6 @@
 {
-  "name": "@next-tongue/bench-paraglide",
-  "private": "true",
+  "name": "@next-tongue/benchmarks",
+  "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {

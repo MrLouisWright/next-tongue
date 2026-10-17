@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { resolveInsideProject } from './safe-path.js';
 import { basename, dirname, join, resolve } from 'node:path';
 import { loadConfig } from '../config/load-config.js';
 import { collectArgs } from '../compiler/ast.js';
@@ -171,7 +172,7 @@ export async function cmdExport(opts: ExportCliOptions): Promise<void> {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  const outDir = resolve(cwd, opts.out ?? './translations');
+  const outDir = resolveInsideProject(cwd, opts.out ?? './translations');
   await mkdir(outDir, { recursive: true });
 
   for (const locale of locales) {
@@ -200,7 +201,7 @@ export async function cmdImport(opts: ImportCliOptions): Promise<void> {
     ...(opts.cwd != null ? { cwd: opts.cwd } : {}),
     ...(opts.config != null ? { configPath: opts.config } : {}),
   });
-  const abs = resolve(cwd, opts.file);
+  const abs = resolveInsideProject(cwd, opts.file);
   const raw = await readFile(abs, 'utf8');
   const units = abs.endsWith('.csv') ? csvToUnits(raw) : xliffToUnits(raw);
   const targetLocale = guessLocaleFromFilename(opts.file, config.locales);
@@ -262,7 +263,10 @@ export async function cmdImport(opts: ImportCliOptions): Promise<void> {
   await writeFile(msgPath, `${JSON.stringify(json, null, 2)}\n`, 'utf8');
 
   // Update lockfile
-  const lockPath = resolve(cwd, config.translate?.lockfile ?? './tongue.lock');
+  const lockPath = resolveInsideProject(
+    cwd,
+    config.translate?.lockfile ?? './tongue.lock',
+  );
   let lock: Record<string, unknown> = { version: 1 };
   try {
     lock = JSON.parse(await readFile(lockPath, 'utf8')) as Record<string, unknown>;

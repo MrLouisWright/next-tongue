@@ -74,6 +74,7 @@ All notable changes to this project will be documented in this file. The format 
 - `tongue migrate next-intl`: client `useTranslations` → `useT`, locale-in-scope `getT` threading, `TODO(tongue)` + `--out` JSON report (#31; OSS measurement post-1.0).
 - [Versioning, deprecation & support](docs/versioning.md) for v1.0; README support policy.
 - VS Code extension: README, `vsce`/`ovsx` package scripts (#47 publish prep).
+- v0.9: API freeze doc, CLI path containment (`resolveInsideProject`), SECURITY.md CLI review, docs site status refresh, migrate fixture, benchmarks re-run; fix tsc-budget key/arg pairing; restore `@next-tongue/benchmarks` package name.
 
 
 

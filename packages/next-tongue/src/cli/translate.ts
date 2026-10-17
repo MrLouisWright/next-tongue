@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { loadConfig } from '../config/load-config.js';
 import { collectArgs } from '../compiler/ast.js';
 import { loadLocaleMessages, resolveMessagePath } from '../compiler/load-messages.js';
 import { parseMessage } from '../compiler/parse/icu-parser.js';
 import { checkPluralCategories } from '../compiler/validate/plurals.js';
 import { TongueError } from '../errors.js';
+import { resolveInsideProject } from './safe-path.js';
 
 export type TranslateCliOptions = {
   cwd?: string;
@@ -84,7 +85,9 @@ export function estimateTokens(text: string): number {
 async function loadGlossary(cwd: string, path: string | undefined): Promise<Glossary> {
   if (!path) return { terms: {} };
   try {
-    return JSON.parse(await readFile(resolve(cwd, path), 'utf8')) as Glossary;
+    return JSON.parse(
+      await readFile(resolveInsideProject(cwd, path), 'utf8'),
+    ) as Glossary;
   } catch {
     return { terms: {} };
   }
@@ -92,7 +95,9 @@ async function loadGlossary(cwd: string, path: string | undefined): Promise<Glos
 
 async function loadLock(cwd: string, path: string): Promise<LockFile> {
   try {
-    return JSON.parse(await readFile(resolve(cwd, path), 'utf8')) as LockFile;
+    return JSON.parse(
+      await readFile(resolveInsideProject(cwd, path), 'utf8'),
+    ) as LockFile;
   } catch {
     return { version: 1 };
   }
@@ -280,7 +285,7 @@ export async function cmdTranslate(opts: TranslateCliOptions): Promise<void> {
     for (const locale of locales) {
       const subset = results.filter((r) => r.locale === locale);
       if (!subset.length) continue;
-      const path = resolve(
+      const path = resolveInsideProject(
         cwd,
         config.messages.replaceAll('{locale}', locale).replace(/\.json$/, '.review.json'),
       );
@@ -296,7 +301,10 @@ export async function cmdTranslate(opts: TranslateCliOptions): Promise<void> {
   for (const locale of locales) {
     const subset = results.filter((r) => r.locale === locale);
     if (!subset.length) continue;
-    const msgPath = resolveMessagePath(cwd, config.messages, locale);
+    const msgPath = resolveInsideProject(
+      cwd,
+      config.messages.replaceAll('{locale}', locale),
+    );
     let json: Record<string, unknown> = {};
     try {
       json = JSON.parse(await readFile(msgPath, 'utf8')) as Record<string, unknown>;
@@ -320,7 +328,11 @@ export async function cmdTranslate(opts: TranslateCliOptions): Promise<void> {
     await writeFile(msgPath, `${JSON.stringify(json, null, 2)}\n`, 'utf8');
     if (!opts.quiet) console.log(`tongue translate: wrote ${subset.length} → ${msgPath}`);
   }
-  await writeFile(resolve(cwd, lockPath), `${JSON.stringify(lock, null, 2)}\n`, 'utf8');
+  await writeFile(
+    resolveInsideProject(cwd, lockPath),
+    `${JSON.stringify(lock, null, 2)}\n`,
+    'utf8',
+  );
 }
 
 async function translateOne(args: {
@@ -455,7 +467,7 @@ async function acceptReviews(
   const defaultCat = catalogs[config.defaultLocale] ?? {};
   for (const locale of config.locales) {
     if (locale === config.defaultLocale) continue;
-    const reviewPath = resolve(
+    const reviewPath = resolveInsideProject(
       cwd,
       config.messages.replaceAll('{locale}', locale).replace(/\.json$/, '.review.json'),
     );
@@ -465,7 +477,10 @@ async function acceptReviews(
     } catch {
       continue;
     }
-    const msgPath = resolveMessagePath(cwd, config.messages, locale);
+    const msgPath = resolveInsideProject(
+      cwd,
+      config.messages.replaceAll('{locale}', locale),
+    );
     let json: Record<string, unknown> = {};
     try {
       json = JSON.parse(await readFile(msgPath, 'utf8')) as Record<string, unknown>;
@@ -492,7 +507,11 @@ async function acceptReviews(
     await writeFile(msgPath, `${JSON.stringify(json, null, 2)}\n`, 'utf8');
     if (!quiet) console.log(`tongue translate: accepted ${reviewPath}`);
   }
-  await writeFile(resolve(cwd, lockPath), `${JSON.stringify(lock, null, 2)}\n`, 'utf8');
+  await writeFile(
+    resolveInsideProject(cwd, lockPath),
+    `${JSON.stringify(lock, null, 2)}\n`,
+    'utf8',
+  );
 }
 
 function setNested(root: Record<string, unknown>, fullKey: string, value: string): void {

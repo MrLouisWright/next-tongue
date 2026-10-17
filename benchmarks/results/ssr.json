@@ -2,8 +2,8 @@
   "library": "next-tongue",
   "metric": "ssr-t-calls",
   "calls": 1000,
-  "ms": 0.03454199999998764,
-  "msPerCall": 0.000034541999999987636,
-  "measuredAt": "2026-10-17T11:38:00.449Z",
+  "ms": 0.209083000000021,
+  "msPerCall": 0.000209083000000021,
+  "measuredAt": "2026-10-17T14:06:51.793Z",
   "note": "1,000 calls to a compiled plural-free argument message (k0) after warm-up."
 }

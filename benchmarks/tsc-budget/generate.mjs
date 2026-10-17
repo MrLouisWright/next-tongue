@@ -50,9 +50,11 @@ writeFileSync(join(out, '.tongue', 'types.d.ts'), types);
 
 // Consumer with 50 typed t() calls into one namespace (indexes, not full-union filter)
 const calls = Array.from({ length: CALL_COUNT }, (_, i) => {
-  const key = `k${i * 10}`;
-  if (i % 5 === 0) return `  s += t('${key}', { name: 'Ada' });`;
-  if (i % 5 === 1) return `  s += t('${key}', { count: ${i} });`;
+  const keyNum = i * 10;
+  const key = `k${keyNum}`;
+  // Must match key arg pattern in types: k%5===0 name, ===1 count, else none.
+  if (keyNum % 5 === 0) return `  s += t('${key}', { name: 'Ada' });`;
+  if (keyNum % 5 === 1) return `  s += t('${key}', { count: ${i} });`;
   return `  s += t('${key}');`;
 }).join('\n');
 

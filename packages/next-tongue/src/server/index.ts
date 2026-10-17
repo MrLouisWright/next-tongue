@@ -62,32 +62,32 @@ export const defaultLocale = {
 export type LocaleProps = { locale: string };
 
 /**
- * Explicit locale (always available).
- * With `routing.rootParams: true`, also `getT(ns)` — locale from `next/root-params`.
+ * Explicit locale (always available): `getT(locale, ns)` or `getT(locale)` for `_root`.
+ * With `routing.rootParams: true`, `getT(ns)` resolves locale from `next/root-params`
+ * when the single argument is a configured namespace (not a locale tag).
  */
 export async function getT<N extends Namespace>(
   locale: Locale | string,
   namespace: N,
 ): Promise<TFunction<N>>;
-export async function getT<N extends Namespace>(
-  namespace: N,
-): Promise<TFunction<N>>;
 export async function getT(
-  locale: string,
-): Promise<TFunction<'_root' & Namespace>>;
+  locale: Locale | string,
+): Promise<TFunction<'_root'>>;
 export async function getT<N extends Namespace>(
   localeOrNs: Locale | string | N,
   namespace?: N,
-): Promise<TFunction<N>> {
+): Promise<TFunction<N> | TFunction<'_root'>> {
   if (namespace !== undefined) {
     return getTWithLocale(String(localeOrNs), namespace);
   }
-  if (runtimeRootParams) {
+  const single = String(localeOrNs);
+  if (runtimeRootParams && runtimeLocales.length && !runtimeLocales.includes(single)) {
+    // Treat as namespace when it is not a configured locale tag.
     const locale = await resolveRootLocale();
-    return getTWithLocale(locale, localeOrNs as N);
+    return getTWithLocale(locale, single as N);
   }
-  // Legacy: single arg is locale, `_root` namespace.
-  return getTWithLocale(String(localeOrNs), '_root' as unknown as N);
+  // Single arg is locale, `_root` namespace (canonical without rootParams).
+  return getTWithLocale(single, '_root' as unknown as N);
 }
 
 async function getTWithLocale<N extends Namespace>(

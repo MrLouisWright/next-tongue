@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
+import { resolveInsideProject } from './safe-path.js';
 
 export type MigrateCliOptions = {
   cwd?: string;
@@ -53,10 +54,11 @@ export async function cmdMigrate(opts: MigrateCliOptions): Promise<void> {
   let changedFiles = 0;
 
   for (const file of files) {
+    resolveInsideProject(cwd, relative(cwd, file));
     const before = await readFile(file, 'utf8');
     if (
       !before.includes('next-intl') &&
-      !/\buseTranslations\b|\bgetTranslations\b|\bsetRequestLocale\b|\bNextIntlClientProvider\b/.test(
+      !/\buseTranslations\b|\bgetTranslations\b|\bsetRequestLocale\b|\bNextIntlClientProvider\b|\bcreateNextIntlPlugin\b/.test(
         before,
       )
     ) {
@@ -84,7 +86,7 @@ export async function cmdMigrate(opts: MigrateCliOptions): Promise<void> {
   };
 
   if (opts.report) {
-    const outPath = resolve(cwd, opts.report);
+    const outPath = resolveInsideProject(cwd, opts.report);
     await writeFile(outPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
     if (!opts.quiet) console.log(`tongue migrate: wrote report ${opts.report}`);
   }
@@ -123,22 +125,62 @@ export function transformNextIntl(
     notes.push({ description, kind });
   };
 
-  text = text.replace(/from\s+['"]next-intl\/server['"]/g, (m) => {
-    note('import next-intl/server → next-tongue/server');
-    return m.replace('next-intl/server', 'next-tongue/server');
-  });
-  text = text.replace(/from\s+['"]next-intl\/client['"]/g, () => {
-    note('import next-intl/client → next-tongue/client');
-    return `from 'next-tongue/client'`;
-  });
+  // next.config plugin
+  if (/next-intl\/plugin/.test(text) || /\bcreateNextIntlPlugin\b/.test(text)) {
+    text = text.replace(
+      /import\s+\w+\s+from\s+['"]next-intl\/plugin['"]\s*;?\n?/g,
+      `import { withTongue } from 'next-tongue/next';\n`,
+    );
+    text = text.replace(
+      /import\s+\{\s*createNextIntlPlugin\s*\}\s+from\s+['"]next-intl\/plugin['"]\s*;?\n?/g,
+      `import { withTongue } from 'next-tongue/next';\n`,
+    );
+    text = text.replace(
+      /const\s+\w+\s*=\s*createNextIntlPlugin\s*\([^)]*\)\s*;?\n?/g,
+      '',
+    );
+    text = text.replace(
+      /export\s+default\s+\w+\s*\(([\s\S]*?)\)\s*;?/g,
+      'export default withTongue($1);',
+    );
+    note('createNextIntlPlugin → withTongue (from next-tongue/next)', 'info');
+  }
+
+  text = text.replace(
+    /import\s*\{([^}]*)\}\s*from\s*['"]next-intl\/server['"]/g,
+    (_m, names: string) => {
+      note('import next-intl/server → next-tongue/server');
+      const next = names
+        .replace(/\bgetTranslations\b/g, 'getT')
+        .replace(/\bgetFormatter\b/g, 'getFormat');
+      return `import {${next}} from 'next-tongue/server'`;
+    },
+  );
+  text = text.replace(
+    /import\s*\{([^}]*)\}\s*from\s*['"]next-intl\/client['"]/g,
+    (_m, names: string) => {
+      note('import next-intl/client → next-tongue/client');
+      const next = names
+        .replace(/\buseTranslations\b/g, 'useT')
+        .replace(/\buseFormatter\b/g, 'useFormat');
+      return `import {${next}} from 'next-tongue/client'`;
+    },
+  );
   text = text.replace(/from\s+['"]next-intl\/navigation['"]/g, () => {
     note('import next-intl/navigation → next-tongue/navigation');
     return `from 'next-tongue/navigation'`;
   });
-  text = text.replace(/from\s+['"]next-intl['"]/g, () => {
-    note("import 'next-intl' → 'next-tongue/client' (verify exports)", 'info');
-    return `from 'next-tongue/client'`;
-  });
+  text = text.replace(
+    /import\s*\{([^}]*)\}\s*from\s*['"]next-intl['"]/g,
+    (_m, names: string) => {
+      note("import 'next-intl' → 'next-tongue/client' (verify exports)", 'info');
+      const next = names
+        .replace(/\buseTranslations\b/g, 'useT')
+        .replace(/\buseFormatter\b/g, 'useFormat')
+        .replace(/\bNextIntlClientProvider\b/g, 'TongueProvider');
+      return `import {${next}} from 'next-tongue/client'`;
+    },
+  );
 
   if (/\buseTranslations\b/.test(text)) {
     text = text.replace(/\buseTranslations\b/g, 'useT');
@@ -159,10 +201,7 @@ export function transformNextIntl(
       localeInScope ? 'rewrite' : 'todo',
     );
     if (localeInScope) {
-      text = text.replace(
-        /await\s+getFormat\(\s*\)/g,
-        'await getFormat(locale)',
-      );
+      text = text.replace(/await\s+getFormat\(\s*\)/g, 'await getFormat(locale)');
     }
   }
 
@@ -191,23 +230,18 @@ export function transformNextIntl(
     },
   );
 
-  if (/\bgetTranslations\b/.test(text)) {
-    note('remaining getTranslations() — review manually', 'todo');
+  {
+    const stripped = text
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    if (/\bgetTranslations\b/.test(stripped)) {
+      note('remaining getTranslations() — review manually', 'todo');
+    }
   }
 
   if (/\bsetRequestLocale\b/.test(text)) {
     text = text.replace(/^[ \t]*setRequestLocale\([^)]*\);\s*\n/gm, '');
     note('removed setRequestLocale() calls');
-  }
-
-  // createNextIntlPlugin → withTongue (next.config)
-  if (/\bcreateNextIntlPlugin\b/.test(text)) {
-    text = text.replace(/\bcreateNextIntlPlugin\b/g, 'withTongue');
-    text = text.replace(
-      /from\s+['"]next-intl\/plugin['"]/g,
-      `from 'next-tongue/next'`,
-    );
-    note('createNextIntlPlugin → withTongue (from next-tongue/next)', 'info');
   }
 
   return { text, notes };

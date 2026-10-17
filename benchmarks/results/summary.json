@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-17T11:38:09.273Z",
+  "measuredAt": "2026-10-17T14:06:55.887Z",
   "scenario": "2 of 500 keys × 3 locales, esbuild minify + gzip",
   "rows": [
     {
@@ -9,21 +9,31 @@
       "bytesGz": 171
     },
     {
-      "library": "next-tongue",
-      "bytes": 532,
-      "bytesGz": 213
-    },
-    {
       "library": "runtime-catalog-pick-2-keys",
       "proxyFor": "next-intl with pick() / narrowed provider (best-case catalog size)",
       "bytes": 363,
       "bytesGz": 226
+    },
+    {
+      "library": "next-tongue",
+      "bytes": 560,
+      "bytesGz": 229
+    },
+    {
+      "library": "lingui",
+      "bytes": 5766,
+      "bytesGz": 2345
+    },
+    {
+      "library": "paraglide-js",
+      "bytes": 11144,
+      "bytesGz": 4043
     }
   ],
   "ssr": {
     "calls": 1000,
-    "ms": 0.03454199999998764,
-    "msPerCall": 0.000034541999999987636
+    "ms": 0.209083000000021,
+    "msPerCall": 0.000209083000000021
   },
   "matrix": {
     "scenario": "matrix: keys∈{50,1000} × locales∈{2,10,50} × used∈{2,20}, esbuild minify + gzip",

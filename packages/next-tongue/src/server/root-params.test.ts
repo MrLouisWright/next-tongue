@@ -39,15 +39,15 @@ describe('getT rootParams opt-in (#24)', () => {
       readRootLocale: async () => 'de',
       loadNamespace: async (ns) => {
         if (ns === 'home') {
-          return { title: () => (ns === 'home' ? 'Hallo' : '') };
+          return { title: () => 'Hallo' };
         }
         return {};
       },
     });
     expect(isRootParamsEnabled()).toBe(true);
+    // 'home' is not a locale tag → treated as namespace under rootParams
     const t = await getT('home');
     expect(t('title')).toBe('Hallo');
-    // Explicit overload still works
     const tEn = await getT('en', 'home');
     expect(tEn('title')).toBe('Hallo');
   });

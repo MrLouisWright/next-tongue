@@ -3,8 +3,8 @@
   "keysTotal": 500,
   "keysUsed": 2,
   "locales": 3,
-  "bytes": 532,
-  "bytesGz": 213,
-  "measuredAt": "2026-10-17T11:38:00.125Z",
+  "bytes": 560,
+  "bytesGz": 229,
+  "measuredAt": "2026-10-17T14:06:51.458Z",
   "note": "Client entry imports only k0 and k1; all locales of those keys are inlined (ADR 0009)."
 }
