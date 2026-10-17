@@ -64,6 +64,7 @@ All notable changes to this project will be documented in this file. The format 
 - Build-time `sources` in `tongue.config`: awaited, merged after files, typed/compiled; `sourcesOnError: 'use-cache'`; duplicate-key warning in `tongue check` (#33).
 - `tongue export` / `tongue import` for XLIFF 2.0 and CSV (Node built-ins only), with ICU validation and tongue.lock updates (#37).
 - `tongue check` `length`: flag targets longer than `$meta.maxLength` (#43).
+- `tongue report`: scan `.next` client chunks for per-key markers; `--json` / `--max-bytes` (#41).
 
 
 

@@ -106,7 +106,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - [x] `tongue check` reports missing `lang`/`dir` and bidi issues on ar/he/fa fixtures [#40](https://github.com/MrLouisWright/next-tongue/issues/40).
 - [x] `tongue check` flags targets whose source hash in `tongue.lock` changed [#42](https://github.com/MrLouisWright/next-tongue/issues/42).
 - [x] `$meta` description, screenshot and `maxLength` reach `translate` and `export`; `tongue check` reports over-length targets [#43](https://github.com/MrLouisWright/next-tongue/issues/43). *(translate prompt wiring follows with #48)*
-- [ ] `tongue report` prints keys and bytes sent to the client per route, with a `--max-bytes` budget [#41](https://github.com/MrLouisWright/next-tongue/issues/41).
+- [x] `tongue report` prints keys and bytes sent to the client per route, with a `--max-bytes` budget [#41](https://github.com/MrLouisWright/next-tongue/issues/41).
 
 ## v0.5 — AI translation
 **Acceptance criteria**

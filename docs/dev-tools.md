@@ -1,6 +1,6 @@
 # Dev tools: overlay, pseudo-localisation, usage report
 
-> **Status: pre-release.** The overlay ships in v0.3; `tongue report` remains planned. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** Overlay (v0.3) and `tongue report` (v0.4) ship. See [ROADMAP](../ROADMAP.md).
 
 All three tools are built in, with zero dependencies ([ADR 0012](adr/0012-zero-dependencies.md)).
 

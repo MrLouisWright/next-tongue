@@ -6,6 +6,7 @@ import { cmdCheck } from './check.js';
 import { cmdExtract } from './extract.js';
 import { cmdInit } from './init.js';
 import { cmdExport, cmdImport } from './export-import.js';
+import { cmdReport, parseMaxBytes } from './report.js';
 
 export async function runCli(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -33,6 +34,7 @@ export async function runCli(argv: string[]): Promise<void> {
       format: { type: 'string' },
       out: { type: 'string' },
       'missing-only': { type: 'boolean', default: false },
+      'max-bytes': { type: 'string' },
     },
     allowPositionals: true,
     strict: false,
@@ -183,8 +185,27 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         break;
       }
+      case 'report': {
+        let maxBytes: number | undefined;
+        if (typeof values['max-bytes'] === 'string') {
+          try {
+            maxBytes = parseMaxBytes(values['max-bytes']);
+          } catch (err) {
+            console.error(err instanceof Error ? err.message : err);
+            process.exitCode = 2;
+            break;
+          }
+        }
+        await cmdReport({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          ...(typeof values.config === 'string' ? { config: values.config } : {}),
+          json: values.json === true,
+          ...(maxBytes != null ? { maxBytes } : {}),
+          quiet: values.quiet === true,
+        });
+        break;
+      }
       case 'translate':
-      case 'report':
         console.error(`\`tongue ${command}\` is not implemented yet (see ROADMAP).`);
         process.exitCode = 2;
         break;
@@ -233,7 +254,8 @@ Usage:
   tongue init [--locales en,de] [--default en] [--prefix as-needed] [--export] [--yes] [--force] [--dry-run]
   tongue export --format xliff|csv [--locale de] [--out ./translations] [--missing-only]
   tongue import <file.xlf|file.csv> [--dry-run]
-  tongue translate | report   (later milestones)
+  tongue report [--json] [--max-bytes 4kb]
+  tongue translate   (later milestones)
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);
