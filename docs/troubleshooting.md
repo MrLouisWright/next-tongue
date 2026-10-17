@@ -50,6 +50,8 @@
 | `useT` SSR without rewrite / still needs `loadNamespace` | `0.9.5`: Turbopack loader is no longer `browser`-only (SSR graph gets rewrites). Prefer server `getT` for root chrome; see [root-layout chrome](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale) |
 | `tongue check` unused / false missing keys | `0.9.5`: ignores comments; does not treat unrelated string arrays (cache tags) as keys. Use `t.dynamic(key, { from })` for dynamic keys |
 | `TONGUE_E_PARSE` on copy with `<id>` | Angle brackets are rich tags — apostrophe-escape: `"data-ns=\"'<id>'\""` ([ICU messages](icu-messages.md)) |
+| Next 500 / `"use client"` after loader | Fixed in `0.9.6`: loader re-hoists `"use client"` / `"use server"` before injected imports. Remove any `postinstall` patch that only re-hoisted the directive |
+| `t.dynamic` throws without `loadNamespace` | Fixed in `0.9.6`: loader rewrites `t.dynamic(key, { from })` to per-key imports |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.
 

@@ -141,22 +141,22 @@ export function useT<N extends Namespace>(namespace?: N): TFunction<N> {
 }
 
 /**
- * Stub used when the call-site loader owns message delivery. Calling the
- * function (or .rich / .dynamic / .ns) means a key was not rewritten — usually
- * a missing loader or a non-literal key without `t.dynamic({ from })`.
+ * Stub used when the call-site loader owns message delivery. Literal `t('key')`
+ * and `t.dynamic(key, { from })` should be rewritten by the loader; if you still
+ * hit this, the rewrite did not run (or a key was not in `from`).
  */
 function createLoaderStubT(locale: string, ns: string): TFunction {
-  const fail = (): never => {
+  const fail = (kind: string): never => {
     throw new TongueError(
       'TONGUE_E_NO_PROVIDER',
-      `useT('${ns}') call was not rewritten to a per-key import. Ensure withTongue() is applied, or pass loadNamespace to TongueProvider. Prefer getT on the server for static copy; for dynamic keys use t.dynamic(key, { from: [...] }).`,
+      `useT('${ns}') ${kind} was not rewritten to a per-key import. Ensure withTongue() is applied (loader on SSR + client). Prefer getT on the server for static copy; for dynamic keys use t.dynamic(key, { from: [...] }) so the loader can import those keys.`,
     );
   };
-  const t = Object.assign((..._args: unknown[]) => fail(), {
-    rich: fail,
+  const t = Object.assign((..._args: unknown[]) => fail('t()'), {
+    rich: () => fail('t.rich()'),
     has: () => false,
-    dynamic: fail,
-    ns: fail,
+    dynamic: () => fail('t.dynamic()'),
+    ns: () => fail('t.ns()'),
   }) as unknown as TFunction;
   void locale;
   return t;

@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.6] — 2026-10-17
+
+### Fixed
+- Call-site loader re-hoists `"use client"` / `"use server"` before injected imports (Next was 500ing every rewritten client file).
+- Loader rewrites `t.dynamic(key, { from: [...] })` to a map of per-key imports so dynamic keys work without `loadNamespace`.
+
 ## [0.9.5] — 2026-10-17
 
 ### Fixed

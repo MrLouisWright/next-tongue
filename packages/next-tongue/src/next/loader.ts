@@ -6,6 +6,8 @@
  *   const t = useT('home'); t('inbox', { count })
  * into a static import of the per-key module when the key is a string literal.
  *
+ * Also rewrites `t.dynamic(key, { from: [...] })` to a map of those imports.
+ *
  * Escape analysis: if `t` is passed around, falls back to namespace import + warning.
  */
 
@@ -32,10 +34,12 @@ export function transformCallSites(
     return { code: source, warnings };
   }
 
+  const { directives, body: withoutDirs } = splitLeadingDirectives(source);
+
   const translators = new Map<string, string>(); // varName → namespace
   let m: RegExpExecArray | null;
   const declRe = new RegExp(USE_T_DECL.source, 'g');
-  while ((m = declRe.exec(source)) !== null) {
+  while ((m = declRe.exec(withoutDirs)) !== null) {
     translators.set(m[1]!, m[3] || '_root');
   }
 
@@ -45,7 +49,7 @@ export function transformCallSites(
 
   // Escape analysis: if t is used beyond property calls, warn and skip rewrite
   for (const [varName, ns] of translators) {
-    if (escapes(source, varName)) {
+    if (escapes(withoutDirs, varName)) {
       warnings.push(
         `TONGUE_W_ESCAPE: ${resourcePath}: '${varName}' from useT('${ns}') escapes this file; importing whole namespace`,
       );
@@ -53,11 +57,12 @@ export function transformCallSites(
   }
 
   const imports = new Map<string, { ns: string; key: string; ident: string }>();
-  let code = source;
+  let code = withoutDirs;
 
   for (const [varName, ns] of translators) {
-    if (escapes(source, varName)) continue;
+    if (escapes(withoutDirs, varName)) continue;
 
+    // Literal t('key') / t.rich('key')
     const callRe = new RegExp(
       `\\b${escapeRegExp(varName)}(?:\\.rich)?\\s*\\(\\s*(['"])([^'"]+)\\1`,
       'g',
@@ -67,6 +72,23 @@ export function transformCallSites(
       imports.set(`${ns}:${key}`, { ns, key, ident });
       return full;
     });
+
+    // t.dynamic(expr, { from: ['a', 'b'] }, values?)
+    const dynRe = new RegExp(
+      `\\b${escapeRegExp(varName)}\\.dynamic\\s*\\(`,
+      'g',
+    );
+    let dm: RegExpExecArray | null;
+    while ((dm = dynRe.exec(withoutDirs)) !== null) {
+      const tail = withoutDirs.slice(dm.index, dm.index + 500);
+      const fromMatch = /from\s*:\s*\[([^\]]*)\]/.exec(tail);
+      if (!fromMatch) continue;
+      const keys = [...fromMatch[1]!.matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]!);
+      for (const key of keys) {
+        const ident = safeImportIdent(ns, key);
+        imports.set(`${ns}:${key}`, { ns, key, ident });
+      }
+    }
   }
 
   if (imports.size === 0) {
@@ -90,9 +112,33 @@ export function transformCallSites(
     `$1\n  const ${localeVar} = useLocale();`,
   );
 
-  // Second pass: replace t('key', values) / t.rich('key', values) with per-key calls
+  // Replace t.dynamic(expr, { from: [...] }, values?)
   for (const [varName, ns] of translators) {
-    if (escapes(source, varName)) continue;
+    if (escapes(withoutDirs, varName)) continue;
+    const dynCallRe = new RegExp(
+      `\\b${escapeRegExp(varName)}\\.dynamic\\s*\\(\\s*([^,]+?)\\s*,\\s*\\{[^}]*?from\\s*:\\s*\\[([^\\]]*)][^}]*\\}\\s*(?:,\\s*([^)]*?))?\\)`,
+      'g',
+    );
+    code = code.replace(dynCallRe, (_full, keyExpr: string, fromBody: string, values?: string) => {
+      const keys = [...fromBody.matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]!);
+      const mapEntries = keys
+        .map((key) => {
+          const ident = safeImportIdent(ns, key);
+          imports.set(`${ns}:${key}`, { ns, key, ident });
+          return `${JSON.stringify(key)}: ${ident}`;
+        })
+        .join(', ');
+      const valuesArg =
+        values != null && String(values).trim() !== ''
+          ? `, ${String(values).trim()}`
+          : '';
+      return `((__tongue_dyn) => { const __tongue_fn = __tongue_dyn[${keyExpr.trim()}]; if (!__tongue_fn) throw new Error(${JSON.stringify(`[next-tongue] t.dynamic key not in from: [${keys.join(', ')}]`)}); return __tongue_fn(${localeVar}${valuesArg}); })({ ${mapEntries} })`;
+    });
+  }
+
+  // Replace t('key', values) / t.rich('key', values) with per-key calls
+  for (const [varName, ns] of translators) {
+    if (escapes(withoutDirs, varName)) continue;
     for (const { key, ident } of [...imports.values()].filter((i) => i.ns === ns)) {
       const richRe = new RegExp(
         `\\b${escapeRegExp(varName)}\\.rich\\s*\\(\\s*(['"])${escapeRegExp(key)}\\1\\s*(,\\s*([^)]*))?\\)`,
@@ -128,13 +174,45 @@ export function transformCallSites(
   }
 
   for (const [varName, ns] of translators) {
-    if (!escapes(source, varName)) continue;
+    if (!escapes(withoutDirs, varName)) continue;
     preamble +=
       `process.env.NODE_ENV !== 'production' && globalThis.__tongueDevEscape?.(` +
       `${JSON.stringify(ns || '_root')}, ${JSON.stringify(resourcePath)});\n`;
   }
 
-  return { code: preamble + code, warnings };
+  // "use client" / "use server" MUST be the first statement(s) — never after imports.
+  return { code: directives + preamble + code, warnings };
+}
+
+/**
+ * Peel leading `"use client"` / `"use server"` (and preceding comments/whitespace)
+ * so we can re-emit them before any injected imports.
+ */
+export function splitLeadingDirectives(source: string): {
+  directives: string;
+  body: string;
+} {
+  let rest = source.replace(/^\uFEFF/, '');
+  const found: string[] = [];
+
+  while (rest.length > 0) {
+    // leading whitespace / comments
+    const lead = rest.match(/^((?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*)/);
+    const leadLen = lead?.[0]?.length ?? 0;
+    const afterLead = rest.slice(leadLen);
+    const dir = afterLead.match(/^['"]use (client|server)['"];?[ \t]*(?:\r?\n)?/);
+    if (!dir) break;
+    found.push(`"use ${dir[1]}";`);
+    rest = afterLead.slice(dir[0].length);
+  }
+
+  if (found.length === 0) {
+    return { directives: '', body: source.replace(/^\uFEFF/, '') };
+  }
+  return {
+    directives: found.join('\n') + '\n\n',
+    body: rest,
+  };
 }
 
 function escapes(source: string, varName: string): boolean {

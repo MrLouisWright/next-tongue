@@ -55,11 +55,11 @@ t(`status.${status}`)  // status: 'open' | 'closed'
 Non-literal keys must **declare their possible keys**; the loader has no type information, so it cannot infer a union from `status`'s type.
 
 ```tsx
-t.dynamic(`status.${status}`, { from: ['status.open', 'status.closed'] }); // imports only these two
-const s = t.ns('status'); s(status);                                        // imports the whole `status` namespace
+t.dynamic(status, { from: ['open', 'closed'] }); // loader imports only these two keys
+const s = t.ns('status'); s(status);              // needs loadNamespace / escape path
 ```
-An undeclared non-literal key (`t(someString)`) is a build error, `TONGUE_E_DYNAMIC_KEY`.
 
+The call-site loader rewrites `t.dynamic(key, { from })` to a map of per-key imports (same as literal `t('…')`). Prefer that over ternaries. An undeclared non-literal `t(someString)` without `from` is not rewritten and will throw at runtime without `loadNamespace`.
 ## Other hooks
 
 | Hook | Returns |
