@@ -9,7 +9,8 @@
     "measure:tongue": "node ./scripts/measure-tongue.mjs",
     "measure:matrix": "node ./scripts/measure-matrix.mjs",
     "measure:ssr": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-ssr.mjs",
-    "measure:all": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-tongue.mjs && node ./scripts/measure-catalog-pick.mjs && node ./scripts/measure-paraglide-style.mjs && node ./scripts/measure-ssr.mjs && node ./scripts/measure-matrix.mjs && node ./scripts/summarize.mjs"
+    "measure:tsc": "node ./tsc-budget/measure.mjs",
+    "measure:all": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-tongue.mjs && node ./scripts/measure-catalog-pick.mjs && node ./scripts/measure-paraglide-style.mjs && node ./scripts/measure-ssr.mjs && node ./scripts/measure-matrix.mjs && node ./tsc-budget/measure.mjs && node ./scripts/summarize.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",

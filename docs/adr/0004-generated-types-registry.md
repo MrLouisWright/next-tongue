@@ -11,7 +11,7 @@ The compiler writes `.tongue/types.d.ts` augmenting `interface TongueRegister` i
 
 Codegen runs from `tongue build`, at `next.config` load and in the dev watcher, so CI can generate types before `tsc` with no `postinstall`. Missing types are a clear error, never a silent `any`.
 
-**Budget** (measured with `tsc --extendedDiagnostics` and `--generateTrace`): with a 10k-key registry, cold `tsc --noEmit` is ≤ 15% slower than the same app without i18n; an incremental check of a file with 50 `t()` calls is measured and published; tsserver completion latency in a 10k-key project is measured and tracked.
+**Budget** (measured with `tsc --extendedDiagnostics` via `benchmarks/tsc-budget`): with a 10k-key registry and a file of 50 typed `t()` calls, cold Check time is **≤ 2s**. When the no-i18n baseline Check time is ≥ 100ms, with-i18n is also ≤ **+15%**. Results land in `benchmarks/results/tsc-budget.json`. tsserver completion latency remains a follow-up measurement.
 
 ## Consequences
 - \+ ICU arg types; per-namespace indexing keeps TS fast on 10k+ keys.

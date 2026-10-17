@@ -2,6 +2,7 @@ import { createFormat, type Format } from '../runtime/format.js';
 import { createT, type MessageFn, type TFunction } from '../runtime/create-t.js';
 import { getDir, getOgLocale, isLocale as isLocaleValue } from '../runtime/locale.js';
 import { TongueError } from '../errors.js';
+import type { Locale, Namespace } from '../index.js';
 
 let runtimeLocales: readonly string[] = [];
 let runtimeDefaultLocale = 'en';
@@ -48,7 +49,11 @@ export const defaultLocale = {
 
 export type LocaleProps = { locale: string };
 
-export async function getT(locale: string, namespace = '_root'): Promise<TFunction> {
+export async function getT<N extends Namespace = '_root'>(
+  locale: Locale | string,
+  namespace?: N,
+): Promise<TFunction<N>> {
+  const ns = (namespace ?? '_root') as N;
   assertLocale(locale);
   if (!namespaceLoader) {
     throw new TongueError(
@@ -56,16 +61,16 @@ export async function getT(locale: string, namespace = '_root'): Promise<TFuncti
       'Message modules not loaded. Call ensureTongue() from `#tongue/runtime` (or wrap next.config with withTongue()).',
     );
   }
-  const messages = await namespaceLoader(namespace);
+  const messages = await namespaceLoader(ns);
   return createT({
     locale,
     messages,
-    loadNamespace: (ns) => {
+    loadNamespace: (n) => {
       throw new Error(
-        `t.ns('${ns}') requires sync namespace load; use getT(locale, '${ns}') on the server`,
+        `t.ns('${n}') requires sync namespace load; use getT(locale, '${n}') on the server`,
       );
     },
-  });
+  }) as TFunction<N>;
 }
 
 export async function getFormat(

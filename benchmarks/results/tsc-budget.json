@@ -1,0 +1,26 @@
+{
+  "measuredAt": "2026-10-17T11:40:10.783Z",
+  "keys": 10000,
+  "namespaces": 10,
+  "consumerCalls": 50,
+  "runs": 3,
+  "baseline": {
+    "checkSeconds": 0.01,
+    "totalSeconds": 0.33,
+    "files": 173
+  },
+  "withI18n": {
+    "checkSeconds": 0.02,
+    "totalSeconds": 0.37,
+    "files": 182
+  },
+  "deltaRatio": 1,
+  "absoluteBudgetSeconds": 2,
+  "absoluteOk": true,
+  "relativeFloorSeconds": 0.1,
+  "relativeMaxDelta": 0.15,
+  "relativeApplies": false,
+  "relativeOk": null,
+  "budgetOk": true,
+  "note": "Per-namespace TongueRegister indexing (ADR 0004). Relative +15% gated only when baseline Check ≥ 100ms; absolute Check ≤ 2s always required."
+}

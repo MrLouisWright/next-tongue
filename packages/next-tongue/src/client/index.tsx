@@ -8,6 +8,7 @@ import {
 import { createFormat, type Format } from '../runtime/format.js';
 import { createT, type TFunction, type MessageFn } from '../runtime/create-t.js';
 import { TongueError } from '../errors.js';
+import type { Namespace } from '../index.js';
 
 export type { MessageFn };
 
@@ -74,20 +75,21 @@ export function useFormat(): Format {
   return createFormat({ locale, timeZone });
 }
 
-export function useT(namespace = '_root'): TFunction {
+export function useT<N extends Namespace = '_root'>(namespace?: N): TFunction<N> {
+  const ns = (namespace ?? '_root') as N;
   const { locale, loadNamespace } = useTongue();
   if (!loadNamespace) {
     throw new TongueError(
       'TONGUE_E_NO_PROVIDER',
-      `useT('${namespace}') needs the call-site loader (or pass loadNamespace to TongueProvider). Prefer translating on the server with getT and passing strings.`,
+      `useT('${String(ns)}') needs the call-site loader (or pass loadNamespace to TongueProvider). Prefer translating on the server with getT and passing strings.`,
     );
   }
-  const messages = loadNamespace(namespace);
+  const messages = loadNamespace(ns);
   return createT({
     locale,
     messages,
     loadNamespace,
-  });
+  }) as TFunction<N>;
 }
 
 export function getClientLocales(): readonly string[] {

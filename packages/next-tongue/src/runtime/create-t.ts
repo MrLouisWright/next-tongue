@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { MessageKey, Namespace, TongueRegister } from '../index.js';
 
 export type MessageFn = ((
   locale: string,
@@ -7,16 +8,28 @@ export type MessageFn = ((
   rich?: (locale: string, values?: Record<string, unknown>) => ReactNode;
 };
 
-export type TFunction = {
-  (key: string, values?: Record<string, unknown>): string;
-  rich: (key: string, values?: Record<string, unknown>) => ReactNode;
+type ArgsFor<N extends Namespace, K extends MessageKey<N>> = TongueRegister['ns'][N][K];
+
+export type TFunction<N extends Namespace = Namespace> = {
+  <K extends MessageKey<N>>(
+    key: K,
+    ...args: Record<string, never> extends ArgsFor<N, K>
+      ? [values?: ArgsFor<N, K>]
+      : [values: ArgsFor<N, K>]
+  ): string;
+  rich: <K extends MessageKey<N>>(
+    key: K,
+    ...args: Record<string, never> extends ArgsFor<N, K>
+      ? [values?: ArgsFor<N, K>]
+      : [values: ArgsFor<N, K>]
+  ) => ReactNode;
   has: (key: string) => boolean;
   dynamic: (
     key: string,
-    opts: { from: readonly string[] },
+    opts: { from: readonly MessageKey<N>[] },
     values?: Record<string, unknown>,
   ) => string;
-  ns: (namespace: string) => TFunction;
+  ns: <N2 extends Namespace>(namespace: N2) => TFunction<N2>;
 };
 
 export type CreateTOptions = {
@@ -42,7 +55,7 @@ export function createT(options: CreateTOptions): TFunction {
 
   t.has = (key) => Object.prototype.hasOwnProperty.call(messages, key);
 
-  t.rich = (key, values) => {
+  t.rich = ((key: string, values?: Record<string, unknown>) => {
     const fn = messages[key];
     if (!fn) {
       if (process.env.NODE_ENV !== 'production') {
@@ -54,15 +67,15 @@ export function createT(options: CreateTOptions): TFunction {
       return fn.rich(locale, values);
     }
     return fn(locale, values);
-  };
+  }) as TFunction['rich'];
 
   t.dynamic = (key, opts, values) => {
-    if (!opts.from.includes(key)) {
+    if (!(opts.from as readonly string[]).includes(key)) {
       throw new Error(
         `[next-tongue] t.dynamic key "${key}" is not in from: [${opts.from.join(', ')}]`,
       );
     }
-    return t(key, values);
+    return t(key as never, values as never);
   };
 
   t.ns = (namespace) => {
@@ -73,7 +86,7 @@ export function createT(options: CreateTOptions): TFunction {
       locale,
       messages: options.loadNamespace(namespace),
       loadNamespace: options.loadNamespace,
-    });
+    }) as TFunction<typeof namespace>;
   };
 
   return t;

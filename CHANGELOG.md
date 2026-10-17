@@ -31,6 +31,8 @@ All notable changes to this project will be documented in this file. The format 
 - Watcher singleton/lockfile tests + stale-PID takeover; escape-analysis tests for return/arg/object/JSX (#11, #23).
 - `t.rich` codegen: tag handlers → ReactNodes with stable `tongue-t{n}` keys; `.tongue/rich.js` helpers; loader rewrites `t.rich('key')` (#7).
 - Benchmark matrix (keys × locales × used) + SSR 1k-call timing (`results/matrix.json`, `results/ssr.json`) (#25).
+- Typed `TFunction<N>` / `getT` / `useT` indexing per-namespace `TongueRegister`; 10k-key tsc budget harness (`benchmarks/tsc-budget`, Check ≤ 2s) (#6).
+- `docs/type-safety.md` budget measured via `pnpm --filter @next-tongue/benchmarks run measure:tsc`.
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

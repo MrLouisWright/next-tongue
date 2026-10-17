@@ -7,4 +7,5 @@ results/*.min.js
 results/paraglide-style/
 results/_matrix/
 results/catalog-pick-entry.js
+tsc-budget/fixture/
 node_modules/

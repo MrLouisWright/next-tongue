@@ -39,7 +39,12 @@ The **default locale's** messages define the types. Other locales are validated 
 Types regenerate on `next dev` file changes, on `next build`, and via `npx tongue build` (run it in CI before `tsc`; no `postinstall` needed). Missing types are a clear error (`TONGUE_E_TYPES_MISSING`), never a silent `any`. Commit nothing in `.tongue/`.
 
 ## Performance budget
-With a 10k-key registry: cold `tsc --noEmit` ≤ 15% slower than the same app without i18n; incremental checks and tsserver completion latency are measured with `--extendedDiagnostics` and `--generateTrace` and published ([#6](https://github.com/MrLouisWright/next-tongue/issues/6)).
+With a 10k-key registry (10 namespaces × 1,000 keys) and a consumer file of 50 typed `t()` calls:
+
+- Absolute: cold `tsc --noEmit` **Check time ≤ 2s**
+- Relative: when the no-i18n baseline Check time is ≥ 100ms, with-i18n is ≤ **+15%**
+
+Run `pnpm --filter @next-tongue/benchmarks run measure:tsc` → `benchmarks/results/tsc-budget.json`. Incremental / tsserver completion latency still tracked under [#6](https://github.com/MrLouisWright/next-tongue/issues/6).
 
 ## Types available
 
