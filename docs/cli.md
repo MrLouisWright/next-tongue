@@ -1,6 +1,6 @@
 # CLI
 
-> **Status: pre-release.** `tongue build`, `tongue check` and `tongue extract` ship in v0.3; other commands remain planned. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** `tongue build`, `check`, `extract` and `init` ship in v0.3; translate/export/report remain planned. See [ROADMAP](../ROADMAP.md).
 
 Binary: `tongue` (via `npx tongue` or a package.json script). Every command reads `tongue.config.ts`, supports `--config <path>`, `--cwd <dir>`, `--json` (machine-readable output) and `--quiet`. Exit codes: `0` ok, `1` check failures, `2` usage/config error.
 

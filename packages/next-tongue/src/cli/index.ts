@@ -4,6 +4,7 @@ import { buildMessages } from '../compiler/build.js';
 import { TongueError } from '../errors.js';
 import { cmdCheck } from './check.js';
 import { cmdExtract } from './extract.js';
+import { cmdInit } from './init.js';
 
 export async function runCli(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -23,6 +24,11 @@ export async function runCli(argv: string[]): Promise<void> {
       prune: { type: 'boolean', default: false },
       yes: { type: 'boolean', short: 'y', default: false },
       'dry-run': { type: 'boolean', default: false },
+      locales: { type: 'string' },
+      default: { type: 'string' },
+      prefix: { type: 'string' },
+      export: { type: 'boolean', default: false },
+      force: { type: 'boolean', default: false },
     },
     allowPositionals: true,
     strict: false,
@@ -89,12 +95,40 @@ export async function runCli(argv: string[]): Promise<void> {
         });
         break;
       }
-      case 'init':
-        console.error(
-          'tongue init lands in v0.3. Create tongue.config.ts manually for now — see docs/getting-started.md',
-        );
-        process.exitCode = 2;
+      case 'init': {
+        const prefixRaw =
+          typeof values.prefix === 'string' ? values.prefix : undefined;
+        const prefix =
+          prefixRaw === 'always' ||
+          prefixRaw === 'as-needed' ||
+          prefixRaw === 'never'
+            ? prefixRaw
+            : undefined;
+        if (
+          prefixRaw != null &&
+          prefixRaw !== 'always' &&
+          prefixRaw !== 'as-needed' &&
+          prefixRaw !== 'never'
+        ) {
+          console.error(
+            `Invalid --prefix ${JSON.stringify(prefixRaw)} (expected always|as-needed|never)`,
+          );
+          process.exitCode = 2;
+          break;
+        }
+        await cmdInit({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          ...(typeof values.locales === 'string' ? { locales: values.locales } : {}),
+          ...(typeof values.default === 'string' ? { default: values.default } : {}),
+          ...(prefix ? { prefix } : {}),
+          export: values.export === true,
+          yes: values.yes === true,
+          force: values.force === true,
+          dryRun: values['dry-run'] === true,
+          quiet: values.quiet === true,
+        });
         break;
+      }
       case 'extract':
         await cmdExtract({
           ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
@@ -159,7 +193,8 @@ Usage:
   tongue build [--cwd <dir>] [--config <path>] [--json] [--quiet]
   tongue check [--cwd <dir>] [--config <path>] [--locale de] [--reporter pretty|json|github] [--max-warnings N]
   tongue extract [--include app,src] [--placeholder ''] [--prune] [--yes] [--dry-run]
-  tongue init | translate   (later milestones)
+  tongue init [--locales en,de] [--default en] [--prefix as-needed] [--export] [--yes] [--force] [--dry-run]
+  tongue translate   (later milestones)
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);

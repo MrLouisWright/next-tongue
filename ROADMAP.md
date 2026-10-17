@@ -93,7 +93,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - [x] `getT` works in `opengraph-image.tsx` (incl. RTL) and in an email rendering example [#39](https://github.com/MrLouisWright/next-tongue/issues/39).
 - [x] `LocaleSwitcher` keeps the page, persists the choice, works without JS (plain links + a11y attrs in Playwright) [#44](https://github.com/MrLouisWright/next-tongue/issues/44).
 - [x] Docs `ts`/`tsx typecheck` fences are extracted and type-checked in CI (`pnpm check:docs`) [#16](https://github.com/MrLouisWright/next-tongue/issues/16).
-- [ ] `tongue init` on `create-next-app@16` output yields a building app (`--yes`), writes `generateStaticParams = localeParams`, idempotent on second run.
+- [x] `tongue init` on `create-next-app@16` output yields a building app (`--yes`), writes `generateStaticParams = localeParams`, idempotent on second run.
 
 ## v0.4 — Localized pathnames, domains, monorepo, translator tooling
 - Build-time database/CMS `sources` in `tongue.config.ts` [#33](https://github.com/MrLouisWright/next-tongue/issues/33); `tongue export`/`import` (XLIFF 2.0, CSV) [#37](https://github.com/MrLouisWright/next-tongue/issues/37); a11y/bidi checks in `tongue check` [#40](https://github.com/MrLouisWright/next-tongue/issues/40); stale-translation detection [#42](https://github.com/MrLouisWright/next-tongue/issues/42); translator context (`$meta`) [#43](https://github.com/MrLouisWright/next-tongue/issues/43); `tongue report` [#41](https://github.com/MrLouisWright/next-tongue/issues/41).

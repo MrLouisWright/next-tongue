@@ -1,6 +1,6 @@
 # Getting started
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** `tongue init` scaffolds the files below; the package is not on npm yet. See [ROADMAP](../ROADMAP.md).
 
 **Requirements (planned):** Next.js 16+ (App Router), React 19.2+, TypeScript 5.5+ recommended, Node 20.9+.
 
