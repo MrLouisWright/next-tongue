@@ -1,4 +1,18 @@
 import type { LocaleCookieConfig } from '../config/types.js';
+import {
+  createLocaleMatcher,
+  type LocaleMatcher,
+  type LocaleMatcherTables,
+} from './locale-matcher.js';
+
+export {
+  createLocaleMatcher,
+  buildLocaleMatcherTables,
+  emitLocaleMatcherModule,
+  localeParentChain,
+  matchTagAgainstTables,
+} from './locale-matcher.js';
+export type { LocaleMatcher, LocaleMatcherTables };
 
 /** Minimal request shape satisfied by NextRequest (proxy / middleware). */
 export type TongueProxyRequest = {
@@ -30,6 +44,11 @@ export type CreateProxyOptions = {
    * Still routable when the URL already has the prefix (#36).
    */
   excludeFromDetection?: readonly string[];
+  /**
+   * Precomputed matcher (from codegen or `createLocaleMatcher`).
+   * Built once from `locales` when omitted (#18).
+   */
+  localeMatcher?: LocaleMatcher;
   /** Override detection (cookie → Accept-Language → default). */
   resolveLocale?: (
     req: TongueProxyRequest,
@@ -62,6 +81,13 @@ export function createProxy(options: CreateProxyOptions): (
       ? false
       : { ...DEFAULT_COOKIE, ...(options.localeCookie ?? {}) };
   const excludeDetection = new Set(options.excludeFromDetection ?? []);
+  const baseMatcher = options.localeMatcher ?? createLocaleMatcher(locales);
+  // Matcher for detection excludes pseudo locales without rebuilding Intl.
+  const detectionLocales = locales.filter((l) => !excludeDetection.has(l));
+  const detectionMatcher =
+    detectionLocales.length === locales.length
+      ? baseMatcher
+      : createLocaleMatcher(detectionLocales);
 
   const localeSet = new Set(locales);
   if (!localeSet.has(defaultLocale)) {
@@ -107,7 +133,14 @@ export function createProxy(options: CreateProxyOptions): (
     let locale =
       sanitizeLocale(resolved, locales) ??
       (localeDetection
-        ? detectLocale(req, locales, defaultLocale, cookieCfg, excludeDetection)
+        ? detectLocale(
+            req,
+            locales,
+            defaultLocale,
+            cookieCfg,
+            excludeDetection,
+            detectionMatcher,
+          )
         : defaultLocale);
 
     locale = sanitizeLocale(locale, locales) ?? defaultLocale;
@@ -159,33 +192,12 @@ export function isUnsafePath(pathname: string): boolean {
   return false;
 }
 
-/** Exported for tests. */
+/** Exported for tests — uses a fresh matcher (no shared LRU). */
 export function parseAcceptLanguage(
   header: string | null,
   locales: readonly string[],
 ): string | undefined {
-  if (!header) return undefined;
-  const parts = header.split(',').map((p) => {
-    const [tag, ...params] = p.trim().split(';');
-    let q = 1;
-    for (const param of params) {
-      const m = /q\s*=\s*([\d.]+)/i.exec(param);
-      if (m) q = Number(m[1]);
-    }
-    return { tag: (tag ?? '').toLowerCase(), q };
-  });
-  parts.sort((a, b) => b.q - a.q);
-  for (const { tag } of parts) {
-    if (!tag || tag === '*') continue;
-    const exact = locales.find((l) => l.toLowerCase() === tag);
-    if (exact) return exact;
-    const lang = tag.split('-')[0]!;
-    const prefixMatch = locales.find(
-      (l) => l.toLowerCase() === lang || l.toLowerCase().startsWith(`${lang}-`),
-    );
-    if (prefixMatch) return prefixMatch;
-  }
-  return undefined;
+  return createLocaleMatcher(locales, { cacheSize: 1 }).match(header);
 }
 
 /**
@@ -209,18 +221,14 @@ function detectLocale(
   defaultLocale: string,
   cookieCfg: LocaleCookieConfig | false,
   excludeDetection: Set<string>,
+  matcher: LocaleMatcher,
 ): string {
   if (cookieCfg) {
     const raw = req.cookies.get(cookieCfg.name)?.value;
     const fromCookie = sanitizeLocale(raw, locales);
     if (fromCookie && !excludeDetection.has(fromCookie)) return fromCookie;
   }
-  const detectable = locales.filter((l) => !excludeDetection.has(l));
-  const fromHeader = parseAcceptLanguage(
-    req.headers.get('accept-language'),
-    detectable,
-  );
-  return fromHeader ?? defaultLocale;
+  return matcher.match(req.headers.get('accept-language')) ?? defaultLocale;
 }
 
 function joinLocalePath(locale: string, pathname: string): string {

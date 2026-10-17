@@ -45,6 +45,7 @@ All notable changes to this project will be documented in this file. The format 
 - Proxy locale sanitization (traversal/CRLF) + XSS corpus tests; localeCookie sameSite/secure/path covered (#19, #46).
 - Typed `Format` helpers: `list`, `relativeTime`, `unit` (`SanctionedUnit`), `displayName` with per-locale+options caching (#45).
 - Pseudo-localisation: `pseudo: true | { locale, enabled, expand }` emits `en-XA` (accent + expand), excluded from production `localeParams` / detection by default (#36).
+- Precomputed Accept-Language matcher (exact / parent / language tables + LRU); codegen emits `.tongue/locale-matcher.js`; 150-locale bench gate (#18).
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

@@ -16,7 +16,7 @@
     "e2e": "pnpm build:examples && playwright test",
     "benchmark": "pnpm --filter @next-tongue/benchmarks run measure:all",
     "changeset": "changeset",
-    "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm --filter next-tongue run check:deps && pnpm --filter next-tongue run check:size"
+    "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm --filter next-tongue run check:deps && pnpm --filter next-tongue run check:size && pnpm --filter next-tongue run build && pnpm --filter next-tongue run bench:matcher"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
