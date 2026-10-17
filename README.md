@@ -86,9 +86,13 @@ export default withTongue({ cacheComponents: true });
 ```
 
 ```ts
-// proxy.ts
+// proxy.ts — locales + defaultLocale required
 import { createProxy } from 'next-tongue/proxy';
-export const proxy = createProxy();
+export const proxy = createProxy({
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  prefix: 'as-needed',
+});
 export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
 // Note: this matcher skips every path containing a dot (e.g. /de/blog/v1.2). See Routing & proxy.
 ```

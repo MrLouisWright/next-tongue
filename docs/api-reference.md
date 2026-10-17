@@ -1,6 +1,6 @@
 # API reference
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 Types used below: `Locale` (union of configured locales), `Namespace`, `MessageKey<N?>`, `MessageArgs<K>`, `Href` (internal pathname, typed when `routing.pathnames` is set).
 
@@ -12,13 +12,13 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/next`
 | Export | Signature |
 |---|---|
-| `withTongue` | `(nextConfig?: NextConfig, options?: { config?: string }) => NextConfig` — config wrapper, not a bundler plugin: runs codegen (same as `tongue build`) when Next loads its config, registers the per-file call-site loader in `turbopack.rules` and webpack, maps `#tongue/*` to `outDir` (package.json `imports` preferred), starts a single `fs.watch` watcher in dev, and warns when the root `[locale]` layout lacks `generateStaticParams = localeParams`. |
+| `withTongue` | `(nextConfig?: NextConfig, options?: { config?: string }) => NextConfig` — config wrapper, not a bundler plugin: runs codegen (same as `tongue build`) when Next loads its config, **appends** the call-site loader to `turbopack.rules['*.tsx'|'*.jsx']` (and webpack), maps `#tongue/*` to `outDir` (add `tsconfig` `paths` + package.json `imports`), starts a single `fs.watch` watcher in dev, and warns when the `[locale]` layout lacks `generateStaticParams = localeParams`. |
 
 ## `next-tongue/proxy`
 | Export | Signature |
 |---|---|
-| `createProxy` | `(options?: { localeDetection?: boolean; resolveLocale?: (req: NextRequest) => Locale \| undefined \| Promise<Locale \| undefined>; onLocale?: (locale: Locale, req: NextRequest) => void }) => (req: NextRequest) => Promise<NextResponse>` — `resolveLocale` (v1.1) runs before detection |
-| `verifyLocalePreference` | `(value: string \| undefined, secret: string) => Promise<Locale \| undefined>` — v1.1, see [User preferences](user-preferences.md) |
+| `createProxy` | `(options: { locales: readonly string[]; defaultLocale: string; prefix?; pathnames?; domains?; localeDetection?; localeCookie?; excludeFromDetection?; resolveLocale?; onLocale? }) => (req) => Response \| Promise<Response>` — **`locales` + `defaultLocale` required** |
+| `verifyLocalePreference` | `(value: string \| undefined, secret: string, opts?: { locales }) => Promise<Locale \| undefined>` — see [User preferences](user-preferences.md) |
 
 ## `next-tongue/server`
 | Export | Signature |
@@ -51,12 +51,11 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/navigation`
 | Export | Signature |
 |---|---|
-| `Link` | `next/link` props with `href: Href \| { pathname: Href; params?; query? }` and optional `locale?: Locale` |
+| `createNavigation` | `(config: { locales; defaultLocale; prefix?; pathnames? }) => { Link, redirect, permanentRedirect, useRouter, usePathname, getPathname, LocaleSwitcher, useLocaleSwitcher }` — **call once** and export the helpers; there are no unbound `Link` / `useRouter` exports |
+| `Link` (from factory) | `next/link` props with `href: Href \| { pathname: Href; params?; query? }` and optional `locale?: Locale` |
 | `redirect`, `permanentRedirect` | `(args: { href: Href \| {...}; locale: Locale }) => never` |
-| `LocaleSwitcher` / `useLocaleSwitcher` | headless, accessible switcher: `({ children: (options: { locale, label, href, current }[]) => ReactNode })`; keeps the page, persists the choice (v0.3, [#44](https://github.com/MrLouisWright/next-tongue/issues/44)) |
-| `useRouter` | `() => { push(href, { locale?, scroll? }), replace(href, { locale?, scroll? }), prefetch(href, { locale? }), back, forward, refresh }` |
-| `usePathname` | `() => Href` (locale prefix and localized segments removed) |
-| `getPathname` | `(args: { href; locale: Locale }) => string` |
+| `LocaleSwitcher` / `useLocaleSwitcher` | headless switcher — see [#44](https://github.com/MrLouisWright/next-tongue/issues/44) |
+| `useRouter` / `usePathname` / `getPathname` | from factory; pathname helpers strip locale prefix / apply `pathnames` |
 
 ## The translator `T<N>`
 | Member | Signature |

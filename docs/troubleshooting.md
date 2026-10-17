@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -41,6 +41,11 @@
 | Localized dynamic segments (`/[locale]/x/[id]`) not cached with Cache Components | [vercel/next.js#86870](https://github.com/vercel/next.js/issues/86870), [#85240](https://github.com/vercel/next.js/issues/85240) |
 | `next/root-params` types missing with two root layouts | [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756) — keep explicit `getT(locale, ns)`; only enable `routing.rootParams` with a single `[locale]` root layout ([ADR 0007](adr/0007-root-params-not-default.md)) |
 | Turbopack: `next/root-params` can only be used inside the App Directory (from `proxy.ts` / middleware) | Fixed in `0.9.1`: server code loads `next/root-params` only via a non-static import when `routing.rootParams` is on. Upgrade, or avoid importing `next-tongue/server` from middleware (prefer `#tongue/runtime` + `next-tongue/proxy` only). |
+| `createProxy()` type/runtime error | Pass `{ locales, defaultLocale, prefix? }` — zero-arg form is invalid |
+| `#tongue/*` not found in `tsc` | Add `compilerOptions.paths["#tongue/*"] = ["./.tongue/*"]` (`tongue init` does this); `package.json` `imports` alone is not enough for TypeScript |
+| `<html>` in `app/[locale]/layout` with existing root layout | Invalid in Next — keep `<html>` on root layout; nest `TongueProvider` only under `[locale]` |
+| `/de/…` 404 on non-localized routes | No partial-localization config — gate in your proxy allow-list and only put localized pages under `[locale]` |
+| Existing `turbopack.rules` for `*.tsx` | `withTongue` **appends** the tongue loader to that glob (array merge); it does not remove your rules |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.
 

@@ -1,6 +1,6 @@
 # Architecture: how the compiler works
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 next-tongue is **a config wrapper + codegen + a per-file call-site loader**. It uses no bundler plugin APIs, because Turbopack (the Next.js 16 default) exposes only per-file webpack loaders: no `emitFile`, `loadModule`, `importModule` or module-graph access ([Next.js docs](https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack), [ADR 0001](adr/0001-compile-messages-at-build-time.md)). It has zero dependencies beyond `next` and `react` ([ADR 0012](adr/0012-zero-dependencies.md)).
 

@@ -59,6 +59,15 @@ export async function cmdInit(opts: InitCliOptions): Promise<void> {
     return;
   }
 
+  const appRoot = await detectAppRoot(cwd);
+  const hasRootLayout = await hasFile(
+    cwd,
+    `${appRoot}/layout.tsx`,
+    `${appRoot}/layout.ts`,
+    `${appRoot}/layout.jsx`,
+    `${appRoot}/layout.js`,
+  );
+  const proxyPath = await detectProxyPath(cwd, appRoot);
   const plans: PlannedFile[] = [];
 
   plans.push({
@@ -78,20 +87,12 @@ export default defineConfig({
   });
 
   for (const locale of locales) {
-    const sample =
-      locale === defaultLocale
-        ? {
-            home: {
-              title: 'Welcome, {name}!',
-              body: 'Scaffolded by tongue init.',
-            },
-          }
-        : {
-            home: {
-              title: 'Welcome, {name}!',
-              body: 'Scaffolded by tongue init.',
-            },
-          };
+    const sample = {
+      home: {
+        title: 'Welcome, {name}!',
+        body: 'Scaffolded by tongue init.',
+      },
+    };
     plans.push({
       path: `messages/${locale}.json`,
       kind: 'create',
@@ -99,51 +100,29 @@ export default defineConfig({
     });
   }
 
-  plans.push({
-    path: 'proxy.ts',
-    kind: 'create',
-    content: `import { createProxy } from 'next-tongue/proxy';
+  if (proxyPath) {
+    plans.push({
+      path: proxyPath,
+      kind: 'create',
+      content: proxyScaffold(locales, defaultLocale, prefix),
+    });
+  } else if (!opts.quiet) {
+    console.log(
+      'tongue init: existing proxy/middleware detected — compose createProxy({ locales, defaultLocale, … }) yourself (see docs/routing-and-proxy.md).',
+    );
+  }
 
-export const proxy = createProxy();
-export const config = {
-  matcher: ['/((?!api|_next|.*\\\\..*).*)'],
-};
-`,
+  const layoutPath = `${appRoot}/[locale]/layout.tsx`;
+  plans.push({
+    path: layoutPath,
+    kind: 'create',
+    content: hasRootLayout
+      ? nestedLocaleLayout()
+      : rootLocaleLayout(),
   });
 
   plans.push({
-    path: 'app/[locale]/layout.tsx',
-    kind: 'create',
-    content: `import { notFound } from 'next/navigation';
-import { TongueProvider } from 'next-tongue/client';
-import { getDir, isLocale, localeParams } from 'next-tongue/server';
-import { ensureTongue } from '#tongue/runtime';
-
-ensureTongue();
-export const generateStaticParams = localeParams;
-
-export default async function RootLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  if (!isLocale(locale)) notFound();
-  return (
-    <html lang={locale} dir={getDir(locale)}>
-      <body>
-        <TongueProvider locale={locale}>{children}</TongueProvider>
-      </body>
-    </html>
-  );
-}
-`,
-  });
-
-  plans.push({
-    path: 'app/[locale]/page.tsx',
+    path: `${appRoot}/[locale]/page.tsx`,
     kind: 'create',
     content: `import { getT } from 'next-tongue/server';
 import { ensureTongue } from '#tongue/runtime';
@@ -200,18 +179,27 @@ export default withTongue(nextConfig);
     });
   }
 
-  // tsconfig include
+  // tsconfig: include + paths for #tongue/* (tsc does not resolve package.json imports)
   if (await exists(join(cwd, 'tsconfig.json'))) {
     const abs = join(cwd, 'tsconfig.json');
     const raw = await readFile(abs, 'utf8');
     try {
       const ts = JSON.parse(raw) as {
         include?: string[];
-        compilerOptions?: Record<string, unknown>;
+        compilerOptions?: {
+          paths?: Record<string, string[]>;
+          [key: string]: unknown;
+        };
       };
       const include = new Set(ts.include ?? ['**/*.ts', '**/*.tsx']);
       include.add('.tongue/types.d.ts');
       ts.include = [...include];
+      ts.compilerOptions = ts.compilerOptions ?? {};
+      const paths = { ...(ts.compilerOptions.paths ?? {}) };
+      if (!paths['#tongue/*']) {
+        paths['#tongue/*'] = ['./.tongue/*'];
+      }
+      ts.compilerOptions.paths = paths;
       const next = `${JSON.stringify(ts, null, 2)}\n`;
       if (next !== raw) {
         plans.push({ path: 'tsconfig.json', kind: 'merge', content: next });
@@ -291,10 +279,125 @@ export default withTongue(nextConfig);
   }
 
   if (!opts.quiet) {
+    if (hasRootLayout) {
+      console.log(
+        'tongue init: existing root layout detected — set <html lang={locale} dir={…}> on the root layout (or a client HtmlLang), not under [locale].',
+      );
+    }
     console.log(
       'tongue init: done. Run `npx tongue build` (or start next) so `.tongue/` is generated.',
     );
   }
+}
+
+function proxyScaffold(
+  locales: string[],
+  defaultLocale: string,
+  prefix: string,
+): string {
+  return `import { createProxy } from 'next-tongue/proxy';
+
+// locales/defaultLocale must match tongue.config.ts (or import from '#tongue/runtime' after \`tongue build\`).
+export const proxy = createProxy({
+  locales: ${JSON.stringify(locales)},
+  defaultLocale: ${JSON.stringify(defaultLocale)},
+  prefix: ${JSON.stringify(prefix)},
+});
+
+export const config = {
+  matcher: ['/((?!api|_next|.*\\\\..*).*)'],
+};
+`;
+}
+
+/** Greenfield: [locale] is the root layout and owns <html>. */
+function rootLocaleLayout(): string {
+  return `import { notFound } from 'next/navigation';
+import { TongueProvider } from 'next-tongue/client';
+import { getDir, isLocale, localeParams } from 'next-tongue/server';
+import { ensureTongue } from '#tongue/runtime';
+
+ensureTongue();
+export const generateStaticParams = localeParams;
+
+export default async function LocaleLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
+  return (
+    <html lang={locale} dir={getDir(locale)}>
+      <body>
+        <TongueProvider locale={locale}>{children}</TongueProvider>
+      </body>
+    </html>
+  );
+}
+`;
+}
+
+/**
+ * App already has app/layout.tsx — Next only allows <html> there.
+ * [locale] layout wraps children only.
+ */
+function nestedLocaleLayout(): string {
+  return `import { notFound } from 'next/navigation';
+import { TongueProvider } from 'next-tongue/client';
+import { isLocale, localeParams } from 'next-tongue/server';
+import { ensureTongue } from '#tongue/runtime';
+
+ensureTongue();
+export const generateStaticParams = localeParams;
+
+export default async function LocaleLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
+  // Keep html lang/dir on the root layout (or sync via a client helper).
+  return <TongueProvider locale={locale}>{children}</TongueProvider>;
+}
+`;
+}
+
+/** Prefer src/app when present; otherwise app/. */
+export async function detectAppRoot(cwd: string): Promise<'app' | 'src/app'> {
+  if (await exists(join(cwd, 'src', 'app'))) return 'src/app';
+  if (await exists(join(cwd, 'app'))) return 'app';
+  if (await exists(join(cwd, 'src'))) return 'src/app';
+  return 'app';
+}
+
+/**
+ * Where to write proxy.ts. Returns null when the project already has proxy/middleware
+ * (caller should compose manually).
+ */
+export async function detectProxyPath(
+  cwd: string,
+  appRoot: 'app' | 'src/app',
+): Promise<string | null> {
+  const existing = [
+    'proxy.ts',
+    'proxy.js',
+    'src/proxy.ts',
+    'src/proxy.js',
+    'middleware.ts',
+    'middleware.js',
+    'src/middleware.ts',
+    'src/middleware.js',
+  ];
+  for (const p of existing) {
+    if (await exists(join(cwd, p))) return null;
+  }
+  return appRoot.startsWith('src/') ? 'src/proxy.ts' : 'proxy.ts';
 }
 
 function wrapNextConfig(src: string, staticExport: boolean): string {
@@ -315,6 +418,13 @@ function wrapNextConfig(src: string, staticExport: boolean): string {
     );
   }
   return out;
+}
+
+async function hasFile(cwd: string, ...rels: string[]): Promise<boolean> {
+  for (const rel of rels) {
+    if (await exists(join(cwd, rel))) return true;
+  }
+  return false;
 }
 
 async function exists(path: string): Promise<boolean> {

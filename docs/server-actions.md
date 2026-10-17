@@ -1,6 +1,6 @@
 # Server actions
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 Server actions have no `params`. Pass the locale explicitly — either bound or as a form field — and validate it ([ADR 0002](adr/0002-locale-from-params-only.md), [#26](https://github.com/MrLouisWright/next-tongue/issues/26)).
 

@@ -1,22 +1,45 @@
 # Routing & proxy
 
-> **Status: pre-release.** Prefix strategies, pathnames and domains ship in v0.4. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9.** Prefix strategies, pathnames and domains are implemented. See [ROADMAP](../ROADMAP.md).
 
 Next.js 16 renamed `middleware.ts` to `proxy.ts` (exported function `proxy`, Node.js runtime). next-tongue does **all** request-dependent locale work there, so pages and layouts can stay static and cacheable. See [ADR 0002](adr/0002-locale-from-params-only.md).
 
 ## Setup
 
+`createProxy` **requires** `locales` and `defaultLocale` (same values as `tongue.config.ts`). After `tongue build` you can import them from `#tongue/runtime`.
+
 ```ts
-// proxy.ts
+// proxy.ts (or src/proxy.ts)
 import { createProxy } from 'next-tongue/proxy';
 
-export const proxy = createProxy();
+export const proxy = createProxy({
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  prefix: 'as-needed', // match tongue.config routing.prefix
+});
+
 export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
+```
+
+```ts
+// after tongue build — keep proxy in sync with config
+import { createProxy } from 'next-tongue/proxy';
+import { defaultLocale, locales } from '#tongue/runtime';
+
+export const proxy = createProxy({ locales, defaultLocale, prefix: 'as-needed' });
 ```
 
 > **Matcher caveat:** `.*\\..*` skips every path containing a dot, so `/de/blog/v1.2` bypasses the proxy (no locale redirect). If you have dotted routes, exclude only real file extensions, e.g. `'/((?!api|_next|.*\\.(?:ico|png|jpg|svg|txt|xml|webmanifest)$).*)'`.
 
-All pages live under `app/[locale]/`. The proxy guarantees that by the time a request reaches the app, the `[locale]` segment is a valid locale.
+Localized app routes live under `app/[locale]/` (or `src/app/[locale]/`). The proxy guarantees that by the time a request reaches those routes, the `[locale]` segment is a valid locale.
+
+### Existing root layout (`app/layout.tsx`)
+
+Next.js allows `<html>` **only** on the root layout. If you already have `app/layout.tsx` / `src/app/layout.tsx`, keep `lang` / `dir` there (or sync with a small client helper). The `[locale]` layout should wrap with `TongueProvider` only — `tongue init` detects this and scaffolds accordingly. `tongue check` a11y accepts lang/dir on the root layout, or set `strict.a11y: 'off'`.
+
+### Partial localization
+
+There is **no** first-class “only these pathnames are localized” option. Gate in your own `proxy` before calling tongue (allow-list marketing routes, skip `/api`, dashboards, etc.). A request like `/de/sites` will 404 unless that route exists under `[locale]` — keep the allow-list and `app/` tree aligned.
 
 ## What the proxy does
 
@@ -74,13 +97,20 @@ The proxy rewrites `/de/ueber-uns` → `/de/about` (App Router file path) and na
 
 ## Composing with your own proxy logic
 
+`tongue init` does **not** overwrite an existing `proxy.ts` / `middleware.ts`. Compose:
+
 ```ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { createProxy } from 'next-tongue/proxy';
 
-const tongue = createProxy();
+const tongue = createProxy({
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  prefix: 'as-needed',
+});
 
 export async function proxy(req: NextRequest) {
+  // your auth / marketing allow-list first
   if (req.nextUrl.pathname.startsWith('/admin') && !req.cookies.get('session')) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
@@ -88,12 +118,21 @@ export async function proxy(req: NextRequest) {
 }
 ```
 
-`createProxy(options?)` accepts overrides: `{ localeDetection?, onLocale?(locale, req) }`.
+Optional: `localeDetection`, `resolveLocale`, `onLocale`, `pathnames`, `domains`, `excludeFromDetection`.
 
 ## Locale-aware navigation
 
+Helpers come from **`createNavigation(config)`** — there is no unbound `Link` export.
+
 ```tsx
-import { Link, redirect, useRouter, usePathname, getPathname } from 'next-tongue/navigation';
+import { createNavigation } from 'next-tongue/navigation';
+
+const { Link, redirect, useRouter, usePathname, getPathname } = createNavigation({
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  prefix: 'as-needed',
+  // pathnames: { '/about': { de: '/ueber-uns' } },
+});
 
 <Link href="/about">About</Link>               // → /de/ueber-uns when locale is de
 <Link href="/about" locale="en">English</Link>  // locale switcher

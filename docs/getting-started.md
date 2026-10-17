@@ -48,30 +48,38 @@ export default withTongue(nextConfig);
 ## 3. Add the proxy
 
 ```ts
-// proxy.ts
+// proxy.ts — locales/defaultLocale are required
 import { createProxy } from 'next-tongue/proxy';
 
-export const proxy = createProxy();
+export const proxy = createProxy({
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  prefix: 'as-needed',
+});
 export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
 ```
 
 > **Matcher caveat:** `.*\\..*` skips every path containing a dot, so `/de/blog/v1.2` bypasses the proxy (no locale redirect). If you have dotted routes, exclude only real file extensions, e.g. `'/((?!api|_next|.*\\.(?:ico|png|jpg|svg|txt|xml|webmanifest)$).*)'`.
 
-## 4. Root layout
+`tongue init` writes `src/proxy.ts` + `src/app/[locale]/…` when `src/` is present, skips an existing proxy (compose yourself), and adds `tsconfig` `paths` for `#tongue/*` (tsc does not honor `package.json` `imports` alone).
+
+## 4. Locale layout
+
+**Greenfield** — `[locale]` is the root layout and owns `<html>`:
 
 ```tsx
 // app/[locale]/layout.tsx
 import { notFound } from 'next/navigation';
-import { localeParams, isLocale } from 'next-tongue/server';
+import { localeParams, isLocale, getDir } from 'next-tongue/server';
 import { TongueProvider } from 'next-tongue/client';
 
 export const generateStaticParams = localeParams; // [{ locale: 'en' }, { locale: 'de' }]
 
-export default async function RootLayout({ children, params }: LayoutProps<'/[locale]'>) {
+export default async function LocaleLayout({ children, params }: LayoutProps<'/[locale]'>) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   return (
-    <html lang={locale}>
+    <html lang={locale} dir={getDir(locale)}>
       <body>
         <TongueProvider locale={locale}>{children}</TongueProvider>
       </body>
@@ -79,6 +87,8 @@ export default async function RootLayout({ children, params }: LayoutProps<'/[lo
   );
 }
 ```
+
+**Existing `app/layout.tsx`** — keep `<html>` on the root layout; `[locale]` only wraps `TongueProvider` (Next forbids nested `<html>`). Sync `lang`/`dir` on the root or via a client helper; or set `strict.a11y: 'off'`.
 
 `TongueProvider` passes **only the locale string** to client components. It never serialises messages — client components import compiled message modules directly (see [Architecture](architecture.md)).
 

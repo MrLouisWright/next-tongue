@@ -1,6 +1,6 @@
 # Configuration
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 All options live in `tongue.config.ts` at the project root. It is read at build time by `withTongue` and the CLI (`tongue build`), and a serialisable subset (locales, default locale, routing) is inlined into the proxy and runtime — the config file itself is never shipped to the browser.
 
@@ -94,6 +94,14 @@ export default defineConfig({
 | `outDir` | `string` | `'.tongue'` | Git-ignore it. |
 | `strict.*` | `'error' \| 'warn' \| 'off'` | see above | Used by both the build and `tongue check`. |
 | `translate.*` | object | `undefined` | Only read by `tongue translate`. |
+
+## `withTongue` and Turbopack / TypeScript
+
+`withTongue(nextConfig)`:
+
+- Runs `tongue build` when Next loads config.
+- Sets `turbopack.resolveAlias['#tongue']` and **appends** a call-site loader to `turbopack.rules['*.tsx']` / `['*.jsx']` (and a webpack pre-loader). Existing rules for those globs are kept (merged into an array).
+- Expects `#tongue/*` resolution via package.json `imports` **and** `tsconfig` `paths` (`tongue init` writes both). TypeScript does not use `imports` alone.
 
 ## Environment variables
 

@@ -1,6 +1,6 @@
 # Cache Components & PPR
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 With `cacheComponents: true` (Next.js 16), anything that reads request data — `headers()`, `cookies()`, `searchParams` — makes that part of the tree dynamic, and it cannot be used inside `'use cache'`. An i18n library that reads the locale from a header or cookie at render time therefore pushes every translated component out of the static shell. That is the root of the issues discussed in [amannn/next-intl#1493](https://github.com/amannn/next-intl/issues/1493) and [#2412](https://github.com/amannn/next-intl/issues/2412).
 

@@ -1,6 +1,6 @@
 # ICU messages
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 next-tongue uses [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) with its **own small parser** and a documented subset ([ADR 0010](adr/0010-own-icu-parser.md)); no third-party parser is used ([ADR 0012](adr/0012-zero-dependencies.md)). Messages are parsed **at build time**; invalid syntax fails the build with file, key, line and column. The parser is tested against an ICU conformance corpus vendored as test fixtures ([#27](https://github.com/MrLouisWright/next-tongue/issues/27)).
 

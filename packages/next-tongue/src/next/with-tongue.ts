@@ -75,16 +75,19 @@ export function withTongue<T extends object>(
     ],
   };
 
+  const existingRules = input.turbopack?.rules ?? {};
   const turbopack = {
     ...(input.turbopack ?? {}),
     resolveAlias: {
       ...(input.turbopack?.resolveAlias ?? {}),
       '#tongue': outDir,
     },
+    // Appends the call-site loader onto any existing `*.tsx` / `*.jsx` rules
+    // (Next accepts a rule or an array of rules per glob).
     rules: {
-      ...(input.turbopack?.rules ?? {}),
-      '*.tsx': tongueLoaderRule,
-      '*.jsx': tongueLoaderRule,
+      ...existingRules,
+      '*.tsx': appendTurbopackRule(existingRules['*.tsx'], tongueLoaderRule),
+      '*.jsx': appendTurbopackRule(existingRules['*.jsx'], tongueLoaderRule),
     },
   };
 
@@ -127,6 +130,15 @@ export function withTongue<T extends object>(
     turbopack,
     webpack,
   };
+}
+
+/** Merge a tongue loader rule with any pre-existing turbopack rule for the same glob. */
+function appendTurbopackRule(
+  existing: unknown,
+  rule: unknown,
+): unknown {
+  if (existing == null) return rule;
+  return Array.isArray(existing) ? [...existing, rule] : [existing, rule];
 }
 
 /** Sync peek: `routing.rootParams: true` in tongue.config (ADR 0007 / #24). */

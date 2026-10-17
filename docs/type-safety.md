@@ -1,6 +1,6 @@
 # Type safety
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 Codegen emits `.tongue/types.d.ts`, which augments a registry interface with **per-namespace interfaces**, so `useT('home')` indexes into `ns.home` instead of filtering a global key union ([ADR 0004](adr/0004-generated-types-registry.md)):
 

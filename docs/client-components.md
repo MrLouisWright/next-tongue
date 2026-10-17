@@ -1,6 +1,6 @@
 # Client components
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 ## Setup
 
@@ -72,6 +72,7 @@ An undeclared non-literal key (`t(someString)`) is a build error, `TONGUE_E_DYNA
 'use client';
 import { createNavigation } from 'next-tongue/navigation';
 
+// createNavigation is required — Link / LocaleSwitcher are not top-level exports
 const { LocaleSwitcher } = createNavigation({
   locales: ['en', 'de'],
   defaultLocale: 'en',

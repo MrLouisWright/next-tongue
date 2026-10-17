@@ -41,6 +41,28 @@ describe('validateA11y', () => {
     const issues = await validateA11y(config, dir);
     expect(issues).toHaveLength(0);
   });
+
+  it('accepts lang/dir on root layout when [locale] is nested', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'tongue-a11y-root-'));
+    await mkdir(join(dir, 'app/[locale]'), { recursive: true });
+    await writeFile(
+      join(dir, 'app/layout.tsx'),
+      `export default function Root({ children }) {
+  return <html lang="en" dir="ltr"><body>{children}</body></html>;
+}\n`,
+    );
+    await writeFile(
+      join(dir, 'app/[locale]/layout.tsx'),
+      `export default function L({ children }) { return children; }\n`,
+    );
+    const config = resolveConfig({
+      locales: ['en', 'ar'],
+      defaultLocale: 'en',
+      strict: { a11y: 'error', unused: 'off' },
+    });
+    const issues = await validateA11y(config, dir);
+    expect(issues).toHaveLength(0);
+  });
 });
 
 describe('checkMessageBidi', () => {

@@ -38,7 +38,7 @@
 - [Research: i18n pain points 2025–2026](research.md)
 - [Critical review (Oct 2026)](review.md)
 
-## Package entry points (planned)
+## Package entry points
 
 | Import | Runs in | Purpose |
 |---|---|---|

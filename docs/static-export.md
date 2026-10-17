@@ -1,6 +1,6 @@
 # Static export
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Install `next-tongue` from npm. See [ROADMAP](../ROADMAP.md) and [API freeze](api-freeze.md).
 
 `output: 'export'` produces plain HTML with no server and no proxy. next-tongue supports it with these rules:
 

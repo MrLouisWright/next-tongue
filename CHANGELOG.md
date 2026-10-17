@@ -7,6 +7,16 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.3] — 2026-10-17
+
+### Fixed
+- `tongue init`: scaffold `createProxy({ locales, defaultLocale, prefix })` (zero-arg was invalid); detect `src/app` + `src/proxy.ts`; skip existing proxy/middleware; omit `<html>` under `[locale]` when a root layout exists; add `tsconfig` `paths` for `#tongue/*`.
+- `tongue check` a11y: accept `lang`/`dir` on the root layout (or `document.documentElement.*`) when `[locale]` is nested.
+- `withTongue`: append Turbopack `*.tsx`/`*.jsx` loader rules instead of replacing user rules.
+
+### Changed
+- Docs: beta status, `createProxy` / `createNavigation` signatures, partial-localization + compose guidance, troubleshooting for real-app adoption feedback.
+
 ## [0.9.2] — 2026-10-17
 
 ### Fixed
