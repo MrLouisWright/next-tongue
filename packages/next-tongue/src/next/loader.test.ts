@@ -15,6 +15,7 @@ export function Badge({ count }) {
     expect(code).toContain("#tongue/msg/home/inbox.js");
     expect(code).toContain('__tongue_locale');
     expect(code).toMatch(/__tongue_home_inbox\(__tongue_locale/);
+    expect(code).toContain('__tongueDevLoaded');
   });
 
   it('rewrites t.rich() to per-key .rich calls', () => {
@@ -37,6 +38,7 @@ const t = useT('home');
 return t;
 `;
     const { warnings } = transformCallSites(src, 'x.tsx');
+    expect(warnings.some((w) => w.includes('TONGUE_W_ESCAPE'))).toBe(true);
     expect(warnings.some((w) => w.includes('escapes'))).toBe(true);
   });
 });

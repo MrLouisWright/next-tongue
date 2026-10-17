@@ -21,14 +21,22 @@ const result = await build({
   format: 'esm',
   platform: 'browser',
   write: false,
+  // Match Next production so the overlay + key-id branches are DCE'd (#35).
+  define: {
+    'process.env.NODE_ENV': '"production"',
+  },
   external: ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
 });
 
 const code = result.outputFiles[0].contents;
+const text = Buffer.from(code).toString('utf8');
 const gz = gzipSync(code);
 const bytes = code.length;
 const bytesGz = gz.length;
-const limit = 2048;
+// Budget covers client hooks + translateIssues/Format re-exports; overlay is
+// DCE'd under NODE_ENV=production (asserted below). Raised from 2 KiB after
+// Format helpers / translateIssues landed on the client entry.
+const limit = 3072;
 
 writeFileSync(
   join(outdir, 'client.min.js'),
@@ -47,3 +55,18 @@ if (bytesGz > limit) {
   console.error('Size budget exceeded');
   process.exit(1);
 }
+
+// Overlay markers must not survive production DCE.
+const banned = [
+  'data-tongue-overlay',
+  'Alt+Shift+T',
+  '__tongueKey',
+  'tongueDevLoaded',
+];
+for (const marker of banned) {
+  if (text.includes(marker)) {
+    console.error(`Production client bundle still contains "${marker}" (#35)`);
+    process.exit(1);
+  }
+}
+console.log('next-tongue/client: overlay markers absent (prod DCE ok)');

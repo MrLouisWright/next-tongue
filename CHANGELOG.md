@@ -54,6 +54,7 @@ All notable changes to this project will be documented in this file. The format 
 - Headless `LocaleSwitcher` / `useLocaleSwitcher` via `createNavigation` (DisplayNames labels, plain links) (#44).
 - `examples/og-email`: prerendered `opengraph-image` / `twitter-image` with `getT`+`getDir` (RTL `ar` snapshot), welcome-email route with `t.rich` (#39).
 - Docs sample CI: extract ```ts typecheck / ```tsx typecheck fences and `tsc` them (`pnpm check:docs`) (#16).
+- Dev overlay in `TongueProvider` (`Alt+Shift+T`): locale/timeZone, missing/fallback keys, client-loaded keys, escapes; inspect click-to-key + editor links; key ids gated by `NODE_ENV` and asserted absent from the production client bundle (#35).
 
 
 

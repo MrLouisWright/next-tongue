@@ -47,4 +47,24 @@ describe('resolveConfig', () => {
       }),
     ).toThrow(/locale/);
   });
+
+  it('resolves devOverlay defaults and object form', () => {
+    expect(
+      resolveConfig({ locales: ['en'], defaultLocale: 'en' }).devOverlay,
+    ).toEqual({ editor: 'vscode' });
+    expect(
+      resolveConfig({
+        locales: ['en'],
+        defaultLocale: 'en',
+        devOverlay: false,
+      }).devOverlay,
+    ).toBe(false);
+    expect(
+      resolveConfig({
+        locales: ['en'],
+        defaultLocale: 'en',
+        devOverlay: { editor: 'cursor' },
+      }).devOverlay,
+    ).toEqual({ editor: 'cursor' });
+  });
 });

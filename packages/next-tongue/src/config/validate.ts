@@ -1,5 +1,29 @@
-import type { ResolvedTongueConfig, TongueConfig } from './types.js';
+import type {
+  DevOverlayOption,
+  ResolvedDevOverlay,
+  ResolvedTongueConfig,
+  TongueConfig,
+} from './types.js';
 import { TongueError } from '../errors.js';
+
+function resolveDevOverlay(input: DevOverlayOption | undefined): ResolvedDevOverlay {
+  if (input === false) return false;
+  if (input == null || input === true) return { editor: 'vscode' };
+  if (typeof input === 'object') {
+    const editor = input.editor ?? 'vscode';
+    if (typeof editor !== 'string' || editor.length === 0 || editor.length > 500) {
+      throw new TongueError(
+        'TONGUE_E_CONFIG',
+        '`devOverlay.editor` must be a non-empty string',
+      );
+    }
+    return { editor };
+  }
+  throw new TongueError(
+    'TONGUE_E_CONFIG',
+    '`devOverlay` must be a boolean or `{ editor?: string }`',
+  );
+}
 
 const DEFAULT_COOKIE = {
   name: 'TONGUE_LOCALE',
@@ -131,7 +155,7 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
     sourcesOnError: input.sourcesOnError ?? 'fail',
     pseudo,
     client: { split: input.client?.split ?? 'none' },
-    devOverlay: input.devOverlay ?? true,
+    devOverlay: resolveDevOverlay(input.devOverlay),
     routing: {
       prefix: input.routing?.prefix ?? 'as-needed',
       localeDetection: input.routing?.localeDetection ?? true,

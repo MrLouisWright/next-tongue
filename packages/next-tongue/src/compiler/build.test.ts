@@ -69,6 +69,9 @@ describe('buildMessages', () => {
     expect(titleMod).toContain('export function title');
     expect(titleMod).toContain('Welcome');
     expect(titleMod).toContain('Willkommen');
+    expect(titleMod).toContain("__tongueKey = \"home.title\"");
+    expect(titleMod).toContain('__tongueSrc');
+    expect(titleMod).toContain("process.env.NODE_ENV !== 'production'");
 
     // Tree-shake smoke: unused export names are separate files
     const inboxMod = await readFile(

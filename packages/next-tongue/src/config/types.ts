@@ -20,6 +20,20 @@ export type PseudoConfig = {
   expand?: number;
 };
 
+/** `false` disables; `true` / object enables (dev only). */
+export type DevOverlayOption =
+  | boolean
+  | {
+      /** Preset (`vscode` | `cursor` | `webstorm`) or `{file}`/`{line}` template. */
+      editor?: string;
+    };
+
+export type ResolvedDevOverlay =
+  | false
+  | {
+      editor: string;
+    };
+
 export type TongueConfig = {
   locales: readonly string[];
   defaultLocale: string;
@@ -30,7 +44,7 @@ export type TongueConfig = {
   sourcesOnError?: 'fail' | 'use-cache';
   pseudo?: PseudoConfig | boolean;
   client?: { split?: 'none' | 'locale' };
-  devOverlay?: boolean;
+  devOverlay?: DevOverlayOption;
   routing?: {
     prefix?: 'always' | 'as-needed' | 'never';
     localeDetection?: boolean;
@@ -73,7 +87,7 @@ export type ResolvedTongueConfig = {
   sourcesOnError: 'fail' | 'use-cache';
   pseudo: false | Required<PseudoConfig>;
   client: { split: 'none' | 'locale' };
-  devOverlay: boolean;
+  devOverlay: ResolvedDevOverlay;
   routing: {
     prefix: 'always' | 'as-needed' | 'never';
     localeDetection: boolean;

@@ -9,6 +9,8 @@ import { createFormat, type Format } from '../runtime/format.js';
 import { createT, type TFunction, type MessageFn } from '../runtime/create-t.js';
 import { TongueError } from '../errors.js';
 import type { Namespace } from '../index.js';
+import type { DevOverlayOption } from '../config/types.js';
+import { DevOverlayGate } from './dev-overlay-gate.js';
 
 export type { MessageFn };
 
@@ -32,26 +34,53 @@ export function __setClientRuntime(opts: {
   clientDefaultLocale = opts.defaultLocale;
 }
 
+function resolveOverlayEnabled(devOverlay: DevOverlayOption | undefined): {
+  enabled: boolean;
+  editor: string;
+} {
+  if (devOverlay === false) return { enabled: false, editor: 'vscode' };
+  if (devOverlay == null || devOverlay === true) {
+    return { enabled: true, editor: 'vscode' };
+  }
+  return { enabled: true, editor: devOverlay.editor ?? 'vscode' };
+}
+
 /**
  * Passes **only** the locale (and optional timeZone) to the client tree.
  * Never serialises message catalogs — client `t()` uses per-key imports via
  * the call-site loader, or an explicit `loadNamespace` for tests/examples.
+ *
+ * In development, mounts the tongue overlay (Alt+Shift+T) unless
+ * `devOverlay={false}`. Overlay code is eliminated from production builds.
  */
 export function TongueProvider({
   locale,
   timeZone = 'UTC',
   loadNamespace,
+  devOverlay,
   children,
 }: {
   locale: string;
   timeZone?: string;
   loadNamespace?: (namespace: string) => Record<string, MessageFn>;
+  /** Override config; `false` disables the panel. */
+  devOverlay?: DevOverlayOption;
   children: ReactNode;
 }) {
   const value: TongueContextValue = { locale, timeZone };
   if (loadNamespace) value.loadNamespace = loadNamespace;
+  const overlay = resolveOverlayEnabled(devOverlay);
   return (
-    <TongueContext.Provider value={value}>{children}</TongueContext.Provider>
+    <TongueContext.Provider value={value}>
+      {children}
+      {process.env.NODE_ENV === 'development' && overlay.enabled ? (
+        <DevOverlayGate
+          locale={locale}
+          timeZone={timeZone}
+          editor={overlay.editor}
+        />
+      ) : null}
+    </TongueContext.Provider>
   );
 }
 

@@ -8,4 +8,6 @@ export type {
   LocaleCookieConfig,
   DomainConfig,
   PseudoConfig,
+  DevOverlayOption,
+  ResolvedDevOverlay,
 } from './types.js';

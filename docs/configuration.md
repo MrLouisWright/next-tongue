@@ -24,7 +24,7 @@ export default defineConfig({
 
   // Client delivery (ADR 0009)
   client: { split: 'none' },            // 'none' (all locales of used keys) | 'locale' (opt-in, later)
-  devOverlay: true,                     // dev-only panel, stripped from production (v0.3)
+  devOverlay: { editor: 'vscode' },     // or false; Alt+Shift+T panel, stripped from production (v0.3)
 
   // Routing (see routing-and-proxy.md)
   routing: {
@@ -82,7 +82,7 @@ export default defineConfig({
 | `sourcesOnError` | `'fail' \| 'use-cache'` | `'fail'` | `'use-cache'` reuses `.tongue/sources.json` from the last successful build. |
 | `pseudo` | `{ locale?: string; enabled?: 'dev' \| 'always' \| false; expand?: number } \| boolean` | `false` | Adds a pseudo-locale (default `en-XA`) generated from `defaultLocale`; `true` = `{ locale: 'en-XA', enabled: 'dev', expand: 0.35 }`. Never part of `localeParams()` in production unless `'always'`. See [Dev tools](dev-tools.md). |
 | `client.split` | `'none' \| 'locale'` | `'none'` | `'locale'` (opt-in, after the benchmark) splits per-key modules per locale with dynamic imports; see [ADR 0009](adr/0009-client-message-delivery.md). |
-| `devOverlay` | `boolean` | `true` | Dev-only overlay; never included in production builds. See [Dev tools](dev-tools.md). |
+| `devOverlay` | `boolean \| { editor?: string }` | `true` (→ `{ editor: 'vscode' }`) | Dev-only overlay (`Alt+Shift+T`); `false` disables. `editor` is a preset (`vscode`/`cursor`/`webstorm`) or a `{file}`/`{line}` template; `TONGUE_EDITOR` overrides. Never included in production builds. See [Dev tools](dev-tools.md). |
 | `routing.prefix` | `'always' \| 'as-needed' \| 'never'` | `'as-needed'` | `'as-needed'` redirects `/{defaultLocale}/*` to `/*`. `'never'` (v0.4) requires cookie- or domain-based routing. `output: 'export'` supports only `'always'`. |
 | `routing.localeDetection` | `boolean` | `true` | Only the proxy reads headers/cookies. |
 | `routing.localeCookie` | `{ name, maxAge, sameSite?, secure?, path? } \| false` | `{ name: 'TONGUE_LOCALE', maxAge: 1y, sameSite: 'lax', path: '/' }` | `sameSite: 'strict'` is allowed but discouraged: the cookie is then not sent on cross-site navigation, so returning visitors from external links get the detected locale instead of the one they chose ([next-international#453](https://github.com/QuiiBz/next-international/issues/453)). `secure` defaults to `true` on HTTPS. |

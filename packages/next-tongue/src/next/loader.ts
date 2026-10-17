@@ -47,7 +47,7 @@ export function transformCallSites(
   for (const [varName, ns] of translators) {
     if (escapes(source, varName)) {
       warnings.push(
-        `${resourcePath}: '${varName}' from useT('${ns}') escapes this file; importing whole namespace`,
+        `TONGUE_W_ESCAPE: ${resourcePath}: '${varName}' from useT('${ns}') escapes this file; importing whole namespace`,
       );
     }
   }
@@ -74,9 +74,13 @@ export function transformCallSites(
   }
 
   const importLines: string[] = [];
+  const loadedCalls: string[] = [];
   for (const { ns, key, ident } of imports.values()) {
     const path = `#tongue/msg/${ns === '' ? '_root' : ns}/${key}.js`;
     importLines.push(`import { ${safeExport(key)} as ${ident} } from '${path}';`);
+    loadedCalls.push(
+      `process.env.NODE_ENV !== 'production' && globalThis.__tongueDevLoaded?.(${JSON.stringify(ns || '_root')}, ${JSON.stringify(key)});`,
+    );
   }
 
   const localeVar = '__tongue_locale';
@@ -114,8 +118,20 @@ export function transformCallSites(
   }
 
   let preamble = importLines.join('\n') + '\n';
+  // Dev hooks are installed by TongueProvider's overlay gate onto globalThis —
+  // no import, so production bundles stay free of overlay/registry modules.
+  if (loadedCalls.length > 0) {
+    preamble += loadedCalls.join('\n') + '\n';
+  }
   if (!/useLocale/.test(preamble + code) || !/from\s+['"]next-tongue\/client['"]/.test(code)) {
     preamble += `import { useLocale } from 'next-tongue/client';\n`;
+  }
+
+  for (const [varName, ns] of translators) {
+    if (!escapes(source, varName)) continue;
+    preamble +=
+      `process.env.NODE_ENV !== 'production' && globalThis.__tongueDevEscape?.(` +
+      `${JSON.stringify(ns || '_root')}, ${JSON.stringify(resourcePath)});\n`;
   }
 
   return { code: preamble + code, warnings };

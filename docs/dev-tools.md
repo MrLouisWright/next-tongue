@@ -1,6 +1,6 @@
 # Dev tools: overlay, pseudo-localisation, usage report
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** The overlay ships in v0.3; `tongue report` remains planned. See [ROADMAP](../ROADMAP.md).
 
 All three tools are built in, with zero dependencies ([ADR 0012](adr/0012-zero-dependencies.md)).
 
@@ -10,9 +10,9 @@ In `next dev`, `TongueProvider` renders a small panel (toggle with `Alt+Shift+T`
 - the current locale and time zone;
 - **missing keys** rendered on the page (keys that fell back to another locale, or are absent);
 - **which messages went to the client** on this route: per-key modules loaded, and namespaces included because `t` escaped a file (`TONGUE_W_ESCAPE`);
-- **click-to-key:** with the panel open, click any translated string to see its key and open its source location (`messages/de.json:12`) via your editor URL (`devOverlay: { editor: 'vscode' }`, or `TONGUE_EDITOR`).
+- **click-to-key:** with the panel open, enable **Inspect**, then click any translated string to see its key and open its source location (`messages/en.json:12`) via your editor URL (`devOverlay: { editor: 'vscode' }`, or `TONGUE_EDITOR`).
 
-In dev, compiled messages carry key ids that the overlay maps back to strings. The overlay is gated by `process.env.NODE_ENV === 'development'` and is **stripped from production builds**: no overlay code and no key ids in production output (tested in CI). Disable it with `devOverlay: false`.
+In dev, compiled messages carry key ids that the overlay maps back to strings. The overlay is gated by `process.env.NODE_ENV === 'development'` and is **stripped from production builds**: no overlay code and no key ids in production output (asserted by the client size gate). Disable it with `devOverlay: false` on the provider or in `tongue.config.ts` (pass the resolved flag into `TongueProvider` if you turn it off in config).
 
 ## Pseudo-localisation (v0.2)
 

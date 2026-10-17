@@ -5,7 +5,7 @@ import type { ResolvedTongueConfig } from '../config/types.js';
 import { TongueError } from '../errors.js';
 import { collectArgs, type MessageAst } from './ast.js';
 import { parseMessage } from './parse/icu-parser.js';
-import { loadLocaleMessages } from './load-messages.js';
+import { loadLocaleMessages, resolveMessagePath } from './load-messages.js';
 import { resolveFallbackChain } from './fallback.js';
 import { checkPluralCategories } from './validate/plurals.js';
 import {
@@ -17,6 +17,7 @@ import {
 import { emitTypesFile, type NamespaceTypes } from './codegen/emit-types.js';
 import { pseudoLocalizeAst } from './pseudo.js';
 import { emitLocaleMatcherModule } from '../proxy/locale-matcher.js';
+import { locateMessageKeys } from './json-locations.js';
 
 export type BuildResult = {
   outDir: string;
@@ -52,6 +53,8 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     key: string;
     fullKey: string;
     asts: Record<string, MessageAst>;
+    /** Locales whose message was filled from another locale. */
+    fallbackFrom: Record<string, string>;
   };
 
   const keys: ParsedKey[] = [];
@@ -68,6 +71,7 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
       const asts: Record<string, MessageAst> = {
         [config.defaultLocale]: ast,
       };
+      const fallbackFrom: Record<string, string> = {};
 
       for (const locale of config.locales) {
         if (locale === config.defaultLocale) continue;
@@ -92,6 +96,9 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
           }
           resolved = source;
           resolvedLocale = config.defaultLocale;
+        }
+        if (resolvedLocale !== locale) {
+          fallbackFrom[locale] = resolvedLocale;
         }
         const lastAst = parseMessage(resolved, {
           file: config.messages.replaceAll('{locale}', resolvedLocale),
@@ -132,14 +139,31 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
         });
       }
 
-      keys.push({ namespace: ns, key, fullKey, asts });
+      keys.push({ namespace: ns, key, fullKey, asts, fallbackFrom });
     }
   }
+
+  // Source locations for overlay click-to-key (default locale JSON).
+  const defaultMsgAbs = resolveMessagePath(cwd, config.messages, config.defaultLocale);
+  let keyLocations: Record<string, number> = {};
+  try {
+    const rawDefault = await readFile(defaultMsgAbs, 'utf8');
+    keyLocations = locateMessageKeys(
+      rawDefault,
+      keys.map((k) => k.fullKey),
+    );
+  } catch {
+    /* overlay src optional */
+  }
+  const defaultMsgRel = config.messages.replaceAll(
+    '{locale}',
+    config.defaultLocale,
+  );
 
   const emitLocales = localesForEmit(config);
 
   // Content hash for idempotency (bump CODEGEN_VERSION when emit format changes)
-  const CODEGEN_VERSION = 5;
+  const CODEGEN_VERSION = 6;
   const hash = createHash('sha256')
     .update(
       JSON.stringify({
@@ -254,13 +278,29 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
         );
       }
     }
+    const line = keyLocations[item.fullKey];
+    const srcRef =
+      line != null ? `${defaultMsgRel}:${line}` : defaultMsgRel;
+    const fallbackJson = JSON.stringify(item.fallbackFrom);
+    const hasFallback = Object.keys(item.fallbackFrom).length > 0;
+
     const branches = emitLocales.map((l, i) => {
       const call = `_${safeIdent(l)}(values)`;
-      if (i === emitLocales.length - 1) return `  return ${call};`;
-      return `  if (locale === ${JSON.stringify(l)}) return ${call};`;
+      if (emitLocales.length === 1) return `  __out = ${call};`;
+      if (i === 0) return `  if (locale === ${JSON.stringify(l)}) __out = ${call};`;
+      if (i === emitLocales.length - 1) return `  else __out = ${call};`;
+      return `  else if (locale === ${JSON.stringify(l)}) __out = ${call};`;
     });
     parts.push(
-      `export function ${exportName}(locale, values) {\n${branches.join('\n')}\n}\n`,
+      `export function ${exportName}(locale, values) {\n` +
+        `  let __out;\n` +
+        `${branches.join('\n')}\n` +
+        `  if (process.env.NODE_ENV !== 'production') {\n` +
+        `    const __fb = ${hasFallback ? `${fallbackJson}[locale]` : 'undefined'};\n` +
+        `    globalThis.__tongueDevReport?.({ fullKey: ${JSON.stringify(item.fullKey)}, locale, text: __out, src: ${JSON.stringify(srcRef)}, fallbackFrom: __fb });\n` +
+        `  }\n` +
+        `  return __out;\n` +
+        `}\n`,
     );
     if (needsRich) {
       const richBranches = emitLocales.map((l, i) => {
@@ -274,6 +314,16 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     } else {
       parts.push(`${exportName}.rich = ${exportName};\n`);
     }
+    // Dev-only key ids for the overlay; stripped when NODE_ENV=production (#35).
+    parts.push(
+      `if (process.env.NODE_ENV !== 'production') {\n` +
+        `  ${exportName}.__tongueKey = ${JSON.stringify(item.fullKey)};\n` +
+        `  ${exportName}.__tongueSrc = ${JSON.stringify(srcRef)};\n` +
+        (hasFallback
+          ? `  ${exportName}.__tongueFallback = ${fallbackJson};\n`
+          : '') +
+        `}\n`,
+    );
     await writeFile(join(dir, `${item.key}.js`), parts.join('\n'), 'utf8');
   }
 
@@ -437,7 +487,17 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     defaultLocale: config.defaultLocale,
     timeZone: config.timeZone,
     pseudo: config.pseudo,
-    keys: keys.map((k) => ({ namespace: k.namespace, key: k.key, fullKey: k.fullKey })),
+    keys: keys.map((k) => ({
+      namespace: k.namespace,
+      key: k.key,
+      fullKey: k.fullKey,
+      ...(keyLocations[k.fullKey] != null
+        ? { line: keyLocations[k.fullKey], file: defaultMsgRel }
+        : {}),
+      ...(Object.keys(k.fallbackFrom).length
+        ? { fallbackFrom: k.fallbackFrom }
+        : {}),
+    })),
     fallback: Object.fromEntries(
       emitLocales.map((l) => [
         l,
@@ -482,6 +542,7 @@ function summarizeConfig(config: ResolvedTongueConfig) {
     formats: config.formats,
     strict: config.strict,
     pseudo: config.pseudo,
+    devOverlay: config.devOverlay,
   };
 }
 
