@@ -104,7 +104,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - [ ] `sources` are awaited by `tongue build`, merged after files, compiled and typed; failures fail the build unless `sourcesOnError: 'use-cache'` [#33](https://github.com/MrLouisWright/next-tongue/issues/33).
 - [ ] XLIFF 2.0 / CSV export → import round-trip is lossless; invalid imports are rejected with `file:line` [#37](https://github.com/MrLouisWright/next-tongue/issues/37).
 - [ ] `tongue check` reports missing `lang`/`dir` and bidi issues on ar/he/fa fixtures [#40](https://github.com/MrLouisWright/next-tongue/issues/40).
-- [ ] `tongue check` flags targets whose source hash in `tongue.lock` changed [#42](https://github.com/MrLouisWright/next-tongue/issues/42).
+- [x] `tongue check` flags targets whose source hash in `tongue.lock` changed [#42](https://github.com/MrLouisWright/next-tongue/issues/42).
 - [ ] `$meta` description, screenshot and `maxLength` reach `translate` and `export`; `tongue check` reports over-length targets [#43](https://github.com/MrLouisWright/next-tongue/issues/43).
 - [ ] `tongue report` prints keys and bytes sent to the client per route, with a `--max-bytes` budget [#41](https://github.com/MrLouisWright/next-tongue/issues/41).
 
