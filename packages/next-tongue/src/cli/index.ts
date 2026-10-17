@@ -3,6 +3,7 @@ import { loadConfig } from '../config/load-config.js';
 import { buildMessages } from '../compiler/build.js';
 import { TongueError } from '../errors.js';
 import { cmdCheck } from './check.js';
+import { cmdExtract } from './extract.js';
 
 export async function runCli(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -17,6 +18,11 @@ export async function runCli(argv: string[]): Promise<void> {
       locale: { type: 'string' },
       reporter: { type: 'string' },
       'max-warnings': { type: 'string' },
+      include: { type: 'string' },
+      placeholder: { type: 'string' },
+      prune: { type: 'boolean', default: false },
+      yes: { type: 'boolean', short: 'y', default: false },
+      'dry-run': { type: 'boolean', default: false },
     },
     allowPositionals: true,
     strict: false,
@@ -90,6 +96,20 @@ export async function runCli(argv: string[]): Promise<void> {
         process.exitCode = 2;
         break;
       case 'extract':
+        await cmdExtract({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          ...(typeof values.config === 'string' ? { config: values.config } : {}),
+          ...(typeof values.include === 'string' ? { include: values.include } : {}),
+          ...(typeof values.placeholder === 'string'
+            ? { placeholder: values.placeholder }
+            : {}),
+          prune: values.prune === true,
+          yes: values.yes === true,
+          dryRun: values['dry-run'] === true,
+          json: values.json === true,
+          quiet: values.quiet === true,
+        });
+        break;
       case 'translate':
       case 'export':
       case 'import':
@@ -138,7 +158,8 @@ function printHelp(): void {
 Usage:
   tongue build [--cwd <dir>] [--config <path>] [--json] [--quiet]
   tongue check [--cwd <dir>] [--config <path>] [--locale de] [--reporter pretty|json|github] [--max-warnings N]
-  tongue init | extract | translate   (later milestones)
+  tongue extract [--include app,src] [--placeholder ''] [--prune] [--yes] [--dry-run]
+  tongue init | translate   (later milestones)
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);
