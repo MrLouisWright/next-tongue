@@ -1,5 +1,6 @@
 'use client';
 
+import type { Namespace } from 'next-tongue';
 import { useT, type MessageFn, type TFunction } from 'next-tongue/client';
 
 /**
@@ -26,6 +27,6 @@ export function loadClientNamespace(namespace: string): Record<string, MessageFn
   return catalogs[namespace] ?? {};
 }
 
-export function useClientT(namespace: string): TFunction {
+export function useClientT(namespace: Namespace): TFunction {
   return useT(namespace);
 }
