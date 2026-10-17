@@ -85,6 +85,11 @@ export async function getFormat(
 }
 
 export function isLocale(value: unknown): value is string {
+  if (typeof value !== 'string' || value === '') return false;
+  // Match assertLocale: empty allow-list means runtime not wired yet.
+  if (!runtimeLocales.length) {
+    return !/[\0\r\n\\/]/.test(value) && !value.includes('..');
+  }
   return isLocaleValue(value, runtimeLocales);
 }
 

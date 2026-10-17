@@ -24,4 +24,11 @@ describe('withLocale (#26)', () => {
       expect((e as TongueError).code).toBe('TONGUE_E_LOCALE');
     }
   });
+
+  it('allows any safe tag before ensureTongue wires locales', () => {
+    __setServerRuntime({ locales: [], defaultLocale: 'en' });
+    const action = withLocale((locale: string) => locale);
+    expect(action('de')).toBe('de');
+    expect(() => action('en\r\n')).toThrow(TongueError);
+  });
 });

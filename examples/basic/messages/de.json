@@ -2,5 +2,10 @@
   "home": {
     "title": "Hallo, {name}!",
     "body": "Das ist das einfache next-tongue Beispiel."
+  },
+  "contact": {
+    "title": "Kontakt",
+    "sent": "Nachricht gesendet.",
+    "invalidEmail": "Gib eine gültige E-Mail ein."
   }
 }
