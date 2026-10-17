@@ -8,24 +8,29 @@
   },
   "scripts": {
     "build": "pnpm -r --filter=./packages/* run build",
+    "build:examples": "pnpm --filter @next-tongue/example-basic run build && pnpm --filter @next-tongue/example-cache-components run build && pnpm --filter @next-tongue/example-static-export run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b && pnpm --filter next-tongue run typecheck",
     "lint": "eslint .",
+    "e2e": "pnpm build:examples && playwright test",
+    "benchmark": "pnpm --filter @next-tongue/benchmarks run measure:all",
     "changeset": "changeset",
     "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm --filter next-tongue run check:deps"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
     "@eslint/js": "^9.37.0",
+    "@playwright/test": "^1.64.1",
     "@types/node": "^22.18.8",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "esbuild": "^0.25.10",
     "eslint": "^9.37.0",
     "globals": "^16.4.0",
+    "serve": "^14.2.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.46.0",
-    "esbuild": "^0.25.10",
     "vitest": "^3.2.4"
   }
 }

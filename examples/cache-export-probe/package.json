@@ -1,0 +1,24 @@
+{
+  "name": "@next-tongue/example-cache-export-probe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "imports": {
+    "#tongue/*": "./.tongue/*"
+  },
+  "scripts": {
+    "build": "tongue build && next build"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "next-tongue": "workspace:*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.8",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "typescript": "^5.9.3"
+  }
+}

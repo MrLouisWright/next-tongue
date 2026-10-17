@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '../config/load-config.js';
 import { startDevWatcher } from './watcher.js';
@@ -30,6 +30,7 @@ export function withTongue<T extends object>(
   const outDir = resolve(cwd, '.tongue');
   const loaderPath = resolveLoaderPath();
   const input = nextConfig as T & {
+    output?: string;
     turbopack?: { resolveAlias?: Record<string, unknown> };
     webpack?: (
       config: WebpackConfigLike,
@@ -44,6 +45,8 @@ export function withTongue<T extends object>(
       ...(options.config != null ? { configPath: options.config } : {}),
     })
       .then(({ config, cwd: configCwd }) => {
+        warnConfigCombos(input, config);
+        warnMissingLocaleParams(cwd);
         if (process.env.NODE_ENV !== 'production') {
           startDevWatcher(config, configCwd);
         }
@@ -94,6 +97,58 @@ export function withTongue<T extends object>(
     turbopack,
     webpack,
   };
+}
+
+function warnConfigCombos(
+  nextConfig: { output?: string },
+  config: {
+    routing: { prefix: string; domains?: unknown };
+  },
+): void {
+  if (nextConfig.output === 'export') {
+    if (config.routing.prefix !== 'always') {
+      console.warn(
+        `[next-tongue] output: 'export' requires routing.prefix: 'always' (got '${config.routing.prefix}')`,
+      );
+    }
+    if (config.routing.domains) {
+      console.warn(
+        `[next-tongue] output: 'export' does not support routing.domains`,
+      );
+    }
+  }
+}
+
+function warnMissingLocaleParams(cwd: string): void {
+  const candidates = [
+    join(cwd, 'app', '[locale]', 'layout.tsx'),
+    join(cwd, 'app', '[locale]', 'layout.ts'),
+    join(cwd, 'src', 'app', '[locale]', 'layout.tsx'),
+    join(cwd, 'src', 'app', '[locale]', 'layout.ts'),
+  ];
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    const src = readFileSync(file, 'utf8');
+    if (
+      !/generateStaticParams/.test(src) &&
+      !/localeParams/.test(src)
+    ) {
+      console.warn(
+        `[next-tongue] ${file.replace(cwd + '/', '')}: root [locale] layout should export generateStaticParams (e.g. localeParams) for a static shell under cacheComponents`,
+      );
+    }
+    return;
+  }
+  // Soft check: look for any [locale] layout
+  try {
+    const appDir = existsSync(join(cwd, 'app')) ? join(cwd, 'app') : join(cwd, 'src', 'app');
+    if (!existsSync(appDir)) return;
+    for (const name of readdirSync(appDir)) {
+      if (name.includes('[locale]')) return;
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 function resolveLoaderPath(): string {

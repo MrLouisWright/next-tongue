@@ -1,0 +1,11 @@
+{
+  "library": "runtime-catalog-pick-2-keys",
+  "proxyFor": "next-intl with pick() / narrowed provider (best-case catalog size)",
+  "keysTotal": 500,
+  "keysUsed": 2,
+  "locales": 3,
+  "bytes": 363,
+  "bytesGz": 226,
+  "measuredAt": "2026-10-17T11:15:09.852Z",
+  "note": "Only the 2 used keys × 3 locales are inlined as a JSON catalog + tiny interpolator. No ICU plural runtime."
+}

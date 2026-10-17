@@ -11,13 +11,13 @@
 5. `localeDetection` has no effect (no proxy). Add a client-side locale switcher.
 
 ```ts
-// next.config.ts
-export default withTongue({ output: 'export', cacheComponents: true });
+// next.config.ts — do NOT enable cacheComponents here
+export default withTongue({ output: 'export' });
 ```
 
-> **Unverified pairing.** `cacheComponents: true` together with `output: 'export'` is checked early in v0.1 ([#15](https://github.com/MrLouisWright/next-tongue/issues/15)). If it does not build on the current 16.x, the export example drops `cacheComponents` and this page will say so.
+> **Verified (Next.js 16.4.2):** `cacheComponents: true` + `output: 'export'` **does not build** (`Invariant: PPR cannot be enabled in export mode`). See [`examples/cache-export-probe/RESULT.md`](../examples/cache-export-probe/RESULT.md). The static-export example therefore omits Cache Components; use `examples/cache-components` when you need PPR/static shells.
 
-`withTongue` fails the build if `output: 'export'` is combined with `prefix: 'as-needed' | 'never'` or `domains`.
+`withTongue` warns if `output: 'export'` is combined with `prefix` other than `'always'` or with `domains`.
 
 ---
 [Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)

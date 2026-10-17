@@ -32,3 +32,23 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter next-tongue run check:deps
+      - run: pnpm benchmark
+
+  e2e:
+    name: Playwright e2e
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter next-tongue run build
+      - run: pnpm build:examples
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test

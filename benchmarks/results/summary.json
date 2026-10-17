@@ -1,0 +1,23 @@
+{
+  "measuredAt": "2026-10-17T11:15:09.974Z",
+  "scenario": "2 of 500 keys × 3 locales, esbuild minify + gzip",
+  "rows": [
+    {
+      "library": "paraglide-style-per-message",
+      "proxyFor": "Paraglide JS 2 (per-message functions, all locales of used messages)",
+      "bytes": 338,
+      "bytesGz": 171
+    },
+    {
+      "library": "next-tongue",
+      "bytes": 514,
+      "bytesGz": 200
+    },
+    {
+      "library": "runtime-catalog-pick-2-keys",
+      "proxyFor": "next-intl with pick() / narrowed provider (best-case catalog size)",
+      "bytes": 363,
+      "bytesGz": 226
+    }
+  ]
+}

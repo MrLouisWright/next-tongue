@@ -9,11 +9,19 @@ Compares **client JS** for a fixture that uses 2 of 500 message keys across next
 ```bash
 pnpm install
 pnpm --filter next-tongue run build
-pnpm --filter @next-tongue/benchmarks run measure
+pnpm benchmark   # tongue + catalog-pick proxy + paraglide-style + summary
 ```
 
-Results land in `benchmarks/results/` as JSON. Numbers are only published once scripts are stable and CI-reproducible.
+Results land in `benchmarks/results/` as JSON (`summary.json` ranks by gzip).
 
-## Status
+## Current scenario
 
-Harness scaffold only — competitor fixtures and size measurement land next.
+**2 of 500 keys × 3 locales**, esbuild minify + gzip (client message code only):
+
+| Library | What it models |
+|---|---|
+| `next-tongue` | Per-key modules from real codegen |
+| `runtime-catalog-pick-2-keys` | next-intl best case: provider narrowed to 2 keys |
+| `paraglide-style-per-message` | Paraglide-like per-message functions, all locales of used keys |
+
+Full competitor apps (next-intl precompile, Paraglide Next `--webpack`, Lingui SWC) and the matrix in #25 still to come.

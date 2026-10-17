@@ -6,7 +6,8 @@
   "scripts": {
     "generate-fixture": "node ./scripts/generate-fixture.mjs",
     "measure": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-tongue.mjs",
-    "measure:tongue": "node ./scripts/measure-tongue.mjs"
+    "measure:tongue": "node ./scripts/measure-tongue.mjs",
+    "measure:all": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-tongue.mjs && node ./scripts/measure-catalog-pick.mjs && node ./scripts/measure-paraglide-style.mjs && node ./scripts/summarize.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",

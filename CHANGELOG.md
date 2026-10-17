@@ -18,6 +18,10 @@ All notable changes to this project will be documented in this file. The format 
 - ICU conformance corpus expanded (`subset.json` + `format.json` roundtrips) (#27).
 - Codegen emits `.tongue/ns/*.d.ts`; esbuild tree-shake test for unused per-key modules (#4).
 - Benchmark harness scaffold: 500-key fixture + esbuild min+gz measure for next-tongue (#25).
+- Playwright e2e for basic / cache-components / static-export (6 tests); CI e2e job (#15).
+- Early check: `cacheComponents` + `output: 'export'` fails on Next 16.4.2 (PPR); documented in `examples/cache-export-probe/RESULT.md` and static-export docs (#15).
+- Benchmark proxies for next-intl `pick` and Paraglide-style per-message delivery + `summary.json` (#25).
+- `withTongue` warns on bad `output: 'export'` / prefix / domains combos and missing `generateStaticParams`; loader ADR constraint test (#8).
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).
