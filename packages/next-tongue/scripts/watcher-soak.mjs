@@ -7,7 +7,7 @@
  *
  * Pass: heapUsed growth < 10% from post-warmup to end; lockfile cleaned on stop.
  */
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';

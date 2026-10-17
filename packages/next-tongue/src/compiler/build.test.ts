@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { mkdtemp, mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { resolveConfig } from '../config/validate.js';
 import { buildMessages } from './build.js';
 

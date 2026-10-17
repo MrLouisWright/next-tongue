@@ -5,6 +5,8 @@
  * Base interface is intentionally empty so generated declarations can
  * narrow `locales` / `ns` / `pathnames` via declaration merging.
  */
+// Empty so apps/codegen can augment locales, ns, pathnames via merging.
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentional augmentation target
 export interface TongueRegister {}
 
 type Register = TongueRegister;

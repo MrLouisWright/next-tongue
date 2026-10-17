@@ -3,6 +3,7 @@
  * Checked via `tsc -p tsconfig.type-tests.json --noEmit` (not executed at runtime).
  */
 import { expectTypeOf } from 'expect-type';
+import type { ReactNode } from 'react';
 import type { TFunction } from '../runtime/create-t.js';
 import type { Locale, MessageKey, Namespace } from '../index.js';
 
@@ -36,8 +37,8 @@ expectTypeOf(tHome('title', { name: 'Ada' })).toEqualTypeOf<string>();
 expectTypeOf(tHome('inbox', { count: 3 })).toEqualTypeOf<string>();
 expectTypeOf(tStatus('ok')).toEqualTypeOf<string>();
 expectTypeOf(
-  tLegal.rich('terms', { link: (c) => c }),
-).toEqualTypeOf<import('react').ReactNode>();
+  tLegal.rich('terms', { link: (c: ReactNode) => c }),
+).toEqualTypeOf<ReactNode>();
 expectTypeOf(tStatus.dynamic('ok', { from: ['ok', 'pending'] })).toEqualTypeOf<string>();
 
 // Key does not exist
