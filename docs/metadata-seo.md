@@ -4,18 +4,31 @@
 
 ## Localized metadata
 
-```tsx
+```tsx typecheck
 // app/[locale]/about/page.tsx
 import type { Metadata } from 'next';
 import { getT, generateAlternates } from 'next-tongue/server';
 
-export async function generateMetadata({ params }: PageProps<'/[locale]/about'>): Promise<Metadata> {
+const locales = ['en', 'de'] as const;
+const defaultLocale = 'en';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
   const { locale } = await params;
   const t = await getT(locale, 'about');
   return {
     title: t('meta.title'),
     description: t('meta.description'),
-    alternates: generateAlternates({ href: '/about', locale }),
+    alternates: generateAlternates({
+      href: '/about',
+      locale,
+      locales,
+      defaultLocale,
+      pathnames: { '/about': { de: '/ueber-uns' } },
+    }),
   };
 }
 ```

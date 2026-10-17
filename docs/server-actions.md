@@ -6,18 +6,23 @@ Server actions have no `params`. Pass the locale explicitly — either bound or 
 
 ## Bound argument (recommended)
 
-```tsx
+```tsx typecheck
 // app/[locale]/contact/actions.ts
 'use server';
 import { getT, withLocale } from 'next-tongue/server';
 
-async function sendMessageImpl(locale: string, prev: State, form: FormData): Promise<State> {
+type State = { error?: string; ok?: string };
+
+async function sendMessageImpl(
+  locale: string,
+  _prev: State,
+  form: FormData,
+): Promise<State> {
   const t = await getT(locale, 'contact');
   const email = form.get('email');
   if (typeof email !== 'string' || !email.includes('@')) {
-    return { error: t('errors.invalidEmail') };
+    return { error: t('invalidEmail') };
   }
-  // ...
   return { ok: t('sent') };
 }
 
@@ -75,21 +80,34 @@ export async function POST(req: Request) {
 
 `translateIssues` turns validation issues into typed, translated messages. It is schema-agnostic: it accepts any array shaped like [Standard Schema](https://standardschema.dev) issues (`{ message: string; path?: ReadonlyArray<PropertyKey | { key: PropertyKey }> }`), so it works with any validator that emits that shape. next-tongue has no validator dependency.
 
-```ts
+```ts typecheck
 'use server';
 import { getT, translateIssues, withLocale } from 'next-tongue/server';
 
-async function signupImpl(locale: string, prev: State, form: FormData): Promise<State> {
-  const result = await schema['~standard'].validate(Object.fromEntries(form)); // any Standard Schema validator
+type State = { errors?: Record<string, string[]> };
+
+declare const schema: {
+  '~standard': {
+    validate: (
+      data: unknown,
+    ) => Promise<{ issues?: readonly { message: string; path?: readonly PropertyKey[] }[] }>;
+  };
+};
+
+async function signupImpl(
+  locale: string,
+  _prev: State,
+  form: FormData,
+): Promise<State> {
+  const result = await schema['~standard'].validate(Object.fromEntries(form));
   if (result.issues) {
     const t = await getT(locale, 'validation');
-    return { errors: translateIssues(t, result.issues) }; // { email: ['Enter a valid email'], ... }
+    return { errors: translateIssues(t, result.issues) };
   }
-  // ...
+  return {};
 }
 
 export const signup = withLocale(signupImpl);
-// Client: useActionState(signup.bind(null, locale), {})
 ```
 
 - An issue's `message` is treated as a **key** in the namespace (typed: `translateIssues` accepts `T<'validation'>`, and unknown keys hit `fallback`).

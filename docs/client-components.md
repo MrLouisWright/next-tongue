@@ -68,9 +68,15 @@ An undeclared non-literal key (`t(someString)`) is a build error, `TONGUE_E_DYNA
 
 `next-tongue/navigation` ships a **headless, accessible** switcher (v0.3, [#44](https://github.com/MrLouisWright/next-tongue/issues/44)). It keeps the current page (including localized pathnames and dynamic params), persists the choice through the locale cookie (or the signed preference, see [User preferences](user-preferences.md)), and labels each locale in its own language via `Intl.DisplayNames`.
 
-```tsx
+```tsx typecheck
 'use client';
-import { LocaleSwitcher } from 'next-tongue/navigation';
+import { createNavigation } from 'next-tongue/navigation';
+
+const { LocaleSwitcher } = createNavigation({
+  locales: ['en', 'de'],
+  defaultLocale: 'en',
+  prefix: 'as-needed',
+});
 
 export function LanguageMenu() {
   return (
@@ -78,7 +84,15 @@ export function LanguageMenu() {
       {(options) => (
         <nav aria-label="Language">
           {options.map(({ locale, label, href, current }) => (
-            <a key={locale} href={href} hrefLang={locale} lang={locale} aria-current={current ? 'true' : undefined}>{label}</a>
+            <a
+              key={locale}
+              href={href}
+              hrefLang={locale}
+              lang={locale}
+              aria-current={current ? 'page' : undefined}
+            >
+              {label}
+            </a>
           ))}
         </nav>
       )}

@@ -14,3 +14,4 @@ pnpm-debug.log*
 .turbo/
 playwright-report/
 test-results/
+.docs-samples/

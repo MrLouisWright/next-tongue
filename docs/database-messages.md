@@ -43,18 +43,24 @@ export default defineConfig({
 
 ## 2. Request-time `formatMessage`
 
-```tsx
+```tsx typecheck
 // app/[locale]/promo.tsx (Server Component)
 import { formatMessage } from 'next-tongue/server';
 import { cacheLife, cacheTag } from 'next/cache';
 
-async function getPromo(locale: Locale) {
+declare const db: {
+  promo: { find: (locale: string) => Promise<{ text: string }> };
+};
+
+async function getPromo(locale: string) {
   'use cache';
   cacheTag('promo');
   cacheLife('hours');
-  const row = await db.promo.find(locale); // { text: 'Save {pct, number, ::percent} on <b>{product}</b>' }
+  const row = await db.promo.find(locale);
   return formatMessage(locale, row.text, { pct: 0.2, product: 'Pro' });
 }
+
+void getPromo;
 ```
 
 - Server-only (`import 'server-only'` guard); untyped `values`; returns a `string`.

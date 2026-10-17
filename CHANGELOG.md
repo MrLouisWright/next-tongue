@@ -53,6 +53,7 @@ All notable changes to this project will be documented in this file. The format 
 - `translateIssues(t, issues)` — Standard Schema–shaped validation errors → `Record<path, string[]>` (#38).
 - Headless `LocaleSwitcher` / `useLocaleSwitcher` via `createNavigation` (DisplayNames labels, plain links) (#44).
 - `examples/og-email`: prerendered `opengraph-image` / `twitter-image` with `getT`+`getDir` (RTL `ar` snapshot), welcome-email route with `t.rich` (#39).
+- Docs sample CI: extract ```ts typecheck / ```tsx typecheck fences and `tsc` them (`pnpm check:docs`) (#16).
 
 
 
