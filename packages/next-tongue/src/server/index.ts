@@ -127,6 +127,16 @@ export type {
   FormatMessageConfig,
 } from '../runtime/format-message.js';
 
+export {
+  generateAlternates,
+  createGenerateAlternates,
+} from './alternates.js';
+export type {
+  Alternates,
+  GenerateAlternatesOptions,
+  CreateGenerateAlternatesConfig,
+} from './alternates.js';
+
 export type { TFunction } from '../runtime/create-t.js';
 export type {
   Format,

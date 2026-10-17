@@ -9,10 +9,9 @@ Server actions have no `params`. Pass the locale explicitly — either bound or 
 ```tsx
 // app/[locale]/contact/actions.ts
 'use server';
-import { getT, isLocale } from 'next-tongue/server';
+import { getT, withLocale } from 'next-tongue/server';
 
-export async function sendMessage(locale: string, prev: State, form: FormData): Promise<State> {
-  if (!isLocale(locale)) throw new Error('Invalid locale');
+async function sendMessageImpl(locale: string, prev: State, form: FormData): Promise<State> {
   const t = await getT(locale, 'contact');
   const email = form.get('email');
   if (typeof email !== 'string' || !email.includes('@')) {
@@ -21,6 +20,9 @@ export async function sendMessage(locale: string, prev: State, form: FormData): 
   // ...
   return { ok: t('sent') };
 }
+
+/** Validates the bound locale; throws `TONGUE_E_LOCALE` if tampered. */
+export const sendMessage = withLocale(sendMessageImpl);
 ```
 
 ```tsx
@@ -51,7 +53,23 @@ redirect({ href: '/thanks', locale });
 ```tsx
 <form action={sendMessage}><input type="hidden" name="locale" value={locale} />…</form>
 ```
-Read it with `form.get('locale')` and validate with `isLocale()`. `withLocale(action)` (v0.2) wraps an action whose first argument is a bound locale, validates it and throws `TONGUE_E_LOCALE` otherwise.
+Read it with `form.get('locale')` and validate with `isLocale()` (or wrap a bound action with `withLocale`).
+
+## Route handlers and code outside `[locale]`
+
+Route handlers, the root `not-found`, and `output: 'export'` entry pages have no `[locale]` segment. Pass a stored or form locale explicitly — never call `headers()` / `cookies()` inside next-tongue helpers (ADR 0002). Example:
+
+```ts
+// app/api/hello/route.ts
+import { getT, isLocale } from 'next-tongue/server';
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  const locale = isLocale(body.locale) ? body.locale : 'en';
+  const t = await getT(locale, 'api');
+  return Response.json({ message: t('hello') });
+}
+```
 
 ## Translated validation errors (v0.3)
 
