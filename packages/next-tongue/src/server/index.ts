@@ -142,6 +142,16 @@ export type {
   CreateGenerateAlternatesConfig,
 } from './alternates.js';
 
+export {
+  translateIssues,
+  defaultFormatPath,
+} from '../runtime/translate-issues.js';
+export type {
+  TranslateIssue,
+  TranslateIssuesOptions,
+  IssuePathSegment,
+} from '../runtime/translate-issues.js';
+
 export type { TFunction } from '../runtime/create-t.js';
 export type {
   Format,

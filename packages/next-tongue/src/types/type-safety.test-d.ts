@@ -83,3 +83,10 @@ expectTypeOf<SanctionedUnit>().toMatchTypeOf<string>();
 f.unit(1, 'furlong');
 // @ts-expect-error — invalid displayName type
 f.displayName('de', { type: 'emoji' });
+
+// translateIssues (#38)
+import { translateIssues } from '../runtime/translate-issues.js';
+declare const tValidation: TFunction<'status'>;
+expectTypeOf(
+  translateIssues(tValidation, [{ message: 'ok', path: ['email'] }]),
+).toEqualTypeOf<Record<string, string[]>>();

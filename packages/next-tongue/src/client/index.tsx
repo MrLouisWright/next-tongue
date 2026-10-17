@@ -138,3 +138,13 @@ export type {
   DisplayNameType,
 } from '../runtime/format.js';
 export { isSanctionedUnit, SIMPLE_UNITS } from '../runtime/format.js';
+
+export {
+  translateIssues,
+  defaultFormatPath,
+} from '../runtime/translate-issues.js';
+export type {
+  TranslateIssue,
+  TranslateIssuesOptions,
+  IssuePathSegment,
+} from '../runtime/translate-issues.js';

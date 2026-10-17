@@ -77,10 +77,9 @@ export async function POST(req: Request) {
 
 ```ts
 'use server';
-import { getT, translateIssues, isLocale } from 'next-tongue/server';
+import { getT, translateIssues, withLocale } from 'next-tongue/server';
 
-export async function signup(locale: string, prev: State, form: FormData): Promise<State> {
-  if (!isLocale(locale)) throw new Error('Invalid locale');
+async function signupImpl(locale: string, prev: State, form: FormData): Promise<State> {
   const result = await schema['~standard'].validate(Object.fromEntries(form)); // any Standard Schema validator
   if (result.issues) {
     const t = await getT(locale, 'validation');
@@ -88,6 +87,9 @@ export async function signup(locale: string, prev: State, form: FormData): Promi
   }
   // ...
 }
+
+export const signup = withLocale(signupImpl);
+// Client: useActionState(signup.bind(null, locale), {})
 ```
 
 - An issue's `message` is treated as a **key** in the namespace (typed: `translateIssues` accepts `T<'validation'>`, and unknown keys hit `fallback`).
