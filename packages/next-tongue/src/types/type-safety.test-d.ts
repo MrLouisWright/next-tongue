@@ -17,7 +17,7 @@ declare module 'next-tongue' {
         inbox: { count: number };
       };
       legal: {
-        terms: { link: (chunks: unknown) => unknown };
+        terms: { link: (chunks: ReactNode) => ReactNode };
       };
       status: {
         ok: Record<string, never>;
