@@ -65,6 +65,7 @@ export default defineConfig({
     glossary: './tongue.glossary.json',
     lockfile: './tongue.lock',
     context: 'A B2B invoicing app. Formal tone (Sie in German).',
+    maxTokens: 50_000,                  // estimated-token budget per run (also --max-cost)
   },
 });
 ```

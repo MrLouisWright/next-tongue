@@ -7,6 +7,7 @@ import { cmdExtract } from './extract.js';
 import { cmdInit } from './init.js';
 import { cmdExport, cmdImport } from './export-import.js';
 import { cmdReport, parseMaxBytes } from './report.js';
+import { cmdTranslate } from './translate.js';
 
 export async function runCli(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -35,6 +36,13 @@ export async function runCli(argv: string[]): Promise<void> {
       out: { type: 'string' },
       'missing-only': { type: 'boolean', default: false },
       'max-bytes': { type: 'string' },
+      keys: { type: 'string' },
+      retranslate: { type: 'boolean', default: false },
+      // No default: undefined = not passed (CI defaults to review).
+      review: { type: 'boolean' },
+      accept: { type: 'boolean', default: false },
+      concurrency: { type: 'string' },
+      'max-cost': { type: 'string' },
     },
     allowPositionals: true,
     strict: false,
@@ -206,8 +214,28 @@ export async function runCli(argv: string[]): Promise<void> {
         break;
       }
       case 'translate':
-        console.error(`\`tongue ${command}\` is not implemented yet (see ROADMAP).`);
-        process.exitCode = 2;
+        await cmdTranslate({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          ...(typeof values.config === 'string' ? { config: values.config } : {}),
+          ...(typeof values.locale === 'string' ? { locale: values.locale } : {}),
+          ...(typeof values.keys === 'string' ? { keys: values.keys } : {}),
+          dryRun: values['dry-run'] === true,
+          yes: values.yes === true,
+          retranslate: values.retranslate === true,
+          ...(values.review === true
+            ? { review: true }
+            : values.review === false
+              ? { review: false }
+              : {}),
+          accept: values.accept === true,
+          ...(typeof values.concurrency === 'string'
+            ? { concurrency: Number(values.concurrency) || 2 }
+            : {}),
+          ...(typeof values['max-cost'] === 'string'
+            ? { maxCost: Number(values['max-cost']) || 0 }
+            : {}),
+          quiet: values.quiet === true,
+        });
         break;
       default:
         console.error(`Unknown command: ${command}`);
@@ -255,7 +283,7 @@ Usage:
   tongue export --format xliff|csv [--locale de] [--out ./translations] [--missing-only]
   tongue import <file.xlf|file.csv> [--dry-run]
   tongue report [--json] [--max-bytes 4kb]
-  tongue translate   (later milestones)
+  tongue translate [--locale de] [--keys 'home.*'] [--dry-run] [--review] [--accept] [--retranslate] [--max-cost N]
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);

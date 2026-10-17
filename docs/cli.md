@@ -1,6 +1,6 @@
 # CLI
 
-> **Status: pre-release.** `tongue build`, `check`, `extract` and `init` ship in v0.3; translate/export/report remain planned. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** `tongue build`, `check`, `extract`, `init`, `export`/`import`, `report`, and `translate` are implemented. See [ROADMAP](../ROADMAP.md).
 
 Binary: `tongue` (via `npx tongue` or a package.json script). Every command reads `tongue.config.ts`, supports `--config <path>`, `--cwd <dir>`, `--json` (machine-readable output) and `--quiet`. Exit codes: `0` ok, `1` check failures, `2` usage/config error.
 
@@ -45,7 +45,7 @@ Flags: `--locale de`, `--reporter pretty|json|github` (`github` emits workflow a
 
 ## `tongue translate`
 Fills missing/stale target messages using an LLM. See [AI translation](ai-translation.md).
-Flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency 4`, `--retranslate` (ignore lock), `--review` (write to `messages/{locale}.review.json` instead of in place), `--accept` (merge reviewed `*.review.json` files into messages and update the lock).
+Flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency 4`, `--retranslate` (ignore lock), `--review` (write to `messages/{locale}.review.json` instead of in place; default when `CI=true`), `--accept` (merge reviewed `*.review.json` files into messages and update the lock), `--max-cost N` (estimated-token budget).
 
 ## `tongue export` / `tongue import` (v0.4)
 XLIFF 2.0 and CSV round-trip for translators. See [Translator workflow](translator-workflow.md).

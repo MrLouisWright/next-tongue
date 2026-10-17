@@ -74,6 +74,8 @@ export type TongueConfig = {
     glossary?: string;
     lockfile?: string;
     context?: string;
+    /** Soft cap on estimated prompt+completion tokens for a run. */
+    maxTokens?: number;
   };
 };
 

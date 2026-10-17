@@ -47,7 +47,7 @@ Flags: `--locale de`, `--reporter pretty|json|github` (`github` emits workflow a
 
 ## `tongue translate`
 Fills missing/stale target messages using an LLM. See [AI translation](AI-Translation).
-Flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency 4`, `--retranslate` (ignore lock), `--review` (write to `messages/{locale}.review.json` instead of in place), `--accept` (merge reviewed `*.review.json` files into messages and update the lock).
+Flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency 4`, `--retranslate` (ignore lock), `--review` (write to `messages/{locale}.review.json` instead of in place; default when `CI=true`), `--accept` (merge reviewed `*.review.json` files into messages and update the lock), `--max-cost N` (estimated-token budget).
 
 ## `tongue export` / `tongue import` (v0.4)
 XLIFF 2.0 and CSV round-trip for translators. See [Translator workflow](Translator-Workflow).

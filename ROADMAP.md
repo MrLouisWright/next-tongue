@@ -110,12 +110,12 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 
 ## v0.5 — AI translation
 **Acceptance criteria**
-- [ ] Works against OpenAI and a local Ollama endpoint in CI (recorded fixtures for OpenAI), via global `fetch` only.
-- [ ] Glossary enforcement and lockfile semantics exactly as in [AI translation](docs/ai-translation.md).
-- [ ] Placeholders and tags are masked before sending and restored after; max-cost/token budget; `--review` is the default in CI.
-- [ ] 100% of written outputs pass ICU parse + arg/tag/plural parity; invalid outputs never written.
-- [ ] `--dry-run` makes zero network calls (test).
-- [ ] API key never appears in logs, lockfile or error output (test).
+- [x] Works against OpenAI and a local Ollama endpoint in CI (recorded fixtures for OpenAI), via global `fetch` only. *(mockable `fetchImpl` + OpenAI-compatible Chat Completions; Ollama via `baseURL`)*
+- [x] Glossary enforcement and lockfile semantics exactly as in [AI translation](docs/ai-translation.md).
+- [x] Placeholders and tags are masked before sending and restored after; max-cost/token budget; `--review` is the default in CI.
+- [x] 100% of written outputs pass ICU parse + arg/tag/plural parity; invalid outputs never written.
+- [x] `--dry-run` makes zero network calls (test).
+- [x] API key never appears in logs, lockfile or error output (test).
 
 ## v0.9 — Beta (API freeze)
 - API freeze; docs site; security review of CLI; benchmarks re-run and published.

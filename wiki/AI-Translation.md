@@ -2,7 +2,7 @@
 
 # AI translation
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](Roadmap).
+> **Status: implemented (pre-release).** Ships with v0.5. Names may still change before v1.0. See [ROADMAP](Roadmap).
 
 `tongue translate` is a built-in, **optional** workflow: you bring your own key to any OpenAI-compatible Chat Completions endpoint (OpenAI, Azure OpenAI, OpenRouter, Together, Groq, xAI, Mistral, local Ollama/LM Studio/vLLM, …). There is no next-tongue service, no account, no telemetry.
 
