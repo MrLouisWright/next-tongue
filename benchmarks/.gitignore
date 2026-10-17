@@ -3,4 +3,7 @@ fixtures/.tongue/
 fixtures/tongue.config.mjs
 fixtures/client-entry.js
 results/*.js
+results/*.min.js
+results/paraglide-style/
+results/catalog-pick-entry.js
 node_modules/
