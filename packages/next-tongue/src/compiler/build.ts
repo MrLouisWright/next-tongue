@@ -19,6 +19,7 @@ import { pseudoLocalizeAst } from './pseudo.js';
 import { emitLocaleMatcherModule } from '../proxy/locale-matcher.js';
 import { locateMessageKeys } from './json-locations.js';
 import { scanAppRoutes } from './scan-routes.js';
+import { loadAndMergeSources, writeSourcesCache } from './sources.js';
 
 export type BuildResult = {
   outDir: string;
@@ -38,7 +39,12 @@ export type BuildOptions = {
 export async function buildMessages(options: BuildOptions): Promise<BuildResult> {
   const { config, cwd } = options;
   const outDir = resolve(cwd, config.outDir);
-  const catalogs = await loadLocaleMessages(config, cwd);
+  const fileCatalogs = await loadLocaleMessages(config, cwd);
+  const { catalogs, payloads: sourcePayloads } = await loadAndMergeSources(
+    config,
+    cwd,
+    fileCatalogs,
+  );
 
   const defaultCatalog = catalogs[config.defaultLocale];
   if (!defaultCatalog) {
@@ -197,6 +203,9 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
   await rm(outDir, { recursive: true, force: true });
   await mkdir(join(outDir, 'msg'), { recursive: true });
   await mkdir(join(outDir, 'ns'), { recursive: true });
+  if (sourcePayloads.length) {
+    await writeSourcesCache(cwd, config.outDir, sourcePayloads);
+  }
 
   // Shared rich-text helpers (imported by per-key modules that contain tags)
   await writeFile(

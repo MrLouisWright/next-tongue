@@ -3,6 +3,11 @@ import { validateCatalog, validateStale } from '../compiler/validate/catalog.js'
 import { validateUsage } from '../compiler/validate/usage.js';
 import { validateA11y } from '../compiler/validate/a11y.js';
 import { validateBidi } from '../compiler/validate/bidi.js';
+import { loadLocaleMessages } from '../compiler/load-messages.js';
+import {
+  duplicateSourceKeys,
+  loadAndMergeSources,
+} from '../compiler/sources.js';
 import {
   reportGithub,
   reportJson,
@@ -48,6 +53,19 @@ export async function cmdCheck(opts: CheckCliOptions): Promise<void> {
       ...(localeFilter ? { locales: localeFilter } : {}),
     })),
   );
+
+  if (config.sources.length) {
+    const fileCatalogs = await loadLocaleMessages(config, cwd);
+    const { origins } = await loadAndMergeSources(config, cwd, fileCatalogs);
+    for (const fullKey of duplicateSourceKeys(origins)) {
+      issues.push({
+        check: 'duplicate',
+        severity: 'warn',
+        message: `Key "${fullKey}" is defined in more than one place (file and/or sources)`,
+        key: fullKey,
+      });
+    }
+  }
 
   const result = summarize(issues);
   const reporter = opts.reporter ?? 'pretty';

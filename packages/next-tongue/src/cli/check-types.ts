@@ -7,7 +7,8 @@ export type CheckKind =
   | 'stale'
   | 'a11y'
   | 'bidi'
-  | 'length';
+  | 'length'
+  | 'duplicate';
 
 export type CheckSeverity = 'error' | 'warn';
 

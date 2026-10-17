@@ -1,6 +1,6 @@
 # Database and CMS messages
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** Build-time `sources` ship in v0.4; `formatMessage` already exists. See [ROADMAP](../ROADMAP.md).
 
 next-tongue supports translations stored in a database or CMS in two ways ([ADR 0013](adr/0013-database-and-cms-messages.md)). Both need no extra dependencies, and neither ships a catalog to the browser.
 

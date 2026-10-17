@@ -61,6 +61,7 @@ All notable changes to this project will be documented in this file. The format 
 - CI gate `bench:check`: `tongue check` on 10k keys / 500 files under 5 s.
 - Proxy + navigation: localized `pathnames` (both ways), `domains` host matching, `prefix: 'never'` rewrites; `examples/routing` Playwright e2e (#32).
 - `tongue check` `a11y` (html lang/dir) and `bidi` (unbalanced controls, RTL arg isolation) with ar/he/fa fixtures (#40).
+- Build-time `sources` in `tongue.config`: awaited, merged after files, typed/compiled; `sourcesOnError: 'use-cache'`; duplicate-key warning in `tongue check` (#33).
 
 
 
