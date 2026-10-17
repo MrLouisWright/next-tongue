@@ -12,7 +12,7 @@ export function Badge({ count }) {
 `;
     const { code, warnings } = transformCallSites(src, 'badge.tsx');
     expect(warnings).toHaveLength(0);
-    expect(code).toContain("#tongue/msg/home/inbox");
+    expect(code).toContain("#tongue/msg/home/inbox.js");
     expect(code).toContain('__tongue_locale');
     expect(code).toMatch(/__tongue_home_inbox\(__tongue_locale/);
   });

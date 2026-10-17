@@ -32,6 +32,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter next-tongue run check:deps
+      - run: pnpm --filter next-tongue run check:size
       - run: pnpm benchmark
 
   e2e:

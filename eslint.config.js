@@ -16,6 +16,7 @@ export default tseslint.config(
       'benchmarks/results/**',
       'playwright-report/**',
       'test-results/**',
+      'packages/**/dist-size/**',
     ],
   },
   js.configs.recommended,

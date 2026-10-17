@@ -26,6 +26,9 @@ All notable changes to this project will be documented in this file. The format 
 - Server: `LocaleProps`, `withLocale`, `getLocales`/`getDefaultLocale`; test that server/runtime never call `headers`/`cookies`/`draftMode` (#10).
 - Client: `TONGUE_E_NO_PROVIDER`; `TongueProvider` passes only locale by default (#11).
 - e2e asserts no message-catalog JSON in HTML (#20); nightly `next@canary` workflow (#29).
+- Turbopack call-site loader via `condition.content` RegExp (no `as` doubling); webpack path verified with `next build --webpack` (#8).
+- Client runtime size gate: ≤ 2 kB min+gz (currently ~1.6 kB gz) (#11).
+- Watcher singleton/lockfile tests + stale-PID takeover; escape-analysis tests for return/arg/object/JSX (#11, #23).
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

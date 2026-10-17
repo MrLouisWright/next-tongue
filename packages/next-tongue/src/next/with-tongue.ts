@@ -18,9 +18,7 @@ type WebpackConfigLike = {
 
 /**
  * Config wrapper (not a bundler plugin): runs codegen when Next loads config,
- * maps `#tongue/*` → outDir, registers the call-site loader for webpack.
- * Turbopack: resolveAlias always; Turbopack loader rules deferred until the
- * Next 16.4 rule shape is verified. Prefer server getT + string props (ADR 0009).
+ * maps `#tongue/*` → outDir, registers the call-site loader for Turbopack + webpack.
  */
 export function withTongue<T extends object>(
   nextConfig: T = {} as T,
@@ -31,7 +29,10 @@ export function withTongue<T extends object>(
   const loaderPath = resolveLoaderPath();
   const input = nextConfig as T & {
     output?: string;
-    turbopack?: { resolveAlias?: Record<string, unknown> };
+    turbopack?: {
+      resolveAlias?: Record<string, unknown>;
+      rules?: Record<string, unknown>;
+    };
     webpack?: (
       config: WebpackConfigLike,
       ctx: { dev: boolean; isServer: boolean },
@@ -59,11 +60,30 @@ export function withTongue<T extends object>(
       });
   }
 
+  // Next 16: content must be RegExp; omit `as` when returning the same module type
+  // (using `as: '*.tsx'` previously doubled extensions → `file.tsx.tsx`).
+  const tongueLoaderRule = {
+    condition: {
+      all: [{ not: 'foreign' }, 'browser', { content: /useT\s*\(/ }],
+    },
+    loaders: [
+      {
+        loader: loaderPath,
+        options: { outDir: '.tongue' },
+      },
+    ],
+  };
+
   const turbopack = {
     ...(input.turbopack ?? {}),
     resolveAlias: {
       ...(input.turbopack?.resolveAlias ?? {}),
       '#tongue': outDir,
+    },
+    rules: {
+      ...(input.turbopack?.rules ?? {}),
+      '*.tsx': tongueLoaderRule,
+      '*.jsx': tongueLoaderRule,
     },
   };
 
@@ -129,19 +149,17 @@ function warnMissingLocaleParams(cwd: string): void {
   for (const file of candidates) {
     if (!existsSync(file)) continue;
     const src = readFileSync(file, 'utf8');
-    if (
-      !/generateStaticParams/.test(src) &&
-      !/localeParams/.test(src)
-    ) {
+    if (!/generateStaticParams/.test(src) && !/localeParams/.test(src)) {
       console.warn(
         `[next-tongue] ${file.replace(cwd + '/', '')}: root [locale] layout should export generateStaticParams (e.g. localeParams) for a static shell under cacheComponents`,
       );
     }
     return;
   }
-  // Soft check: look for any [locale] layout
   try {
-    const appDir = existsSync(join(cwd, 'app')) ? join(cwd, 'app') : join(cwd, 'src', 'app');
+    const appDir = existsSync(join(cwd, 'app'))
+      ? join(cwd, 'app')
+      : join(cwd, 'src', 'app');
     if (!existsSync(appDir)) return;
     for (const name of readdirSync(appDir)) {
       if (name.includes('[locale]')) return;

@@ -77,7 +77,7 @@ export function transformCallSites(
 
   const importLines: string[] = [];
   for (const { ns, key, ident } of imports.values()) {
-    const path = `#tongue/msg/${ns === '' ? '_root' : ns}/${key}`;
+    const path = `#tongue/msg/${ns === '' ? '_root' : ns}/${key}.js`;
     importLines.push(`import { ${safeExport(key)} as ${ident} } from '${path}';`);
   }
 
@@ -114,20 +114,20 @@ export function transformCallSites(
 }
 
 function escapes(source: string, varName: string): boolean {
-  // Heuristic: return t, pass t(, assign t to property, t as JSX prop
+  const v = escapeRegExp(varName);
+  // Heuristic: return t, pass t, object shorthand, JSX prop, assignment
   const patterns = [
-    new RegExp(`return\\s+${escapeRegExp(varName)}\\b`),
-    new RegExp(`\\(\\s*${escapeRegExp(varName)}\\s*[,)]`),
-    new RegExp(`:\\s*${escapeRegExp(varName)}\\b`),
-    new RegExp(`=\\s*${escapeRegExp(varName)}\\s*[;,\n]`),
+    new RegExp(`return\\s+${v}\\b`),
+    new RegExp(`\\(\\s*${v}\\s*[,)]`),
+    new RegExp(`:\\s*${v}\\b`),
+    new RegExp(`=\\s*${v}\\s*[;,\n]`),
+    new RegExp(`=\\{\\s*${v}\\s*\\}`), // translate={t}
+    new RegExp(`\\{\\s*${v}\\s*[,}]`), // { t } / { t, ... }
   ];
   // Allow t('…') and t.rich / t.has / t.dynamic / t.ns
   const withoutCalls = source
-    .replace(new RegExp(`\\b${escapeRegExp(varName)}\\.(rich|has|dynamic|ns)\\b`, 'g'), '')
-    .replace(
-      new RegExp(`\\b${escapeRegExp(varName)}\\s*\\(`, 'g'),
-      '',
-    );
+    .replace(new RegExp(`\\b${v}\\.(rich|has|dynamic|ns)\\b`, 'g'), '')
+    .replace(new RegExp(`\\b${v}\\s*\\(`, 'g'), '');
   return patterns.some((re) => re.test(withoutCalls));
 }
 
