@@ -131,7 +131,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - [ ] Zero open `priority: critical` bugs.
 
 ## v1.1 — Editor & user preferences
-- VS Code extension in `packages/vscode` (VS Code API only): inline previews, missing-key diagnostics, go-to-message, hover with all locales [#47](https://github.com/MrLouisWright/next-tongue/issues/47).
+- [x] VS Code extension in `packages/vscode` (VS Code API only): inline previews, missing-key diagnostics, go-to-message, hover with all locales [#47](https://github.com/MrLouisWright/next-tongue/issues/47). *(Marketplace / Open VSX publish pending.)*
 - [x] Per-user preferred language: `setLocalePreference` action helper, signed cookie, `createProxy({ resolveLocale })` [#48](https://github.com/MrLouisWright/next-tongue/issues/48). No DB call in the proxy; no headers in cached scopes.
 
 **Acceptance criteria**

@@ -1,0 +1,36 @@
+{
+  "name": "next-tongue-vscode",
+  "displayName": "next-tongue",
+  "description": "Inline previews, diagnostics, go-to-message, and hover for next-tongue",
+  "version": "0.0.0",
+  "publisher": "next-tongue",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "workspaceContains:**/.tongue/manifest.json",
+    "workspaceContains:**/tongue.config.ts",
+    "workspaceContains:**/tongue.config.mjs"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "next-tongue.reloadManifest",
+        "title": "next-tongue: Reload manifest"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "watch": "tsc -p tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.8",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.9.3"
+  }
+}

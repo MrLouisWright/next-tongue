@@ -70,6 +70,7 @@ All notable changes to this project will be documented in this file. The format 
 - `setLocalePreference` + `verifyLocalePreference` (HMAC-SHA-256 via Web Crypto) and `createProxy({ resolveLocale })` for signed preference cookies; basic example settings + e2e (#48).
 - `translate.maxTokens` / `--max-cost` documented on `tongue translate`.
 - Opt-in `routing.rootParams`: `getT(ns)` / `getFormat()` via `next/root-params`; `withTongue` sets `experimental.rootParams`; ADR 0007 amended (#24).
+- `packages/vscode`: hover, go-to-message, missing-key diagnostics, inlay previews from `.tongue/manifest.json` (VS Code API only); manifest gains `source` / `byLocale` (#47).
 
 
 

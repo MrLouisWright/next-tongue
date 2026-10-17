@@ -501,27 +501,37 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     }
   }
 
-  // Manifest
+  // Manifest (also consumed by packages/vscode — include message text for hover/previews)
   const manifest = {
     version: 1,
     hash,
     locales: emitLocales,
     defaultLocale: config.defaultLocale,
     timeZone: config.timeZone,
+    messages: config.messages,
     pseudo: config.pseudo,
     routes: appRoutes,
     pathnames: config.routing.pathnames ?? {},
-    keys: keys.map((k) => ({
-      namespace: k.namespace,
-      key: k.key,
-      fullKey: k.fullKey,
-      ...(keyLocations[k.fullKey] != null
-        ? { line: keyLocations[k.fullKey], file: defaultMsgRel }
-        : {}),
-      ...(Object.keys(k.fallbackFrom).length
-        ? { fallbackFrom: k.fallbackFrom }
-        : {}),
-    })),
+    keys: keys.map((k) => {
+      const byLocale: Record<string, string> = {};
+      for (const locale of emitLocales) {
+        const text = catalogs[locale]?.[k.namespace]?.[k.key];
+        if (text != null) byLocale[locale] = text;
+      }
+      return {
+        namespace: k.namespace,
+        key: k.key,
+        fullKey: k.fullKey,
+        source: byLocale[config.defaultLocale] ?? '',
+        byLocale,
+        ...(keyLocations[k.fullKey] != null
+          ? { line: keyLocations[k.fullKey], file: defaultMsgRel }
+          : {}),
+        ...(Object.keys(k.fallbackFrom).length
+          ? { fallbackFrom: k.fallbackFrom }
+          : {}),
+      };
+    }),
     fallback: Object.fromEntries(
       emitLocales.map((l) => [
         l,
