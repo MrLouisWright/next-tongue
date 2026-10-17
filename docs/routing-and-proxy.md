@@ -1,6 +1,6 @@
 # Routing & proxy
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** Prefix strategies, pathnames and domains ship in v0.4. See [ROADMAP](../ROADMAP.md).
 
 Next.js 16 renamed `middleware.ts` to `proxy.ts` (exported function `proxy`, Node.js runtime). next-tongue does **all** request-dependent locale work there, so pages and layouts can stay static and cacheable. See [ADR 0002](adr/0002-locale-from-params-only.md).
 
@@ -38,6 +38,39 @@ All pages live under `app/[locale]/`. The proxy guarantees that by the time a re
 | `'always'` | `/en/about` | `/de/about` | ✅ (the only option for `output: 'export'`) |
 | `'as-needed'` | `/about` | `/de/about` | ❌ (no proxy in static export; see [Static export](static-export.md)) |
 | `'never'` | `/about` | `/about` (cookie/domain) | ❌ |
+
+### CDN / caching caveats for `prefix: 'never'`
+
+With `never`, the public URL has **no locale segment**. Locale comes from the cookie, `Host` (domains), or `Accept-Language`, and the proxy **rewrites** to `/{locale}/…` internally.
+
+- Cache keys must include the locale cookie (and preferably `Host` / `Vary: Cookie, Accept-Language, Host`). Otherwise a CDN can serve a German rewrite to an English visitor.
+- Prefer `routing.domains` (one locale per host) when you need edge caching without cookie variance.
+- Static export cannot use `never` (no proxy).
+
+## Domains
+
+```ts
+routing: {
+  domains: [
+    { domain: 'example.com', defaultLocale: 'en', locales: ['en'] },
+    { domain: 'example.de', defaultLocale: 'de', locales: ['de'] },
+  ],
+}
+```
+
+Pass the same `domains` array into `createProxy({ domains })`. Detection order: domain → cookie → `Accept-Language` → domain/default locale.
+
+## Localized pathnames
+
+```ts
+routing: {
+  pathnames: {
+    '/about': { de: '/ueber-uns', fr: '/a-propos' },
+  },
+}
+```
+
+The proxy rewrites `/de/ueber-uns` → `/de/about` (App Router file path) and navigation helpers emit the localized public URL. Pass `pathnames` to both `createProxy` and `createNavigation`.
 
 ## Composing with your own proxy logic
 

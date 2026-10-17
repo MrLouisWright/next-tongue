@@ -1,0 +1,9 @@
+{
+  "home": {
+    "title": "Routing home",
+    "aboutLink": "About"
+  },
+  "about": {
+    "title": "About us"
+  }
+}

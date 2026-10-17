@@ -99,7 +99,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - Build-time database/CMS `sources` in `tongue.config.ts` [#33](https://github.com/MrLouisWright/next-tongue/issues/33); `tongue export`/`import` (XLIFF 2.0, CSV) [#37](https://github.com/MrLouisWright/next-tongue/issues/37); a11y/bidi checks in `tongue check` [#40](https://github.com/MrLouisWright/next-tongue/issues/40); stale-translation detection [#42](https://github.com/MrLouisWright/next-tongue/issues/42); translator context (`$meta`) [#43](https://github.com/MrLouisWright/next-tongue/issues/43); `tongue report` [#41](https://github.com/MrLouisWright/next-tongue/issues/41).
 
 **Acceptance criteria**
-- [ ] `routing.pathnames`, `routing.domains` and `prefix: 'never'` with Playwright e2e ([#32](https://github.com/MrLouisWright/next-tongue/issues/32)).
+- [x] `routing.pathnames`, `routing.domains` and `prefix: 'never'` with Playwright e2e ([#32](https://github.com/MrLouisWright/next-tongue/issues/32)).
 - [ ] A pnpm-workspace fixture (shared messages package + 2 apps, `declaration: true`) builds and type-checks with no TS2742 ([#21](https://github.com/MrLouisWright/next-tongue/issues/21), [research A6](docs/research.md)).
 - [ ] `sources` are awaited by `tongue build`, merged after files, compiled and typed; failures fail the build unless `sourcesOnError: 'use-cache'` [#33](https://github.com/MrLouisWright/next-tongue/issues/33).
 - [ ] XLIFF 2.0 / CSV export → import round-trip is lossless; invalid imports are rejected with `file:line` [#37](https://github.com/MrLouisWright/next-tongue/issues/37).

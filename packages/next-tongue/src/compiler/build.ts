@@ -18,6 +18,7 @@ import { emitTypesFile, type NamespaceTypes } from './codegen/emit-types.js';
 import { pseudoLocalizeAst } from './pseudo.js';
 import { emitLocaleMatcherModule } from '../proxy/locale-matcher.js';
 import { locateMessageKeys } from './json-locations.js';
+import { scanAppRoutes } from './scan-routes.js';
 
 export type BuildResult = {
   outDir: string;
@@ -163,7 +164,7 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
   const emitLocales = localesForEmit(config);
 
   // Content hash for idempotency (bump CODEGEN_VERSION when emit format changes)
-  const CODEGEN_VERSION = 6;
+  const CODEGEN_VERSION = 7;
   const hash = createHash('sha256')
     .update(
       JSON.stringify({
@@ -479,6 +480,17 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     'utf8',
   );
 
+  const appRoutes = await scanAppRoutes(cwd);
+  if (config.routing.pathnames) {
+    for (const internal of Object.keys(config.routing.pathnames)) {
+      if (appRoutes.length > 0 && !appRoutes.includes(internal)) {
+        console.warn(
+          `tongue: routing.pathnames key "${internal}" was not found under app/[locale] (known: ${appRoutes.join(', ')})`,
+        );
+      }
+    }
+  }
+
   // Manifest
   const manifest = {
     version: 1,
@@ -487,6 +499,8 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     defaultLocale: config.defaultLocale,
     timeZone: config.timeZone,
     pseudo: config.pseudo,
+    routes: appRoutes,
+    pathnames: config.routing.pathnames ?? {},
     keys: keys.map((k) => ({
       namespace: k.namespace,
       key: k.key,

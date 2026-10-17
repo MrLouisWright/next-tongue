@@ -1,4 +1,5 @@
-import type { LocaleCookieConfig } from '../config/types.js';
+import type { DomainConfig, LocaleCookieConfig } from '../config/types.js';
+import { toInternalPathname } from '../navigation/pathname.js';
 import {
   createLocaleMatcher,
   type LocaleMatcher,
@@ -13,6 +14,8 @@ export {
   matchTagAgainstTables,
 } from './locale-matcher.js';
 export type { LocaleMatcher, LocaleMatcherTables };
+
+export type { DomainConfig };
 
 /** Minimal request shape satisfied by NextRequest (proxy / middleware). */
 export type TongueProxyRequest = {
@@ -39,6 +42,10 @@ export type CreateProxyOptions = {
   prefix?: 'always' | 'as-needed' | 'never';
   localeDetection?: boolean;
   localeCookie?: LocaleCookieConfig | false;
+  /** Localized pathnames: internal → { locale: public path } (#32). */
+  pathnames?: Record<string, Partial<Record<string, string>>>;
+  /** Per-host default locale / allow-list (#32). */
+  domains?: DomainConfig[];
   /**
    * Never selected by cookie / Accept-Language (e.g. `en-XA`).
    * Still routable when the URL already has the prefix (#36).
@@ -49,7 +56,7 @@ export type CreateProxyOptions = {
    * Built once from `locales` when omitted (#18).
    */
   localeMatcher?: LocaleMatcher;
-  /** Override detection (cookie → Accept-Language → default). */
+  /** Override detection (domain → cookie → Accept-Language → default). */
   resolveLocale?: (
     req: TongueProxyRequest,
   ) => string | undefined | Promise<string | undefined>;
@@ -76,6 +83,8 @@ export function createProxy(options: CreateProxyOptions): (
   const defaultLocale = options.defaultLocale;
   const prefix = options.prefix ?? 'as-needed';
   const localeDetection = options.localeDetection !== false;
+  const pathnames = options.pathnames;
+  const domains = options.domains;
   const cookieCfg =
     options.localeCookie === false
       ? false
@@ -104,13 +113,27 @@ export function createProxy(options: CreateProxyOptions): (
       return passthrough(cookieCfg, null, https);
     }
 
+    const domain = matchDomain(req, domains);
+    const activeLocales = domain?.locales ? [...domain.locales] : locales;
+    const activeDefault = domain?.defaultLocale ?? defaultLocale;
+    const activeSet = new Set(activeLocales);
+    const activeMatcher =
+      activeLocales.length === locales.length
+        ? detectionMatcher
+        : createLocaleMatcher(
+            activeLocales.filter((l) => !excludeDetection.has(l)),
+          );
+
     const matched = matchLocalePrefix(pathname, localeSet);
 
-    if (matched) {
+    if (matched && (!domain || activeSet.has(matched.locale))) {
       const { locale, rest } = matched;
+      const publicRest = rest === '' ? '/' : rest;
+      const internal = toInternalPathname(publicRest, locale, pathnames);
 
-      if (prefix === 'as-needed' && locale === defaultLocale) {
-        const dest = rest === '' ? '/' : rest;
+      if (prefix === 'as-needed' && locale === activeDefault) {
+        // Canonicalize default-locale URLs without the prefix.
+        const dest = publicPathForLocale(internal, locale, pathnames);
         const redirectUrl = req.nextUrl.clone();
         redirectUrl.pathname = dest;
         options.onLocale?.(locale, req);
@@ -124,6 +147,11 @@ export function createProxy(options: CreateProxyOptions): (
       }
 
       options.onLocale?.(locale, req);
+      if (internal !== publicRest) {
+        const url = req.nextUrl.clone();
+        url.pathname = joinLocalePath(locale, internal);
+        return rewriteResponse(url.toString(), cookieCfg, locale, https);
+      }
       return passthrough(cookieCfg, locale, https);
     }
 
@@ -131,37 +159,89 @@ export function createProxy(options: CreateProxyOptions): (
       ? await options.resolveLocale(req)
       : undefined;
     let locale =
-      sanitizeLocale(resolved, locales) ??
+      sanitizeLocale(resolved, activeLocales) ??
       (localeDetection
         ? detectLocale(
             req,
-            locales,
-            defaultLocale,
+            activeLocales,
+            activeDefault,
             cookieCfg,
             excludeDetection,
-            detectionMatcher,
+            activeMatcher,
+            domain,
           )
-        : defaultLocale);
+        : activeDefault);
 
-    locale = sanitizeLocale(locale, locales) ?? defaultLocale;
+    locale = sanitizeLocale(locale, activeLocales) ?? activeDefault;
     options.onLocale?.(locale, req);
+
+    const internal = toInternalPathname(pathname, locale, pathnames);
+    // Prefer localized public path when the user hit the internal key.
+    const publicPath = publicPathForLocale(internal, locale, pathnames);
 
     if (prefix === 'never') {
       const url = req.nextUrl.clone();
-      url.pathname = joinLocalePath(locale, pathname);
+      url.pathname = joinLocalePath(locale, internal);
       return rewriteResponse(url.toString(), cookieCfg, locale, https);
     }
 
-    if (prefix === 'as-needed' && locale === defaultLocale) {
+    if (prefix === 'as-needed' && locale === activeDefault) {
+      // Serve default locale without prefix; rewrite to internal app path.
+      if (pathname !== publicPath && pathnames) {
+        // User visited internal `/about` but public is also `/about` — fine.
+        // If they somehow differ for default locale, redirect to public.
+        if (publicPath !== internal && pathname === internal) {
+          const redirectUrl = req.nextUrl.clone();
+          redirectUrl.pathname = publicPath;
+          return redirectResponse(
+            redirectUrl.toString(),
+            308,
+            cookieCfg,
+            locale,
+            https,
+          );
+        }
+      }
       const url = req.nextUrl.clone();
-      url.pathname = joinLocalePath(defaultLocale, pathname);
+      url.pathname = joinLocalePath(activeDefault, internal);
       return rewriteResponse(url.toString(), cookieCfg, locale, https);
     }
 
+    // Non-default (or always): redirect to prefixed localized public URL.
+    const destPublic = publicPathForLocale(internal, locale, pathnames);
     const url = req.nextUrl.clone();
-    url.pathname = joinLocalePath(locale, pathname);
+    url.pathname = joinLocalePath(locale, destPublic);
     return redirectResponse(url.toString(), 307, cookieCfg, locale, https);
   };
+}
+
+/** Map internal path → localized public path for a locale. */
+export function publicPathForLocale(
+  internal: string,
+  locale: string,
+  pathnames?: Record<string, Partial<Record<string, string>>>,
+): string {
+  if (!pathnames) return internal;
+  return pathnames[internal]?.[locale] ?? internal;
+}
+
+/** Resolve `Host` / `x-forwarded-host` against `routing.domains`. */
+export function matchDomain(
+  req: TongueProxyRequest,
+  domains: DomainConfig[] | undefined,
+): DomainConfig | undefined {
+  if (!domains?.length) return undefined;
+  const host = (
+    req.headers.get('x-forwarded-host') ??
+    req.headers.get('host') ??
+    ''
+  )
+    .split(',')[0]
+    ?.trim()
+    .toLowerCase()
+    .replace(/:\d+$/, '');
+  if (!host) return undefined;
+  return domains.find((d) => d.domain.toLowerCase() === host);
 }
 
 /** Exported for tests. */
@@ -222,7 +302,10 @@ function detectLocale(
   cookieCfg: LocaleCookieConfig | false,
   excludeDetection: Set<string>,
   matcher: LocaleMatcher,
+  domain: DomainConfig | undefined,
 ): string {
+  // Domain match already narrowed `locales` / `defaultLocale`.
+  void domain;
   if (cookieCfg) {
     const raw = req.cookies.get(cookieCfg.name)?.value;
     const fromCookie = sanitizeLocale(raw, locales);

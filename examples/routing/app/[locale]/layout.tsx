@@ -1,0 +1,36 @@
+import { notFound } from 'next/navigation';
+import { TongueProvider } from 'next-tongue/client';
+import {
+  ensureTongue,
+  getDir,
+  isAppLocale,
+  localeStaticParams,
+  timeZone,
+} from '../../lib/tongue-runtime';
+
+export function generateStaticParams() {
+  ensureTongue();
+  return localeStaticParams();
+}
+
+export default async function RootLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  ensureTongue();
+  const { locale } = await params;
+  if (!isAppLocale(locale)) notFound();
+
+  return (
+    <html lang={locale} dir={getDir(locale)}>
+      <body>
+        <TongueProvider locale={locale} timeZone={timeZone}>
+          {children}
+        </TongueProvider>
+      </body>
+    </html>
+  );
+}

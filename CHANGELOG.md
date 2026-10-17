@@ -59,6 +59,7 @@ All notable changes to this project will be documented in this file. The format 
 - `tongue extract`: scan `t`/`t.rich` under `useT`/`getT`, add missing default-locale keys, optional `--prune` / `--dry-run`, then rebuild.
 - `tongue init`: scaffold config, messages, proxy, `[locale]` layout (`generateStaticParams = localeParams`), `withTongue`, `#tongue` imports (`--yes` / `--force` / `--dry-run`).
 - CI gate `bench:check`: `tongue check` on 10k keys / 500 files under 5 s.
+- Proxy + navigation: localized `pathnames` (both ways), `domains` host matching, `prefix: 'never'` rewrites; `examples/routing` Playwright e2e (#32).
 
 
 

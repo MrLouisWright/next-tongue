@@ -4,6 +4,7 @@ const PORT_BASIC = 3101;
 const PORT_CACHE = 3102;
 const PORT_EXPORT = 3103;
 const PORT_OG = 3104;
+const PORT_ROUTING = 3105;
 
 export default defineConfig({
   testDir: 'e2e',
@@ -43,6 +44,11 @@ export default defineConfig({
       testMatch: /og-email\.spec\.ts/,
       use: { baseURL: `http://127.0.0.1:${PORT_OG}` },
     },
+    {
+      name: 'routing',
+      testMatch: /routing\.spec\.ts/,
+      use: { baseURL: `http://127.0.0.1:${PORT_ROUTING}` },
+    },
   ],
   webServer: [
     {
@@ -66,6 +72,12 @@ export default defineConfig({
     {
       command: `pnpm --filter @next-tongue/example-og-email exec next start --port ${PORT_OG}`,
       url: `http://127.0.0.1:${PORT_OG}/en`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: `pnpm --filter @next-tongue/example-routing exec next start --port ${PORT_ROUTING}`,
+      url: `http://127.0.0.1:${PORT_ROUTING}/en`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

@@ -10,9 +10,15 @@ import {
 
 function req(
   path: string,
-  init?: { acceptLanguage?: string; cookie?: string; https?: boolean },
+  init?: {
+    acceptLanguage?: string;
+    cookie?: string;
+    https?: boolean;
+    host?: string;
+  },
 ): TongueProxyRequest {
-  const href = `${init?.https ? 'https' : 'http'}://localhost${path}`;
+  const host = init?.host ?? 'localhost';
+  const href = `${init?.https ? 'https' : 'http'}://${host}${path}`;
   const url = new URL(href);
   return {
     url: href,
@@ -47,9 +53,9 @@ function req(
     },
     headers: {
       get(name) {
-        if (name.toLowerCase() === 'accept-language') {
-          return init?.acceptLanguage ?? null;
-        }
+        const n = name.toLowerCase();
+        if (n === 'accept-language') return init?.acceptLanguage ?? null;
+        if (n === 'host') return host;
         return null;
       },
     },
@@ -227,6 +233,61 @@ describe('createProxy', () => {
     // Explicit URL prefix still works
     const direct = await proxy(req('/en-XA/about'));
     expect(direct.status).toBe(200);
+  });
+
+  it('prefix never: rewrites bare path to /{locale}/… (#32)', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'never',
+      localeDetection: false,
+    });
+    const res = await proxy(req('/about'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'http://localhost/en/about',
+    );
+  });
+
+  it('pathnames: rewrites localized public URL to internal (#32)', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'always',
+      pathnames: { '/about': { de: '/ueber-uns' } },
+    });
+    const res = await proxy(req('/de/ueber-uns'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'http://localhost/de/about',
+    );
+  });
+
+  it('pathnames: redirects bare internal path to localized prefix (#32)', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'always',
+      localeDetection: false,
+      resolveLocale: async () => 'de',
+      pathnames: { '/about': { de: '/ueber-uns' } },
+    });
+    const res = await proxy(req('/about'));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe('http://localhost/de/ueber-uns');
+  });
+
+  it('domains: uses per-host default locale (#32)', async () => {
+    const proxy = createProxy({
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      prefix: 'always',
+      localeDetection: false,
+      domains: [
+        { domain: 'example.com', defaultLocale: 'en', locales: ['en'] },
+        { domain: 'example.de', defaultLocale: 'de', locales: ['de'] },
+      ],
+    });
+    const res = await proxy(req('/about', { host: 'example.de' }));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe('http://example.de/de/about');
   });
 });
 

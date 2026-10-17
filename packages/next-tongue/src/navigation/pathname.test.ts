@@ -48,6 +48,18 @@ describe('getPathname', () => {
     ).toBe('/de/ueber-uns');
   });
 
+  it('prefix never omits locale segment', () => {
+    expect(
+      getPathname({
+        href: '/about',
+        locale: 'de',
+        prefix: 'never',
+        defaultLocale: 'en',
+        pathnames: { '/about': { de: '/ueber-uns' } },
+      }),
+    ).toBe('/ueber-uns');
+  });
+
   it('interpolates params and query', () => {
     expect(
       getPathname({

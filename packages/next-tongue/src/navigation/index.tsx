@@ -112,7 +112,9 @@ export function createNavigation(config: NavigationConfig) {
 
   function usePathname(): string {
     const raw = useNextPathname();
-    return stripLocalePrefix(raw, bound.locales);
+    const stripped = stripLocalePrefix(raw, bound.locales);
+    const locale = useLocale();
+    return toInternalPathname(stripped, locale, bound.pathnames);
   }
 
   const { useLocaleSwitcher, LocaleSwitcher } = createLocaleSwitcher(config);
