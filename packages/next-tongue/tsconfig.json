@@ -9,6 +9,6 @@
     "lib": ["ES2022", "DOM"],
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/vendor-shims/**/*.d.ts"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test-d.ts", "dist"]
 }
