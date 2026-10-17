@@ -34,7 +34,7 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 - [ ] Dev watcher: memory stays flat (< 10% growth) over a 30-minute soak with 1,000 message edits; one watcher across workers; no child process outlives `next dev` ([research A9](docs/research.md)).
 - [ ] Early check: `cacheComponents: true` + `output: 'export'` builds on the current 16.x ([#15](https://github.com/MrLouisWright/next-tongue/issues/15)).
 - [ ] Published package.json has no dependencies beyond `next`/`react` peers (CI) ([#28](https://github.com/MrLouisWright/next-tongue/issues/28)).
-- [ ] Benchmark published with reproducible scripts ([#25](https://github.com/MrLouisWright/next-tongue/issues/25)).
+- [x] Benchmark published with reproducible scripts ([#25](https://github.com/MrLouisWright/next-tongue/issues/25)) — **no clear message-byte win vs Paraglide**; see provisional table above.
 - [ ] CI green on Node 20 and 22.
 
 **Go/no-go gate:** if the benchmark does not show a clear client-bundle win over next-intl (precompile + `pick`) and Paraglide, stop and reconsider before building v0.2+ (options: change the delivery strategy, contribute upstream, or offer Paraglide-compatible output).
