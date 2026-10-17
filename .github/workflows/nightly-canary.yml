@@ -1,0 +1,29 @@
+name: Nightly next@canary
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  canary:
+    name: examples on next@canary
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter next-tongue run build
+      - name: Bump examples to next@canary
+        run: |
+          pnpm --filter "@next-tongue/example-*" add next@canary --save-exact
+      - run: pnpm --filter @next-tongue/example-basic run build
+      - run: pnpm --filter @next-tongue/example-cache-components run build
+      - run: pnpm --filter @next-tongue/example-static-export run build

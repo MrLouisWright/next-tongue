@@ -1,11 +1,10 @@
 'use client';
 
-import { type ReactNode } from 'react';
-import { TongueProvider, useT, type MessageFn, type TFunction } from 'next-tongue/client';
+import { useT, type MessageFn, type TFunction } from 'next-tongue/client';
 
 /**
- * Client message map for the example until the call-site loader rewrites useT.
- * Prefer server `getT` + string props in real apps.
+ * Temporary client catalog until the Turbopack call-site loader is registered.
+ * Prefer server getT + string props in real apps (ADR 0009).
  */
 const catalogs: Record<string, Record<string, MessageFn>> = {
   home: {
@@ -23,22 +22,8 @@ const catalogs: Record<string, Record<string, MessageFn>> = {
   },
 };
 
-function loadNamespace(namespace: string): Record<string, MessageFn> {
+export function loadClientNamespace(namespace: string): Record<string, MessageFn> {
   return catalogs[namespace] ?? {};
-}
-
-export function ExampleTongueProvider({
-  locale,
-  children,
-}: {
-  locale: string;
-  children: ReactNode;
-}) {
-  return (
-    <TongueProvider locale={locale} loadNamespace={loadNamespace}>
-      {children}
-    </TongueProvider>
-  );
 }
 
 export function useClientT(namespace: string): TFunction {

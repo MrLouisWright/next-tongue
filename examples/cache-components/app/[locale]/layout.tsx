@@ -1,9 +1,15 @@
 import { notFound } from 'next/navigation';
-import { getDir } from 'next-tongue/server';
-import { ExampleTongueProvider } from '../../lib/tongue-client';
-import { ensureTongueRuntime, isAppLocale, localeStaticParams } from '../../lib/tongue-runtime';
+import { TongueProvider } from 'next-tongue/client';
+import {
+  ensureTongue,
+  getDir,
+  isAppLocale,
+  localeStaticParams,
+} from '../../lib/tongue-runtime';
+import { loadClientNamespace } from '../../lib/tongue-client';
 
 export function generateStaticParams() {
+  ensureTongue();
   return localeStaticParams();
 }
 
@@ -14,14 +20,16 @@ export default async function RootLayout({
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  await ensureTongueRuntime();
+  ensureTongue();
   const { locale } = await params;
   if (!isAppLocale(locale)) notFound();
 
   return (
     <html lang={locale} dir={getDir(locale)}>
       <body>
-        <ExampleTongueProvider locale={locale}>{children}</ExampleTongueProvider>
+        <TongueProvider locale={locale} loadNamespace={loadClientNamespace}>
+          {children}
+        </TongueProvider>
       </body>
     </html>
   );

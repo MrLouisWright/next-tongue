@@ -32,6 +32,11 @@ export default defineConfig({
       testMatch: /static-export\.spec\.ts/,
       use: { baseURL: `http://127.0.0.1:${PORT_EXPORT}` },
     },
+    {
+      name: 'no-catalog',
+      testMatch: /no-catalog\.spec\.ts/,
+      use: { baseURL: `http://127.0.0.1:${PORT_CACHE}` },
+    },
   ],
   webServer: [
     {

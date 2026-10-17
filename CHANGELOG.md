@@ -22,6 +22,10 @@ All notable changes to this project will be documented in this file. The format 
 - Early check: `cacheComponents` + `output: 'export'` fails on Next 16.4.2 (PPR); documented in `examples/cache-export-probe/RESULT.md` and static-export docs (#15).
 - Benchmark proxies for next-intl `pick` and Paraglide-style per-message delivery + `summary.json` (#25).
 - `withTongue` warns on bad `output: 'export'` / prefix / domains combos and missing `generateStaticParams`; loader ADR constraint test (#8).
+- Codegen emits `.tongue/runtime.js` (`ensureTongue`, `localeParams`, `locales`) so apps no longer hand-roll namespace loaders (#10, #8).
+- Server: `LocaleProps`, `withLocale`, `getLocales`/`getDefaultLocale`; test that server/runtime never call `headers`/`cookies`/`draftMode` (#10).
+- Client: `TONGUE_E_NO_PROVIDER`; `TongueProvider` passes only locale by default (#11).
+- e2e asserts no message-catalog JSON in HTML (#20); nightly `next@canary` workflow (#29).
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

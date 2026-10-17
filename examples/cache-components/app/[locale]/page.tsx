@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { getT } from 'next-tongue/server';
-import { ensureTongueRuntime, isAppLocale } from '../../lib/tongue-runtime';
+import { ensureTongue, isAppLocale } from '../../lib/tongue-runtime';
 import { InboxBadge } from './inbox-badge';
 
 export default async function Page({
@@ -8,7 +8,7 @@ export default async function Page({
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  await ensureTongueRuntime();
+  ensureTongue();
   const { locale } = await params;
   if (!isAppLocale(locale)) return null;
 

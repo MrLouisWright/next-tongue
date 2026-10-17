@@ -5,7 +5,8 @@ export type TongueErrorCode =
   | 'TONGUE_E_TYPES_MISSING'
   | 'TONGUE_E_LOCALE'
   | 'TONGUE_E_IO'
-  | 'TONGUE_E_BUILD';
+  | 'TONGUE_E_BUILD'
+  | 'TONGUE_E_NO_PROVIDER';
 
 export class TongueError extends Error {
   readonly code: TongueErrorCode;

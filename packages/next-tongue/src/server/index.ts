@@ -3,16 +3,18 @@ import { createT, type TFunction } from '../runtime/create-t.js';
 import { getDir, getOgLocale, isLocale as isLocaleValue } from '../runtime/locale.js';
 import { TongueError } from '../errors.js';
 
-// These are filled by codegen / withTongue via a generated runtime config module.
-// Until an app runs tongue build, they fall back to empty placeholders.
 let runtimeLocales: readonly string[] = [];
 let runtimeDefaultLocale = 'en';
 let runtimeTimeZone = 'UTC';
 let namespaceLoader:
-  | ((namespace: string) => Promise<Record<string, (locale: string, values?: Record<string, unknown>) => string>>)
+  | ((
+      namespace: string,
+    ) => Promise<
+      Record<string, (locale: string, values?: Record<string, unknown>) => string>
+    >)
   | undefined;
 
-/** @internal Used by withTongue / tests to inject generated config. */
+/** @internal Used by generated `.tongue/runtime.js` / tests. */
 export function __setServerRuntime(opts: {
   locales: readonly string[];
   defaultLocale: string;
@@ -25,24 +27,37 @@ export function __setServerRuntime(opts: {
   namespaceLoader = opts.loadNamespace;
 }
 
+/** Configured locales after `ensureTongue()` / `__setServerRuntime`. */
+export function getLocales(): readonly string[] {
+  return runtimeLocales;
+}
+
+export function getDefaultLocale(): string {
+  return runtimeDefaultLocale;
+}
+
+/** @deprecated Prefer `getLocales()`; kept for docs that reference `.value`. */
 export const locales = {
   get value() {
     return runtimeLocales;
   },
 };
 
+/** @deprecated Prefer `getDefaultLocale()`. */
 export const defaultLocale = {
   get value() {
     return runtimeDefaultLocale;
   },
 };
 
+export type LocaleProps = { locale: string };
+
 export async function getT(locale: string, namespace = '_root'): Promise<TFunction> {
   assertLocale(locale);
   if (!namespaceLoader) {
     throw new TongueError(
       'TONGUE_E_TYPES_MISSING',
-      'Message modules not loaded. Run `tongue build` or wrap next.config with withTongue().',
+      'Message modules not loaded. Call ensureTongue() from `#tongue/runtime` (or wrap next.config with withTongue()).',
     );
   }
   const messages = await namespaceLoader(namespace);
@@ -72,6 +87,7 @@ export function isLocale(value: unknown): value is string {
   return isLocaleValue(value, runtimeLocales);
 }
 
+/** Use as `export const generateStaticParams = localeParams` on `app/[locale]/layout`. */
 export function localeParams(): { locale: string }[] {
   return runtimeLocales.map((locale) => ({ locale }));
 }
@@ -81,6 +97,20 @@ export function createTranslator(locale: string) {
   return {
     t: (ns: string) => getT(locale, ns),
     format: () => getFormat(locale),
+  };
+}
+
+export function withLocale<R, Args extends unknown[]>(
+  action: (locale: string, ...args: Args) => R,
+): (locale: string, ...args: Args) => R {
+  return (locale, ...args) => {
+    if (!isLocale(locale)) {
+      throw new TongueError(
+        'TONGUE_E_LOCALE',
+        `Invalid locale: ${JSON.stringify(locale)}`,
+      );
+    }
+    return action(locale, ...args);
   };
 }
 

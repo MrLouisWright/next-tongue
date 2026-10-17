@@ -1,29 +1,16 @@
-import { __setServerRuntime, getDir } from 'next-tongue/server';
-import { messages as homeMessages } from '../.tongue/ns/home.js';
+import {
+  ensureTongue,
+  localeParams,
+  locales,
+} from '#tongue/runtime.js';
+import { getDir } from 'next-tongue/server';
 
-const LOCALES = ['en'] as const;
+export { ensureTongue, getDir };
 
-let ready = false;
-
-export function isAppLocale(value: string): value is 'en' {
-  return value === 'en';
+export function isAppLocale(value: string): boolean {
+  return (locales as readonly string[]).includes(value);
 }
 
 export function localeStaticParams() {
-  return LOCALES.map((locale) => ({ locale }));
+  return localeParams() as { locale: string }[];
 }
-
-export async function ensureTongueRuntime(): Promise<void> {
-  if (ready) return;
-  __setServerRuntime({
-    locales: LOCALES,
-    defaultLocale: 'en',
-    loadNamespace: async (namespace) => {
-      if (namespace !== 'home') throw new Error(`Unknown ns ${namespace}`);
-      return homeMessages;
-    },
-  });
-  ready = true;
-}
-
-export { getDir };

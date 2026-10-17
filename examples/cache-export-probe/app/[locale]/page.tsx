@@ -1,12 +1,12 @@
 import { getT } from 'next-tongue/server';
-import { ensureTongueRuntime, isAppLocale } from '../../lib/tongue-runtime';
+import { ensureTongue, isAppLocale } from '../../lib/tongue-runtime';
 
 export default async function Page({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  await ensureTongueRuntime();
+  ensureTongue();
   const { locale } = await params;
   if (!isAppLocale(locale)) return null;
   const t = await getT(locale, 'home');

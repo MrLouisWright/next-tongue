@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-17T11:15:09.974Z",
+  "measuredAt": "2026-10-17T11:25:12.060Z",
   "scenario": "2 of 500 keys × 3 locales, esbuild minify + gzip",
   "rows": [
     {

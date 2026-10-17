@@ -7,13 +7,14 @@ import {
 } from 'react';
 import { createFormat, type Format } from '../runtime/format.js';
 import { createT, type TFunction, type MessageFn } from '../runtime/create-t.js';
+import { TongueError } from '../errors.js';
 
 export type { MessageFn };
 
 type TongueContextValue = {
   locale: string;
   timeZone: string;
-  loadNamespace: (namespace: string) => Record<string, MessageFn>;
+  loadNamespace?: (namespace: string) => Record<string, MessageFn>;
 };
 
 const TongueContext = createContext<TongueContextValue | null>(null);
@@ -30,6 +31,11 @@ export function __setClientRuntime(opts: {
   clientDefaultLocale = opts.defaultLocale;
 }
 
+/**
+ * Passes **only** the locale (and optional timeZone) to the client tree.
+ * Never serialises message catalogs — client `t()` uses per-key imports via
+ * the call-site loader, or an explicit `loadNamespace` for tests/examples.
+ */
 export function TongueProvider({
   locale,
   timeZone = 'UTC',
@@ -38,28 +44,23 @@ export function TongueProvider({
 }: {
   locale: string;
   timeZone?: string;
-  /** Injected by the call-site loader / app bootstrap. */
   loadNamespace?: (namespace: string) => Record<string, MessageFn>;
   children: ReactNode;
 }) {
-  const value: TongueContextValue = {
-    locale,
-    timeZone,
-    loadNamespace:
-      loadNamespace ??
-      (() => {
-        throw new Error(
-          '[next-tongue] TongueProvider requires loadNamespace or a call-site transform',
-        );
-      }),
-  };
-  return <TongueContext.Provider value={value}>{children}</TongueContext.Provider>;
+  const value: TongueContextValue = { locale, timeZone };
+  if (loadNamespace) value.loadNamespace = loadNamespace;
+  return (
+    <TongueContext.Provider value={value}>{children}</TongueContext.Provider>
+  );
 }
 
 function useTongue(): TongueContextValue {
   const ctx = useContext(TongueContext);
   if (!ctx) {
-    throw new Error('[next-tongue] useT/useFormat/useLocale must be used within TongueProvider');
+    throw new TongueError(
+      'TONGUE_E_NO_PROVIDER',
+      'useT/useFormat/useLocale must be used within <TongueProvider>',
+    );
   }
   return ctx;
 }
@@ -75,12 +76,26 @@ export function useFormat(): Format {
 
 export function useT(namespace = '_root'): TFunction {
   const { locale, loadNamespace } = useTongue();
+  if (!loadNamespace) {
+    throw new TongueError(
+      'TONGUE_E_NO_PROVIDER',
+      `useT('${namespace}') needs the call-site loader (or pass loadNamespace to TongueProvider). Prefer translating on the server with getT and passing strings.`,
+    );
+  }
   const messages = loadNamespace(namespace);
   return createT({
     locale,
     messages,
     loadNamespace,
   });
+}
+
+export function getClientLocales(): readonly string[] {
+  return clientLocales;
+}
+
+export function getClientDefaultLocale(): string {
+  return clientDefaultLocale;
 }
 
 export const locales = {
