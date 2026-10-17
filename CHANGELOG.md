@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. The format 
 - Type generator: `.tongue/types.d.ts` with per-namespace `TongueRegister` interfaces (#6).
 - Core runtime: `createT` (`t` / `t.rich` / `t.has` / `t.dynamic` / `t.ns`), `createFormat`, `getDir` / `getOgLocale` (#7).
 - Server/client export surfaces (`getT`, `TongueProvider`/`useT`), `withTongue` config wrapper + call-site loader, CLI `tongue build` (#8, #10, #11 — partial).
+- `examples/cache-components`: Next 16 Cache Components app; `next build` prerenders `/en` and `/de` as static (#15 — in progress).
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

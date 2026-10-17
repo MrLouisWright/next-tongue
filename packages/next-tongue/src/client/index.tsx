@@ -8,6 +8,8 @@ import {
 import { createFormat, type Format } from '../runtime/format.js';
 import { createT, type TFunction, type MessageFn } from '../runtime/create-t.js';
 
+export type { MessageFn };
+
 type TongueContextValue = {
   locale: string;
   timeZone: string;

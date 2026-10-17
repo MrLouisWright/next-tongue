@@ -1,0 +1,7 @@
+{
+  "home": {
+    "title": "Welcome, {name}!",
+    "inbox": "{count, plural, =0 {No messages} one {# message} other {# messages}}",
+    "loading": "Loading cart…"
+  }
+}

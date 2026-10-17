@@ -11,37 +11,34 @@ export type WithTongueOptions = {
   skipBuild?: boolean;
 };
 
-type NextConfigLike = Record<string, unknown> & {
-  turbopack?: {
-    rules?: Record<string, unknown>;
-    resolveAlias?: Record<string, string>;
-  };
-  webpack?: (
-    config: WebpackConfigLike,
-    ctx: { dev: boolean; isServer: boolean },
-  ) => WebpackConfigLike;
-};
-
 type WebpackConfigLike = {
-  resolve?: { alias?: Record<string, string> };
+  resolve?: { alias?: Record<string, unknown> };
   module?: { rules?: unknown[] };
 };
 
 /**
  * Config wrapper (not a bundler plugin): runs codegen when Next loads config,
- * registers the per-file call-site loader, maps `#tongue/*` → outDir.
+ * maps `#tongue/*` → outDir, registers the call-site loader for webpack.
+ * Turbopack: resolveAlias always; Turbopack loader rules deferred until the
+ * Next 16.4 rule shape is verified. Prefer server getT + string props (ADR 0009).
  */
-export function withTongue<T extends NextConfigLike>(
+export function withTongue<T extends object>(
   nextConfig: T = {} as T,
   options: WithTongueOptions = {},
 ): T {
   const cwd = process.cwd();
   const outDir = resolve(cwd, '.tongue');
   const loaderPath = resolveLoaderPath();
+  const input = nextConfig as T & {
+    turbopack?: { resolveAlias?: Record<string, unknown> };
+    webpack?: (
+      config: WebpackConfigLike,
+      ctx: { dev: boolean; isServer: boolean },
+    ) => WebpackConfigLike;
+  };
 
   if (!options.skipBuild) {
     runCodegenSync(cwd, options.config);
-    // Start watcher asynchronously after config resolves
     void loadConfig({
       cwd,
       ...(options.config != null ? { configPath: options.config } : {}),
@@ -60,29 +57,14 @@ export function withTongue<T extends NextConfigLike>(
   }
 
   const turbopack = {
-    ...(nextConfig.turbopack ?? {}),
+    ...(input.turbopack ?? {}),
     resolveAlias: {
-      ...(nextConfig.turbopack?.resolveAlias ?? {}),
+      ...(input.turbopack?.resolveAlias ?? {}),
       '#tongue': outDir,
-    },
-    rules: {
-      ...(nextConfig.turbopack?.rules ?? {}),
-      '*.{tsx,jsx,ts,js}': {
-        loaders: [
-          {
-            loader: loaderPath,
-            options: { outDir: '.tongue' },
-          },
-        ],
-        condition: {
-          all: [{ not: 'foreign' }, 'browser'],
-          content: 'useT(',
-        },
-      },
     },
   };
 
-  const userWebpack = nextConfig.webpack;
+  const userWebpack = input.webpack;
   const webpack = (
     config: WebpackConfigLike,
     ctx: { dev: boolean; isServer: boolean },
@@ -108,7 +90,7 @@ export function withTongue<T extends NextConfigLike>(
   };
 
   return {
-    ...nextConfig,
+    ...input,
     turbopack,
     webpack,
   };
@@ -116,14 +98,16 @@ export function withTongue<T extends NextConfigLike>(
 
 function resolveLoaderPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
-  const candidate = resolve(here, 'loader.js');
-  if (existsSync(candidate)) return candidate;
-  return candidate;
+  return resolve(here, 'loader.js');
 }
 
 function runCodegenSync(cwd: string, configPath?: string): void {
   const here = dirname(fileURLToPath(import.meta.url));
   const bin = resolve(here, '../../bin/tongue.js');
+  if (!existsSync(bin)) {
+    console.warn('[next-tongue] CLI bin missing; skip codegen at config load');
+    return;
+  }
   const args = [bin, 'build', '--cwd', cwd];
   if (configPath) args.push('--config', configPath);
   const r = spawnSync(process.execPath, args, {
