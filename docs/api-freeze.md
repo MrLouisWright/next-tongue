@@ -20,12 +20,12 @@ These entry points and shapes are treated as stable for beta adopters. Breaking 
 
 - Generated `.tongue/` file layout details (except that `#tongue/*` keeps working).
 - Dev overlay UI and editor deep-link templates.
-- Benchmark numbers and unpublished npm version (`0.0.0` until the first 0.9 tag).
+- Benchmark numbers (re-run anytime; not an API).
 - VS Code Marketplace listing (extension code is in-repo; publish is separate).
 
 ## Adopter checklist
 
-1. Pin a git commit or upcoming `0.9.x` npm range once published.
+1. Pin `next-tongue@0.9.x` once published ([releasing](releasing.md)), or a git commit until then.
 2. Run `tongue check` in CI.
 3. Prefer explicit `getT(locale, ns)` unless you opt into `routing.rootParams`.
 4. File issues against accidental breaks; they are treated as bugs during the freeze window.

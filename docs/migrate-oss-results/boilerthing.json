@@ -1,0 +1,368 @@
+{
+  "from": "next-intl",
+  "dryRun": true,
+  "changedFiles": 35,
+  "notes": [
+    {
+      "file": "src/app/[locale]/(protected)/(with-sidebar)/profile/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(protected)/(with-sidebar)/profile/page.tsx",
+      "description": "getTranslations(\"Pages.Profile\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(protected)/(with-sidebar)/settings/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(protected)/(with-sidebar)/settings/page.tsx",
+      "description": "getTranslations(\"Pages.Settings\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(public)/contact/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(public)/contact/page.tsx",
+      "description": "getTranslations(\"Pages.Contact\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(public)/pricing/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(public)/pricing/page.tsx",
+      "description": "getTranslations(\"Pages.Pricing\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/[...rest]/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/[...rest]/page.tsx",
+      "description": "getTranslations(\"Pages.Page404\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "NextIntlClientProvider → TongueProvider (pass locale=, drop messages=)",
+      "kind": "info"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/manifest.ts",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/manifest.ts",
+      "description": "getTranslations({ locale, namespace }) → getT(locale, \"Meta\")",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/badge-admin.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/badge-admin.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/button-login.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/button-login.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/button-logout.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/button-logout.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/button-signup.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/button-signup.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/form-contact.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/form-contact.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/form-login.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/form-login.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/header-nav.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/header-nav.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/icon-loading-spinner.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/icon-loading-spinner.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-action.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-action.tsx",
+      "description": "getTranslations(\"Components.LandingAction\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/landing-features.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/landing-features.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-hero.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/landing-hero.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-quotes.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-quotes.tsx",
+      "description": "getTranslations(\"Components.LandingQuotes\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/landing-references.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-references.tsx",
+      "description": "getTranslations(\"Components.LandingReferences\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/landing-statistics.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-statistics.tsx",
+      "description": "getTranslations(\"Components.LandingStatistics\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/landing-things.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/landing-things.tsx",
+      "description": "getTranslations(\"Components.LandingThings\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/locale-switcher.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/locale-switcher.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/pricing-card.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/pricing-card.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/pricing-faq.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/pricing-faq.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/pricing-selector.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/pricing-selector.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/profile-card.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/profile-card.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/scroll-to-top.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/scroll-to-top.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/sidebar-mobile.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/sidebar-mobile.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/user-dropdown.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/user-dropdown.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/with-sidebar/content-footer.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/with-sidebar/content-footer.tsx",
+      "description": "getTranslations(\"Components.withSidebar.ContentFooter\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/with-sidebar/sidebar-mobile.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/with-sidebar/sidebar-mobile.tsx",
+      "description": "getTranslations(\"Components.withSidebar.SidebarMobile\") needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/with-sidebar/sidebar-nav.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/with-sidebar/sidebar-nav.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/hooks/use-current-path.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/lib/i18n.ts",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/lib/i18n.ts",
+      "description": "import next-intl/navigation → next-tongue/navigation",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/lib/i18n.ts",
+      "description": "import next-intl/navigation → next-tongue/navigation",
+      "kind": "rewrite"
+    }
+  ],
+  "todos": 13
+}

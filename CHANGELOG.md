@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 
 ### Added
-- **Library code (pre-alpha, unpublished):** `packages/next-tongue` — pnpm workspace, TypeScript, Vitest, ESLint, GitHub Actions (Node 20/22), changesets, CI dependency budget (#1, #28).
+- (none yet)
+
+## [0.9.0] — 2026-10-17
+
+First public beta. API surface frozen per [docs/api-freeze.md](docs/api-freeze.md). npm publish starts the 4-week freeze timer (see ROADMAP).
+
+### Added
+- **Library (`next-tongue@0.9.0`):** `packages/next-tongue` — pnpm workspace, TypeScript, Vitest, ESLint, GitHub Actions (Node 20/22), changesets, CI dependency budget (#1, #28).
 - `defineConfig` + validated config loader (BCP 47 locales, `{locale}` in messages) (#2).
 - Own ICU MessageFormat parser with documented subset, `file:key:line:col` errors, and a starter conformance corpus (#3, #27).
 - Codegen (`tongue build`): per-key modules under `.tongue/msg/`, namespace modules, CLDR fallback chains, lazy `Intl` formatters (#4, #22).
@@ -97,4 +104,4 @@ All notable changes to this project will be documented in this file. The format 
 - Codemods moved after v1.0; the next-international codemod is dropped (migration page kept as a manual guide).
 - The "runtime catalogs from a CMS" non-goal (superseded by ADR 0013); client-side runtime catalogs remain out of scope.
 
-No package has been published to npm yet (still pre-alpha).
+`0.9.0` is ready to publish; until it appears on the npm registry, install from git. See [docs/releasing.md](docs/releasing.md).

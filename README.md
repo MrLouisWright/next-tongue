@@ -4,14 +4,14 @@
 
 **Compiler-first, type-safe i18n for the Next.js 16 App Router. Works with Turbopack, keeps the locale in route params, zero dependencies beyond `next` and `react`.**
 
-![status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-red)
+![status: beta 0.9](https://img.shields.io/badge/status-beta%200.9-yellow)
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
 
 </div>
 
 > [!WARNING]
-> **next-tongue is pre-alpha and not published to npm.** Library code lives in `packages/next-tongue` and is under active development toward [v0.1](https://github.com/MrLouisWright/next-tongue/milestone/1). Docs below mix shipped surfaces with still-planned API — treat anything not covered by green CI acceptance criteria as provisional. Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
+> **next-tongue is at v0.9 (API freeze) — first npm publish pending.** Install from git until `0.9.0` is on the registry ([releasing](docs/releasing.md)). Public surfaces are frozen per [API freeze](docs/api-freeze.md). Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
 
 ## Why
 
@@ -24,7 +24,7 @@ Next.js 16 made Cache Components and Partial Prerendering (PPR) the way to build
 
 ## Positioning
 
-> next-tongue is a Next.js 16–only i18n library that compiles ICU messages ahead of time and works with Turbopack, the default bundler. Client components ship only the messages they actually call. The locale comes from route params, never from headers, so translated pages stay in the static shell under Cache Components. It is pre-alpha. Size and speed claims will be published only with reproducible benchmarks against next-intl (with precompile) and Paraglide.
+> next-tongue is a Next.js 16–only i18n library that compiles ICU messages ahead of time and works with Turbopack, the default bundler. Client components ship only the messages they actually call. The locale comes from route params, never from headers, so translated pages stay in the static shell under Cache Components. It is in beta (0.9). Size and speed claims ship with reproducible benchmarks against next-intl (with precompile) and Paraglide.
 
 We make no claims about runtime speed or "only the active locale on the client" until the [v0.1 benchmark](https://github.com/MrLouisWright/next-tongue/issues/25) is published. See the [critical review](docs/review.md).
 
@@ -64,7 +64,7 @@ We make no claims about runtime speed or "only the active locale on the client" 
 ## Quick start (planned API)
 
 ```bash
-npm install next-tongue        # not yet published
+npm install next-tongue        # 0.9.0 — publish pending; until then: git+https://github.com/MrLouisWright/next-tongue.git
 npx tongue init
 ```
 
@@ -134,7 +134,7 @@ Honest, feature-level comparison as of October 2026. next-tongue's column is **p
 
 | | next-tongue (planned) | next-intl | Paraglide JS 2 | gt-next | next-international | Lingui |
 |---|---|---|---|---|---|---|
-| Status | pre-alpha | mature, very active | stable, active | active, company-backed | unmaintained since Oct 2024 | mature, active |
+| Status | beta 0.9 | mature, very active | stable, active | active, company-backed | unmaintained since Oct 2024 | mature, active |
 | Approach | build-time compiler (codegen + per-file loader) | runtime catalogs; experimental `messages.precompile` compiles ICU at build time | build-time compiler | runtime + AI translation service; experimental compiler | runtime catalogs | macros + compiled catalogs |
 | Works with Turbopack (its compiler) | goal | yes (loader) | Next plugin requires `--webpack` | auto-injection is webpack-only ([docs](https://generaltranslation.com/docs/react/nextjs/config)) | n/a | SWC plugin, pinned to Next's `swc_core` |
 | Next.js App Router routing helpers | yes (`proxy.ts`, Link, redirect) | yes | generic middleware + `localizeUrl` | yes | yes | no (bring your own) |

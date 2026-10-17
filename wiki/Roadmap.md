@@ -128,7 +128,8 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - [x] Preference recipe e2e: save → signed cookie → proxy resolves locale; tampered cookie ignored.
 
 ## Post-1.0 — Codemods
-- `tongue migrate next-intl` ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)): before 1.0 only message-file migration and the `useTranslations` → `useT` client mapping are documented; the full codemod (locale threading with `TODO(tongue)` comments + a report) comes after 1.0, measured on 3 real OSS apps.
+- [x] `tongue migrate next-intl` ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)): client mapping + locale threading + `TODO(tongue)` + `--out` report. Early OSS dry-runs: [Migrate OSS results](Migrate-OSS-Results). Full building-app AC after 1.0.
+- [x] Early OSS dry-run TODO counts for `tongue migrate next-intl` ([Migrate OSS results](Migrate-OSS-Results)); full building-app AC after 1.0 ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)).
 - The next-international codemod is **dropped** (no upstream release since Oct 2024).
 
 ## v1.x and beyond (ideas, not commitments)

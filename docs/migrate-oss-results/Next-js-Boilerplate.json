@@ -1,0 +1,298 @@
+{
+  "from": "next-intl",
+  "dryRun": true,
+  "changedFiles": 24,
+  "notes": [
+    {
+      "file": "next.config.ts",
+      "description": "createNextIntlPlugin → withTongue (from next-tongue/next)",
+      "kind": "info"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/layout.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/layout.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/sign-in/[[...sign-in]]/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/sign-in/[[...sign-in]]/page.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/sign-in/[[...sign-in]]/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/sign-up/[[...sign-up]]/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/sign-up/[[...sign-up]]/page.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/(center)/sign-up/[[...sign-up]]/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/dashboard/layout.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/dashboard/layout.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/dashboard/layout.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/dashboard/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/dashboard/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/dashboard/user-profile/[[...user-profile]]/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/dashboard/user-profile/[[...user-profile]]/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/layout.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(auth)/layout.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/about/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/about/page.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/about/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/counter/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/counter/page.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/counter/page.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/counter/page.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/layout.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/layout.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/layout.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/page.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/portfolio/[slug]/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/portfolio/[slug]/page.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/portfolio/[slug]/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/portfolio/page.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/portfolio/page.tsx",
+      "description": "remaining getTranslations() — review manually",
+      "kind": "todo"
+    },
+    {
+      "file": "src/app/[locale]/(marketing)/portfolio/page.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "NextIntlClientProvider → TongueProvider (pass locale=, drop messages=)",
+      "kind": "info"
+    },
+    {
+      "file": "src/app/[locale]/layout.tsx",
+      "description": "removed setRequestLocale() calls",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/CounterForm.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/CounterForm.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/CurrentCount.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/CurrentCount.tsx",
+      "description": "getTranslations('CurrentCount') needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/Hello.tsx",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/components/Hello.tsx",
+      "description": "getTranslations('Dashboard') needs locale — TODO(tongue)",
+      "kind": "todo"
+    },
+    {
+      "file": "src/components/LocaleSwitcher.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/components/LocaleSwitcher.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/libs/I18n.ts",
+      "description": "import next-intl/server → next-tongue/server",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/libs/I18n.ts",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/libs/I18nNavigation.ts",
+      "description": "import next-intl/navigation → next-tongue/navigation",
+      "kind": "rewrite"
+    },
+    {
+      "file": "src/templates/BaseTemplate.stories.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/templates/BaseTemplate.stories.tsx",
+      "description": "NextIntlClientProvider → TongueProvider (pass locale=, drop messages=)",
+      "kind": "info"
+    },
+    {
+      "file": "src/templates/BaseTemplate.test.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/templates/BaseTemplate.test.tsx",
+      "description": "NextIntlClientProvider → TongueProvider (pass locale=, drop messages=)",
+      "kind": "info"
+    },
+    {
+      "file": "src/templates/BaseTemplate.tsx",
+      "description": "import 'next-intl' → 'next-tongue/client' (verify exports)",
+      "kind": "info"
+    },
+    {
+      "file": "src/templates/BaseTemplate.tsx",
+      "description": "useTranslations → useT",
+      "kind": "rewrite"
+    }
+  ],
+  "todos": 11
+}

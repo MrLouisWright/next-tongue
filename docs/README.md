@@ -1,6 +1,6 @@
 # next-tongue documentation
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: beta 0.9 (API freeze).** Public surfaces are frozen; see [API freeze](api-freeze.md) and [releasing](releasing.md). Additive APIs may still land before v1.0. See [ROADMAP](../ROADMAP.md).
 
 ## Guides
 1. [Getting started](getting-started.md)
@@ -25,6 +25,8 @@
 20. Migration: [from next-intl](migration/next-intl.md) · [from next-international](migration/next-international.md) (deferred)
 21. [Versioning, deprecation & support](versioning.md)
 22. [API freeze (v0.9)](api-freeze.md)
+23. [Releasing](releasing.md)
+24. [Migrate OSS dry-run results (#31)](migrate-oss-results/README.md)
 
 ## Reference
 - [API reference](api-reference.md)
