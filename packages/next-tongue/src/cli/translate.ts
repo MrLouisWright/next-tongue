@@ -27,12 +27,12 @@ export type TranslateCliOptions = {
   fetchImpl?: typeof fetch;
 };
 
+type GlossaryTerm =
+  | { doNotTranslate: true; note?: string }
+  | ({ doNotTranslate?: false; note?: string } & Record<string, string | boolean | undefined>);
+
 type Glossary = {
-  terms: Record<
-    string,
-    | { doNotTranslate: true; note?: string }
-    | { [locale: string]: string; note?: string; doNotTranslate?: boolean }
-  >;
+  terms: Record<string, GlossaryTerm>;
 };
 
 type LockFile = {
@@ -239,13 +239,14 @@ export async function cmdTranslate(opts: TranslateCliOptions): Promise<void> {
     );
   }
 
-  const apiKey = process.env[apiKeyEnv];
-  if (!apiKey) {
+  const apiKeyRaw = process.env[apiKeyEnv];
+  if (!apiKeyRaw) {
     throw new TongueError(
       'TONGUE_E_CONFIG',
       `Missing API key env ${apiKeyEnv} (never logged)`,
     );
   }
+  const apiKey: string = apiKeyRaw;
 
   const results: Array<{
     locale: string;
@@ -262,12 +263,12 @@ export async function cmdTranslate(opts: TranslateCliOptions): Promise<void> {
       const item = plan[i]!;
       const translated = await translateOne({
         item,
-        meta: keyMeta[item.fullKey],
+        ...(keyMeta[item.fullKey] ? { meta: keyMeta[item.fullKey] } : {}),
         baseURL,
         model,
         apiKey,
         glossary,
-        context: tcfg.context,
+        ...(tcfg.context ? { context: tcfg.context } : {}),
         fetchImpl,
       });
       if (translated) results.push({ ...item, target: translated });
@@ -336,11 +337,11 @@ async function translateOne(args: {
   const { masked, restore } = maskIcu(item.source);
   const glossLines = Object.entries(glossary.terms)
     .map(([term, spec]) => {
-      if ('doNotTranslate' in spec && spec.doNotTranslate) {
+      if (spec.doNotTranslate === true) {
         return `- Keep "${term}" untranslated`;
       }
-      const t = (spec as Record<string, string>)[item.locale];
-      return t ? `- "${term}" → "${t}"` : null;
+      const t = spec[item.locale];
+      return typeof t === 'string' ? `- "${term}" → "${t}"` : null;
     })
     .filter(Boolean)
     .join('\n');
@@ -434,12 +435,10 @@ export function validateParity(source: string, target: string, locale: string): 
 }
 
 function checkGlossary(target: string, glossary: Glossary, locale: string): void {
-  for (const [term, spec] of Object.entries(glossary.terms)) {
-    if ('doNotTranslate' in spec && spec.doNotTranslate) {
-      continue;
-    }
-    const expected = (spec as Record<string, string>)[locale];
-    if (expected && !target.includes(expected)) {
+  for (const [, spec] of Object.entries(glossary.terms)) {
+    if (spec.doNotTranslate === true) continue;
+    const expected = spec[locale];
+    if (typeof expected === 'string' && !target.includes(expected)) {
       throw new Error(`glossary term missing: expected "${expected}"`);
     }
   }

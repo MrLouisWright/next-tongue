@@ -32,6 +32,25 @@ declare module 'next/navigation' {
   export function permanentRedirect(url: string): never;
 }
 
+declare module 'next/headers' {
+  export function cookies(): Promise<{
+    set: (
+      name: string,
+      value: string,
+      options?: {
+        httpOnly?: boolean;
+        sameSite?: 'lax' | 'strict' | 'none';
+        secure?: boolean;
+        path?: string;
+        maxAge?: number;
+      },
+    ) => void;
+    get: (name: string) => { value: string } | undefined;
+  }>;
+  export function headers(): Headers;
+  export function draftMode(): { isEnabled: boolean };
+}
+
 declare module 'next/server' {
   export class NextResponse extends Response {
     static redirect(url: string | URL, init?: number): NextResponse;

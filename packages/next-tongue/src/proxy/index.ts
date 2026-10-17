@@ -15,6 +15,13 @@ export {
 } from './locale-matcher.js';
 export type { LocaleMatcher, LocaleMatcherTables };
 
+export {
+  verifyLocalePreference,
+  signLocalePreference,
+  timingSafeEqual,
+  DEFAULT_PREF_COOKIE,
+} from '../runtime/locale-preference.js';
+
 export type { DomainConfig };
 
 /** Minimal request shape satisfied by NextRequest (proxy / middleware). */

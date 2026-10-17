@@ -1,6 +1,6 @@
 # Per-user preferred language
 
-> **Status: planned / pre-release.** This recipe works with the v0.2 APIs; the `setLocalePreference` helper and the `createProxy({ resolveLocale })` hook ship in v1.1 ([#48](https://github.com/MrLouisWright/next-tongue/issues/48)). See [ROADMAP](../ROADMAP.md).
+> **Status: implemented (pre-release).** `setLocalePreference` and `verifyLocalePreference` / `createProxy({ resolveLocale })` ship in v1.1 ([#48](https://github.com/MrLouisWright/next-tongue/issues/48)). See the `examples/basic` settings page. [ROADMAP](../ROADMAP.md).
 
 Signed-in users often have a preferred language stored in your database. next-tongue resolves it **in the proxy from a signed cookie**. It never calls the database in the proxy and never reads headers inside cached scopes ([ADR 0002](adr/0002-locale-from-params-only.md)).
 

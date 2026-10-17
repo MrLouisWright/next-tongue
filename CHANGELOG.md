@@ -67,6 +67,8 @@ All notable changes to this project will be documented in this file. The format 
 - `tongue report`: scan `.next` client chunks for per-key markers; `--json` / `--max-bytes` (#41).
 - `examples/monorepo`: shared messages package + web/admin apps with `declaration: true` (no TS2742) (#21).
 - `tongue translate`: OpenAI-compatible Chat Completions via global `fetch`, ICU masking/restore, glossary + lockfile, `$meta` in prompts, `--dry-run` / `--review` (CI default) / `--accept` / `--max-cost`, API-key redaction tests (v0.5).
+- `setLocalePreference` + `verifyLocalePreference` (HMAC-SHA-256 via Web Crypto) and `createProxy({ resolveLocale })` for signed preference cookies; basic example settings + e2e (#48).
+- `translate.maxTokens` / `--max-cost` documented on `tongue translate`.
 
 
 

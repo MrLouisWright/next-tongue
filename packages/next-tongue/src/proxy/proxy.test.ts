@@ -5,6 +5,8 @@ import {
   matchLocalePrefix,
   parseAcceptLanguage,
   sanitizeLocale,
+  signLocalePreference,
+  verifyLocalePreference,
   type TongueProxyRequest,
 } from './index.js';
 
@@ -272,6 +274,21 @@ describe('createProxy', () => {
     const res = await proxy(req('/about'));
     expect(res.status).toBe(307);
     expect(res.headers.get('location')).toBe('http://localhost/de/ueber-uns');
+  });
+
+  it('resolveLocale from signed preference (#48)', async () => {
+    const secret = 'proxy-test-secret';
+    const value = await signLocalePreference('de', secret);
+    const proxy = createProxy({
+      ...base,
+      prefix: 'always',
+      localeDetection: false,
+      resolveLocale: (r) =>
+        verifyLocalePreference(r.cookies.get('TONGUE_PREF')?.value, secret),
+    });
+    const res = await proxy(req('/', { cookie: `TONGUE_PREF=${value}` }));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe('http://localhost/de');
   });
 
   it('domains: uses per-host default locale (#32)', async () => {

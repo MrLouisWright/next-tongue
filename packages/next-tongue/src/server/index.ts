@@ -161,6 +161,14 @@ export type {
 } from '../runtime/format.js';
 export { isSanctionedUnit, SIMPLE_UNITS } from '../runtime/format.js';
 
+export {
+  setLocalePreference,
+} from './locale-preference.js';
+export type {
+  SetLocalePreferenceOptions,
+  CookieStoreLike,
+} from './locale-preference.js';
+
 function assertLocale(locale: string): void {
   if (runtimeLocales.length && !runtimeLocales.includes(locale)) {
     throw new TongueError(

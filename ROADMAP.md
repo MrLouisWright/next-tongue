@@ -132,11 +132,11 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 
 ## v1.1 — Editor & user preferences
 - VS Code extension in `packages/vscode` (VS Code API only): inline previews, missing-key diagnostics, go-to-message, hover with all locales [#47](https://github.com/MrLouisWright/next-tongue/issues/47).
-- Per-user preferred language: `setLocalePreference` action helper, signed cookie, `createProxy({ resolveLocale })` [#48](https://github.com/MrLouisWright/next-tongue/issues/48). No DB call in the proxy; no headers in cached scopes.
+- [x] Per-user preferred language: `setLocalePreference` action helper, signed cookie, `createProxy({ resolveLocale })` [#48](https://github.com/MrLouisWright/next-tongue/issues/48). No DB call in the proxy; no headers in cached scopes.
 
 **Acceptance criteria**
 - [ ] Extension published (Marketplace + Open VSX) with no runtime dependency beyond the VS Code API.
-- [ ] Preference recipe e2e: save → signed cookie → proxy resolves locale; tampered cookie ignored.
+- [x] Preference recipe e2e: save → signed cookie → proxy resolves locale; tampered cookie ignored.
 
 ## Post-1.0 — Codemods
 - `tongue migrate next-intl` ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)): before 1.0 only message-file migration and the `useTranslations` → `useT` client mapping are documented; the full codemod (locale threading with `TODO(tongue)` comments + a report) comes after 1.0, measured on 3 real OSS apps.

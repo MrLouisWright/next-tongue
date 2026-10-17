@@ -8,5 +8,12 @@
     "title": "Kontakt",
     "sent": "Nachricht gesendet.",
     "invalidEmail": "Gib eine gültige E-Mail ein."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "body": "Wähle deine bevorzugte Sprache. Sie wird in einem signierten Cookie gespeichert.",
+    "language": "Sprache",
+    "save": "Speichern",
+    "login": "Login simulieren (Präferenz wiederherstellen)"
   }
 }

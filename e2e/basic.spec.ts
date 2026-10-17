@@ -89,6 +89,45 @@ test('LocaleSwitcher links keep page and are accessible (#44)', async ({
   );
 });
 
+test('signed locale preference cookie drives proxy (#48)', async ({
+  page,
+  context,
+  request,
+}) => {
+  await page.goto('/settings');
+  await page.getByTestId('pref-locale').selectOption('de');
+  await page.getByTestId('pref-save').click();
+  await expect(page).toHaveURL(/\/de\/settings/);
+  await expect(page.locator('h1')).toHaveText('Einstellungen');
+
+  const cookies = await context.cookies();
+  const pref = cookies.find((c) => c.name === 'TONGUE_PREF');
+  expect(pref?.value).toBeTruthy();
+  expect(pref?.value).toMatch(/^de\.\d+\./);
+
+  // Bare `/` with only the pref cookie (no Accept-Language) → /de
+  const res = await request.get('/', {
+    maxRedirects: 0,
+    headers: {
+      cookie: `TONGUE_PREF=${pref!.value}`,
+      'accept-language': 'en',
+    },
+  });
+  expect(res.status()).toBe(307);
+  expect(res.headers()['location']).toMatch(/\/de\/?$/);
+
+  // Tampered cookie is ignored → Accept-Language / default wins
+  const bad = await request.get('/', {
+    maxRedirects: 0,
+    headers: {
+      cookie: 'TONGUE_PREF=fr.9999999999.not-a-real-sig',
+      'accept-language': 'en',
+    },
+  });
+  // as-needed default en: passthrough or rewrite, not redirect to /de
+  expect(bad.headers()['location'] ?? '').not.toMatch(/\/de/);
+});
+
 test.describe('explicit timeZone hydration (ADR 0008)', () => {
   // Browser zone differs from config UTC — shell + client must still agree.
   test.use({ timezoneId: 'America/New_York' });

@@ -18,13 +18,15 @@ function walk(dir: string): string[] {
 }
 
 describe('server request-API ban (ADR 0002)', () => {
-  it('never calls headers(), cookies(), or draftMode()', () => {
+  it('never calls headers(), cookies(), or draftMode() outside setLocalePreference', () => {
     // Cover server + runtime modules used by getT/getFormat
     const roots = [
       serverDir,
       join(serverDir, '../runtime'),
     ];
-    const files = roots.flatMap(walk);
+    // locale-preference.ts is the sole allowed cookies() caller (#48).
+    const allow = new Set([join(serverDir, 'locale-preference.ts')]);
+    const files = roots.flatMap(walk).filter((f) => !allow.has(f));
     const banned =
       /\b(headers|cookies|draftMode)\s*\(/;
     for (const file of files) {
@@ -33,5 +35,13 @@ describe('server request-API ban (ADR 0002)', () => {
         .replace(/\/\/.*$/gm, '');
       expect(src, file).not.toMatch(banned);
     }
+  });
+
+  it('locale-preference.ts uses cookies() only via next/headers', () => {
+    const src = readFileSync(join(serverDir, 'locale-preference.ts'), 'utf8');
+    expect(src).toMatch(/next\/headers/);
+    expect(src).toMatch(/\bcookies\s*\(/);
+    expect(src).not.toMatch(/\bheaders\s*\(/);
+    expect(src).not.toMatch(/\bdraftMode\s*\(/);
   });
 });
