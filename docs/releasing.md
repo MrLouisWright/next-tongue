@@ -10,22 +10,22 @@ The package version on `main` is **0.9.0**. The 4-week API freeze timer in [ROAD
 2. Repo secret `NPM_TOKEN` (Automation token) **or** local `npm login`.
 3. Clean tree; CI green on the commit you ship.
 
+### Publish (local) — current status
+
+`next-tongue@0.9.0` was submitted on 2026-10-17 and is in npm **staged publishing** (placeholder `0.0.0-stage` is live; real tarball waits for 2FA approval).
+
+**Approve (required once):**
+
+1. Open [npm Staged Packages](https://www.npmjs.com/settings/~/packages) → **Staged Packages** for `next-tongue@0.9.0`, or
+2. With npm ≥ 11.15 / Node ≥ 22.14: `npm stage approve next-tongue@0.9.0` (prompts for 2FA).
+
+Until approved, `npm install next-tongue` resolves the inert placeholder — do not point adopters at the registry yet.
+
 ### Publish (CI)
 
-1. Add `NPM_TOKEN` under repo Actions secrets.
-2. Open the [v0.9.0 GitHub Release](https://github.com/MrLouisWright/next-tongue/releases/tag/v0.9.0) (already created) and ensure it is **Published**, or run **Actions → Publish npm → Run workflow**.
-3. Workflow [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) builds, size-checks, and `npm publish --access public`.
-
-### Publish (local)
-
-```bash
-pnpm --filter next-tongue run build
-pnpm --filter next-tongue run check:deps
-pnpm --filter next-tongue run check:size
-cd packages/next-tongue && npm publish --access public
-```
-
-Git tag `v0.9.0` already exists. After the first successful npm publish, the 4-week freeze timer starts; update [SECURITY.md](../SECURITY.md) when adopters land.
+1. Repo secret `NPM_TOKEN` (Automation token) — already used for the first stage.
+2. Workflow [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) runs `npm publish` on release / workflow_dispatch; for brand-new names the registry may still stage, so a maintainer 2FA approve remains required.
+3. After approve, the 4-week freeze timer starts; update [SECURITY.md](../SECURITY.md).
 
 ### VS Code extension (#47)
 

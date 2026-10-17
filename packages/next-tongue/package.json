@@ -13,7 +13,7 @@
     "bin"
   ],
   "bin": {
-    "tongue": "./bin/tongue.js"
+    "tongue": "bin/tongue.js"
   },
   "exports": {
     ".": {
@@ -77,8 +77,12 @@
     "react": ">=19.0.0"
   },
   "peerDependenciesMeta": {
-    "next": { "optional": true },
-    "react": { "optional": true }
+    "next": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "next": "^16.0.0",
