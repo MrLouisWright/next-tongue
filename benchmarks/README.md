@@ -28,4 +28,6 @@ Results land in `benchmarks/results/` as JSON (`summary.json` ranks by gzip).
 
 **SSR** (`results/ssr.json`): 1,000 compiled `t()`-equivalent calls after warm-up.
 
-Full competitor Next apps (next-intl precompile, Paraglide `--webpack`, Lingui SWC) and hydration/build RSS metrics still to come for the go/no-go gate.
+**Real next-intl app** (`apps/next-intl`): Next 16 + `precompile` + 2-of-500 narrowed catalog → `results/next-intl-app.json`.
+
+Still open for the go/no-go gate: Paraglide Next + Lingui apps, hydration timing, build RSS, published ROADMAP decision.

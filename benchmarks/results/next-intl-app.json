@@ -1,0 +1,16 @@
+{
+  "library": "next-intl",
+  "config": "experimental.messages.precompile + catalog narrowed to 2 keys",
+  "keysTotal": 500,
+  "keysUsed": 2,
+  "locales": 3,
+  "rscBytes": 4011,
+  "rscBytesGz": 1487,
+  "htmlBytes": 5975,
+  "htmlBytesGz": 1950,
+  "messagesSnippetBytes": 75,
+  "messagesSnippetBytesGz": 71,
+  "leakedUnusedKeys": false,
+  "measuredAt": "2026-10-17T11:42:52.207Z",
+  "note": "RSC/HTML sizes for /en after next build. messagesSnippet* is the bench catalog fragment embedded in the RSC payload."
+}
