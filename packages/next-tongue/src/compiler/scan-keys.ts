@@ -1,5 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { findDynamicCalls } from './dynamic-from.js';
 
 export type ReferencedKey = {
   fullKey: string;
@@ -189,19 +190,11 @@ export function extractFromSource(
       push(ns, cm[2]!, cm.index);
     }
 
-    // t.dynamic(any, { from: ['a', 'b'] }) — only `from` keys become refs
-    const dynRe = new RegExp(
-      `\\b${escapeRegExp(varName)}\\.dynamic\\s*\\(`,
-      'g',
-    );
-    let dm: RegExpExecArray | null;
-    while ((dm = dynRe.exec(code)) !== null) {
-      const tail = code.slice(dm.index, dm.index + 400);
-      const fromMatch = /from\s*:\s*\[([^\]]*)\]/.exec(tail);
-      if (fromMatch) {
-        const keys = fromMatch[1]!.match(/['"]([^'"]+)['"]/g) ?? [];
-        for (const raw of keys) {
-          push(ns, raw.slice(1, -1), dm.index);
+    // t.dynamic(any, { from }) — only resolvable `from` keys become refs
+    for (const call of findDynamicCalls(code, varName)) {
+      if (call.keys) {
+        for (const key of call.keys) {
+          push(ns, key, call.start);
         }
       }
       dynamicNamespaces.add(ns || '_root');

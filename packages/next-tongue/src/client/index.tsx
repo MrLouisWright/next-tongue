@@ -149,7 +149,7 @@ function createLoaderStubT(locale: string, ns: string): TFunction {
   const fail = (kind: string): never => {
     throw new TongueError(
       'TONGUE_E_NO_PROVIDER',
-      `useT('${ns}') ${kind} was not rewritten to a per-key import. Ensure withTongue() is applied (loader on SSR + client). Prefer getT on the server for static copy; for dynamic keys use t.dynamic(key, { from: [...] }) so the loader can import those keys.`,
+      `useT('${ns}') ${kind} was not rewritten to a per-key import. Ensure withTongue() is applied (loader on SSR + client). Prefer getT on the server for static copy; for dynamic keys use t.dynamic(key, { from: [...] }) with an inline array or a same-file const (imported from arrays are not rewritten).`,
     );
   };
   const t = Object.assign((..._args: unknown[]) => fail('t()'), {

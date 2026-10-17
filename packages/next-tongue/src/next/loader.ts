@@ -6,10 +6,13 @@
  *   const t = useT('home'); t('inbox', { count })
  * into a static import of the per-key module when the key is a string literal.
  *
- * Also rewrites `t.dynamic(key, { from: [...] })` to a map of those imports.
+ * Also rewrites `t.dynamic(key, { from })` to a map of those imports when `from`
+ * is an inline array, a same-file const array, or `Object.values(sameFileConst)`.
  *
  * Escape analysis: if `t` is passed around, falls back to namespace import + warning.
  */
+
+import { findDynamicCalls } from '../compiler/dynamic-from.js';
 
 export type LoaderOptions = {
   /** Absolute or project-relative outDir (default .tongue) */
@@ -73,18 +76,10 @@ export function transformCallSites(
       return full;
     });
 
-    // t.dynamic(expr, { from: ['a', 'b'] }, values?)
-    const dynRe = new RegExp(
-      `\\b${escapeRegExp(varName)}\\.dynamic\\s*\\(`,
-      'g',
-    );
-    let dm: RegExpExecArray | null;
-    while ((dm = dynRe.exec(withoutDirs)) !== null) {
-      const tail = withoutDirs.slice(dm.index, dm.index + 500);
-      const fromMatch = /from\s*:\s*\[([^\]]*)\]/.exec(tail);
-      if (!fromMatch) continue;
-      const keys = [...fromMatch[1]!.matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]!);
-      for (const key of keys) {
+    // t.dynamic(expr, { from }, values?) — collect resolvable keys
+    for (const call of findDynamicCalls(withoutDirs, varName)) {
+      if (!call.keys) continue;
+      for (const key of call.keys) {
         const ident = safeImportIdent(ns, key);
         imports.set(`${ns}:${key}`, { ns, key, ident });
       }
@@ -112,15 +107,13 @@ export function transformCallSites(
     `$1\n  const ${localeVar} = useLocale();`,
   );
 
-  // Replace t.dynamic(expr, { from: [...] }, values?)
+  // Replace t.dynamic(expr, { from }, values?) — rewrite from the end so indices stay valid
   for (const [varName, ns] of translators) {
     if (escapes(withoutDirs, varName)) continue;
-    const dynCallRe = new RegExp(
-      `\\b${escapeRegExp(varName)}\\.dynamic\\s*\\(\\s*([^,]+?)\\s*,\\s*\\{[^}]*?from\\s*:\\s*\\[([^\\]]*)][^}]*\\}\\s*(?:,\\s*([^)]*?))?\\)`,
-      'g',
-    );
-    code = code.replace(dynCallRe, (_full, keyExpr: string, fromBody: string, values?: string) => {
-      const keys = [...fromBody.matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]!);
+    const calls = findDynamicCalls(code, varName).filter((c) => c.keys && c.keys.length > 0);
+    for (let ci = calls.length - 1; ci >= 0; ci--) {
+      const call = calls[ci]!;
+      const keys = call.keys!;
       const mapEntries = keys
         .map((key) => {
           const ident = safeImportIdent(ns, key);
@@ -129,11 +122,12 @@ export function transformCallSites(
         })
         .join(', ');
       const valuesArg =
-        values != null && String(values).trim() !== ''
-          ? `, ${String(values).trim()}`
+        call.valuesExpr != null && call.valuesExpr.trim() !== ''
+          ? `, ${call.valuesExpr.trim()}`
           : '';
-      return `((__tongue_dyn) => { const __tongue_fn = __tongue_dyn[${keyExpr.trim()}]; if (!__tongue_fn) throw new Error(${JSON.stringify(`[next-tongue] t.dynamic key not in from: [${keys.join(', ')}]`)}); return __tongue_fn(${localeVar}${valuesArg}); })({ ${mapEntries} })`;
-    });
+      const replacement = `((__tongue_dyn) => { const __tongue_fn = __tongue_dyn[${call.keyExpr.trim()}]; if (!__tongue_fn) throw new Error(${JSON.stringify(`[next-tongue] t.dynamic key not in from: [${keys.join(', ')}]`)}); return __tongue_fn(${localeVar}${valuesArg}); })({ ${mapEntries} })`;
+      code = code.slice(0, call.start) + replacement + code.slice(call.end);
+    }
   }
 
   // Replace t('key', values) / t.rich('key', values) with per-key calls

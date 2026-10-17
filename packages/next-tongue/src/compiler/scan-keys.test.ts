@@ -41,6 +41,21 @@ describe('extractFromSource', () => {
     expect(dynamicNamespaces.has('status')).toBe(true);
   });
 
+  it('marks t.dynamic from: const array keys as used', () => {
+    const { refs } = extractFromSource(
+      `
+      const FROM = ['open', 'closed'] as const;
+      const t = useT('status');
+      t.dynamic(status, { from: FROM });
+      `,
+      'c.tsx',
+    );
+    expect(refs.map((r) => r.fullKey).sort()).toEqual([
+      'status.closed',
+      'status.open',
+    ]);
+  });
+
   it('does not treat unrelated string arrays as missing keys', () => {
     const { refs, dynamicNamespaces } = extractFromSource(
       `

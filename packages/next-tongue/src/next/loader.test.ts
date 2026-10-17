@@ -52,6 +52,66 @@ export function Auth({ mode }) {
     expect(code).not.toMatch(/t\.dynamic\s*\(/);
   });
 
+  it('rewrites AuthForm-style btnKey + inline from array', () => {
+    const src = `"use client";
+import { useT } from 'next-tongue/client';
+const BTN_KEYS = { in: 'btnSignIn', up: 'btnSignUp', forgot: 'btnForgot', reset: 'btnReset' };
+export function AuthForm({ mode }) {
+  const t = useT('auth');
+  const btnKey = BTN_KEYS[mode];
+  return t.dynamic(btnKey, { from: ["btnSignIn", "btnSignUp", "btnForgot", "btnReset"] });
+}
+`;
+    const { code } = transformCallSites(src, 'auth-form.tsx');
+    expect(code).toContain('#tongue/msg/auth/btnForgot.js');
+    expect(code).toContain('__tongue_dyn[btnKey]');
+    expect(code).not.toMatch(/t\.dynamic\s*\(/);
+  });
+
+  it('rewrites from: same-file const array', () => {
+    const src = `
+import { useT } from 'next-tongue/client';
+const BTN_FROM = ['btnSignIn', 'btnSignUp'] as const;
+export function Auth({ mode }) {
+  const t = useT('auth');
+  return t.dynamic(mode, { from: BTN_FROM });
+}
+`;
+    const { code } = transformCallSites(src, 'auth-const.tsx');
+    expect(code).toContain('#tongue/msg/auth/btnSignIn.js');
+    expect(code).toContain('#tongue/msg/auth/btnSignUp.js');
+    expect(code).not.toMatch(/t\.dynamic\s*\(/);
+  });
+
+  it('rewrites from: Object.values(same-file const object)', () => {
+    const src = `
+import { useT } from 'next-tongue/client';
+const BTN_KEYS = { in: 'btnSignIn', up: 'btnSignUp' } as const;
+export function Auth({ mode }) {
+  const t = useT('auth');
+  return t.dynamic(BTN_KEYS[mode], { from: Object.values(BTN_KEYS) });
+}
+`;
+    const { code } = transformCallSites(src, 'auth-ov.tsx');
+    expect(code).toContain('#tongue/msg/auth/btnSignIn.js');
+    expect(code).toContain('#tongue/msg/auth/btnSignUp.js');
+    expect(code).not.toMatch(/t\.dynamic\s*\(/);
+  });
+
+  it('leaves t.dynamic as stub when from is not resolvable in-file', () => {
+    const src = `
+import { useT } from 'next-tongue/client';
+import { BTN_FROM } from './keys';
+export function Auth({ mode }) {
+  const t = useT('auth');
+  return t.dynamic(mode, { from: BTN_FROM });
+}
+`;
+    const { code } = transformCallSites(src, 'auth-import.tsx');
+    expect(code).toMatch(/t\.dynamic\s*\(/);
+    expect(code).not.toContain('#tongue/msg/');
+  });
+
   it('rewrites t.rich() to per-key .rich calls', () => {
     const src = `
 import { useT } from 'next-tongue/client';

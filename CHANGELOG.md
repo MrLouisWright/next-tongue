@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.7] — 2026-10-17
+
+### Fixed
+- Call-site loader (and `tongue check`) resolve `t.dynamic` `from` when it is a same-file `const` array or `Object.values(sameFileObject)`, not only an inline `[...]` literal.
+
 ## [0.9.6] — 2026-10-17
 
 ### Fixed
