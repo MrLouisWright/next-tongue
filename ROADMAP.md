@@ -39,6 +39,8 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 
 **Go/no-go gate:** if the benchmark does not show a clear client-bundle win over next-intl (precompile + `pick`) and Paraglide, stop and reconsider before building v0.2+ (options: change the delivery strategy, contribute upstream, or offer Paraglide-compatible output).
 
+**Provisional signal (2026-10-17, [#25](https://github.com/MrLouisWright/next-tongue/issues/25)):** on the 2-of-500 × 3-locale message-only fixture (esbuild minify + gzip), next-tongue (**213 B gz**) sits between the Paraglide-style proxy (**171 B**) and real Paraglide messages-only (**249 B**), and slightly under the next-intl `pick` proxy (**226 B**). That is **not a clear client-bundle win**. Full Paraglide client imports are dominated by locale runtime (~4 kB gz). Decision deferred until Lingui + hydration/build metrics land; options under consideration if the final gate stays red: Paraglide-compatible emit, per-locale client splitting, or repositioning on DX/Turbopack/types rather than raw bytes.
+
 ## v0.2 — Proxy, navigation, server formatting
 - `createProxy` for `proxy.ts`: `prefix: 'always' | 'as-needed'`, detection, cookie, `/en/*` canonical redirect ([#30](https://github.com/MrLouisWright/next-tongue/issues/30)).
 - `next-tongue/navigation`: `Link`, `redirect`, `permanentRedirect`, `useRouter`, `usePathname`, `getPathname` (thin wrappers over `next/link` and `next/navigation`).
