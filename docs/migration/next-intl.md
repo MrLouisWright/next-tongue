@@ -1,6 +1,11 @@
 # Migrating from next-intl
 
-> **Status: planned / pre-release.** The `tongue migrate next-intl` codemod is **deferred until after v1.0** ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)). Before then, migrate manually with this mapping: message files are reusable as-is, and client `useTranslations` maps directly to `useT`. The hard part is server code: `getTranslations('ns')` relies on `i18n/request.ts`, so you must thread `locale` from `params` into every server call, `generateMetadata` and action. See [ROADMAP](../../ROADMAP.md).
+> **Status: partial.** `tongue migrate next-intl` rewrites client `useTranslations` → `useT`, common imports, and annotates server `getTranslations` with `TODO(tongue)` when locale is missing ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)). Full locale-threading + report measured on 3 OSS apps remains post-1.0. Message files are reusable as-is. See [ROADMAP](../../ROADMAP.md).
+
+```bash
+npx tongue migrate next-intl --dry-run
+npx tongue migrate next-intl
+```
 
 ## Mapping (the future codemod will follow it)
 

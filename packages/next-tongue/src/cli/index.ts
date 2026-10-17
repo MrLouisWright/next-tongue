@@ -8,6 +8,7 @@ import { cmdInit } from './init.js';
 import { cmdExport, cmdImport } from './export-import.js';
 import { cmdReport, parseMaxBytes } from './report.js';
 import { cmdTranslate } from './translate.js';
+import { cmdMigrate } from './migrate.js';
 
 export async function runCli(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -237,6 +238,16 @@ export async function runCli(argv: string[]): Promise<void> {
           quiet: values.quiet === true,
         });
         break;
+      case 'migrate': {
+        const from = positionals[1] ?? 'next-intl';
+        await cmdMigrate({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          from,
+          dryRun: values['dry-run'] === true,
+          quiet: values.quiet === true,
+        });
+        break;
+      }
       default:
         console.error(`Unknown command: ${command}`);
         printHelp();
@@ -284,6 +295,7 @@ Usage:
   tongue import <file.xlf|file.csv> [--dry-run]
   tongue report [--json] [--max-bytes 4kb]
   tongue translate [--locale de] [--keys 'home.*'] [--dry-run] [--review] [--accept] [--retranslate] [--max-cost N]
+  tongue migrate next-intl [--dry-run]
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);
