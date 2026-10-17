@@ -4,7 +4,10 @@ export type CheckKind =
   | 'undefined'
   | 'mismatch'
   | 'syntax'
-  | 'stale';
+  | 'stale'
+  | 'a11y'
+  | 'bidi'
+  | 'length';
 
 export type CheckSeverity = 'error' | 'warn';
 

@@ -33,8 +33,8 @@ CI gate. Reads messages + source, reports:
 | `syntax` | ICU parse error | always `error` |
 | `stale` | Source text changed since the target was translated (source hashes in `tongue.lock`) | `strict.stale` (default `warn`) |
 | `length` (v0.4) | Target longer than `$meta.maxLength` | `strict.length` (default `warn`) |
-| `a11y` (v0.4) | Root layout `<html>` missing `lang={locale}` or `dir={getDir(locale)}`; RTL locales without `dir` | `strict.a11y` (default `error`) |
-| `bidi` (v0.4) | RTL messages with unbalanced bidi controls, LTR-only punctuation around args, or args that need isolation (`\u2068…\u2069`) | `strict.bidi` (default `warn`) |
+| `a11y` | Root layout `<html>` missing `lang={locale}` or `dir={getDir(locale)}`; RTL locales without `dir` | `strict.a11y` (default `error`) |
+| `bidi` | RTL messages with unbalanced bidi controls, LTR-only punctuation around args, or args that need isolation (`\u2068…\u2069`) | `strict.bidi` (default `warn`) |
 
 Flags: `--locale de`, `--reporter pretty|json|github` (`github` emits workflow annotations), `--max-warnings 0`.
 

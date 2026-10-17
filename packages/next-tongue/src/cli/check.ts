@@ -1,6 +1,8 @@
 import { loadConfig } from '../config/load-config.js';
 import { validateCatalog, validateStale } from '../compiler/validate/catalog.js';
 import { validateUsage } from '../compiler/validate/usage.js';
+import { validateA11y } from '../compiler/validate/a11y.js';
+import { validateBidi } from '../compiler/validate/bidi.js';
 import {
   reportGithub,
   reportJson,
@@ -37,6 +39,12 @@ export async function cmdCheck(opts: CheckCliOptions): Promise<void> {
   issues.push(...(await validateUsage(config, cwd)));
   issues.push(
     ...(await validateStale(config, cwd, {
+      ...(localeFilter ? { locales: localeFilter } : {}),
+    })),
+  );
+  issues.push(...(await validateA11y(config, cwd)));
+  issues.push(
+    ...(await validateBidi(config, cwd, {
       ...(localeFilter ? { locales: localeFilter } : {}),
     })),
   );
