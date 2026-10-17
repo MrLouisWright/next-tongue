@@ -28,10 +28,11 @@ File an issue with label `adopter` or a PR updating this table.
 
 ## Freeze checklist
 
-1. [ ] Staged `0.9.0` (or `0.9.1` with the root-params fix) approved on npm
-2. [ ] Freeze start date recorded in ROADMAP / CHANGELOG
-3. [ ] Three external production-like apps listed above
-4. [ ] No breaking public-API changes for 4 weeks
+1. [x] `0.9.1` live on npm (Turbopack root-params fix)
+2. [ ] Approve staged **`0.9.2`** (README + LICENSE on the registry page)
+3. [ ] Freeze start date recorded in ROADMAP / CHANGELOG *(starts when adopters can install a documented release — treat `0.9.1` as start if preferred)*
+4. [ ] Three external production-like apps listed above
+5. [ ] No breaking public-API changes for 4 weeks
 
 ---
 [Releasing](releasing.md) · [API freeze](api-freeze.md) · [Roadmap](../ROADMAP.md)

@@ -12,13 +12,12 @@ The package version on `main` is **0.9.0**. The 4-week API freeze timer in [ROAD
 
 ### Publish (local) — current status
 
-`0.9.1` is on the registry. **`0.9.2`** adds the npm README/LICENSE and a clean tarball (no maps/tests):
+`0.9.1` is live (no README in that tarball). **`0.9.2`** was published from CI (2026-10-17) with README + LICENSE + a clean tarball; if the registry still shows only ≤0.9.1, **approve the staged `0.9.2`** with 2FA:
 
-```bash
-pnpm --filter next-tongue run build
-cd packages/next-tongue && npm publish --access public
-# if staged: approve with 2FA on npmjs.com / `npm stage approve next-tongue@0.9.2`
-```
+1. [npm Staged Packages](https://www.npmjs.com/settings/~/packages) → approve `next-tongue@0.9.2`, or  
+2. `npm stage approve next-tongue@0.9.2` (npm ≥ 11.15)
+
+Until approved, `latest` remains `0.9.1` and the package page has no README.
 
 ### Publish (CI)
 
