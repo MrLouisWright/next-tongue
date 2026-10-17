@@ -27,6 +27,7 @@
 22. [API freeze (v0.9)](api-freeze.md)
 23. [Releasing](releasing.md)
 24. [Migrate OSS dry-run results (#31)](migrate-oss-results/README.md)
+25. [Adopters & freeze verification](adopters.md)
 
 ## Reference
 - [API reference](api-reference.md)

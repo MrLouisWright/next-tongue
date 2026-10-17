@@ -12,14 +12,14 @@ The package version on `main` is **0.9.0**. The 4-week API freeze timer in [ROAD
 
 ### Publish (local) — current status
 
-`next-tongue@0.9.0` was submitted on 2026-10-17 and is in npm **staged publishing** (placeholder `0.0.0-stage` is live; real tarball waits for 2FA approval).
+`next-tongue@0.9.0` was staged on 2026-10-17 (placeholder `0.0.0-stage`). **Ship `0.9.1` instead** (Turbopack `next/root-params` fix) once rate limits clear:
 
-**Approve (required once):**
+```bash
+cd packages/next-tongue && npm publish --access public
+# then approve the staged version with 2FA on npmjs.com / `npm stage approve next-tongue@0.9.1`
+```
 
-1. Open [npm Staged Packages](https://www.npmjs.com/settings/~/packages) → **Staged Packages** for `next-tongue@0.9.0`, or
-2. With npm ≥ 11.15 / Node ≥ 22.14: `npm stage approve next-tongue@0.9.0` (prompts for 2FA).
-
-Until approved, `npm install next-tongue` resolves the inert placeholder — do not point adopters at the registry yet.
+Until a real version is approved, `npm install next-tongue` resolves the inert placeholder — do not point adopters at the registry yet.
 
 ### Publish (CI)
 

@@ -7,6 +7,14 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.1] — 2026-10-17
+
+### Fixed
+- Turbopack no longer pulls `next/root-params` into proxy/middleware graphs when `routing.rootParams` is off (broke `examples/basic` and any app importing `next-tongue/server` from a shared runtime). Load is opaque until the opt-in path runs.
+
+### Added
+- [Adopters / freeze verification](docs/adopters.md): in-repo production-like `next build` results for five examples.
+
 ## [0.9.0] — 2026-10-17
 
 First public beta. API surface frozen per [docs/api-freeze.md](docs/api-freeze.md). npm publish starts the 4-week freeze timer (see ROADMAP).

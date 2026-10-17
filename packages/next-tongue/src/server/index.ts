@@ -132,12 +132,23 @@ export async function getFormat(
   });
 }
 
+/**
+ * Load `next/root-params` without a static specifier so Turbopack/webpack do
+ * not pull it into proxy/middleware graphs when `routing.rootParams` is off.
+ */
+async function importRootParams(): Promise<{
+  locale?: () => Promise<string | undefined>;
+}> {
+  const importer = new Function('s', 'return import(s)') as (
+    s: string,
+  ) => Promise<{ locale?: () => Promise<string | undefined> }>;
+  return importer('next/root-params');
+}
+
 async function resolveRootLocale(): Promise<string> {
   if (rootLocaleReader) return rootLocaleReader();
   try {
-    const mod = (await import('next/root-params')) as {
-      locale?: () => Promise<string | undefined>;
-    };
+    const mod = await importRootParams();
     if (typeof mod.locale !== 'function') {
       throw new Error('locale() missing');
     }
