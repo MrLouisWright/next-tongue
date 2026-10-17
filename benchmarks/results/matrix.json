@@ -1,0 +1,159 @@
+{
+  "measuredAt": "2026-10-17T11:38:00.613Z",
+  "scenario": "matrix: keys∈{50,1000} × locales∈{2,10,50} × used∈{2,20}, esbuild minify + gzip",
+  "crossoverNote": "With all-locales-of-used-keys delivery, next-tongue and paraglide-style scale similarly with locale count; catalog-pick (narrowed JSON) stays competitive at small used×locales and loses as used keys grow. Per-locale client splitting would change the crossover — not enabled by default (ADR 0009).",
+  "sampleUsed2Keys50": [
+    {
+      "keysTotal": 50,
+      "locales": 2,
+      "keysUsed": 2,
+      "nextTongueGz": 145,
+      "catalogPickGz": 201,
+      "paraglideStyleGz": 145,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 50,
+      "locales": 10,
+      "keysUsed": 2,
+      "nextTongueGz": 222,
+      "catalogPickGz": 267,
+      "paraglideStyleGz": 222,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 50,
+      "locales": 50,
+      "keysUsed": 2,
+      "nextTongueGz": 574,
+      "catalogPickGz": 545,
+      "paraglideStyleGz": 574,
+      "tongueWinsVsPick": false,
+      "tongueWinsVsParaglide": false
+    }
+  ],
+  "rows": [
+    {
+      "keysTotal": 50,
+      "locales": 2,
+      "keysUsed": 2,
+      "nextTongueGz": 145,
+      "catalogPickGz": 201,
+      "paraglideStyleGz": 145,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 50,
+      "locales": 2,
+      "keysUsed": 20,
+      "nextTongueGz": 325,
+      "catalogPickGz": 419,
+      "paraglideStyleGz": 325,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 50,
+      "locales": 10,
+      "keysUsed": 2,
+      "nextTongueGz": 222,
+      "catalogPickGz": 267,
+      "paraglideStyleGz": 222,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 50,
+      "locales": 10,
+      "keysUsed": 20,
+      "nextTongueGz": 856,
+      "catalogPickGz": 807,
+      "paraglideStyleGz": 856,
+      "tongueWinsVsPick": false,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 50,
+      "locales": 50,
+      "keysUsed": 2,
+      "nextTongueGz": 574,
+      "catalogPickGz": 545,
+      "paraglideStyleGz": 574,
+      "tongueWinsVsPick": false,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 50,
+      "locales": 50,
+      "keysUsed": 20,
+      "nextTongueGz": 3640,
+      "catalogPickGz": 3037,
+      "paraglideStyleGz": 3640,
+      "tongueWinsVsPick": false,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 1000,
+      "locales": 2,
+      "keysUsed": 2,
+      "nextTongueGz": 145,
+      "catalogPickGz": 201,
+      "paraglideStyleGz": 145,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 1000,
+      "locales": 2,
+      "keysUsed": 20,
+      "nextTongueGz": 325,
+      "catalogPickGz": 419,
+      "paraglideStyleGz": 325,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 1000,
+      "locales": 10,
+      "keysUsed": 2,
+      "nextTongueGz": 222,
+      "catalogPickGz": 267,
+      "paraglideStyleGz": 222,
+      "tongueWinsVsPick": true,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 1000,
+      "locales": 10,
+      "keysUsed": 20,
+      "nextTongueGz": 856,
+      "catalogPickGz": 807,
+      "paraglideStyleGz": 856,
+      "tongueWinsVsPick": false,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 1000,
+      "locales": 50,
+      "keysUsed": 2,
+      "nextTongueGz": 574,
+      "catalogPickGz": 545,
+      "paraglideStyleGz": 574,
+      "tongueWinsVsPick": false,
+      "tongueWinsVsParaglide": false
+    },
+    {
+      "keysTotal": 1000,
+      "locales": 50,
+      "keysUsed": 20,
+      "nextTongueGz": 3640,
+      "catalogPickGz": 3037,
+      "paraglideStyleGz": 3640,
+      "tongueWinsVsPick": false,
+      "tongueWinsVsParaglide": false
+    }
+  ]
+}

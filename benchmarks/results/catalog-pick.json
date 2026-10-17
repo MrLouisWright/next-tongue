@@ -6,6 +6,6 @@
   "locales": 3,
   "bytes": 363,
   "bytesGz": 226,
-  "measuredAt": "2026-10-17T11:25:11.944Z",
+  "measuredAt": "2026-10-17T11:38:00.194Z",
   "note": "Only the 2 used keys × 3 locales are inlined as a JSON catalog + tiny interpolator. No ICU plural runtime."
 }

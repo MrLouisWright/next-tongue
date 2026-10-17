@@ -14,9 +14,9 @@ pnpm benchmark   # tongue + catalog-pick proxy + paraglide-style + summary
 
 Results land in `benchmarks/results/` as JSON (`summary.json` ranks by gzip).
 
-## Current scenario
+## Scenarios
 
-**2 of 500 keys × 3 locales**, esbuild minify + gzip (client message code only):
+**Baseline — 2 of 500 keys × 3 locales**, esbuild minify + gzip (client message code only):
 
 | Library | What it models |
 |---|---|
@@ -24,4 +24,8 @@ Results land in `benchmarks/results/` as JSON (`summary.json` ranks by gzip).
 | `runtime-catalog-pick-2-keys` | next-intl best case: provider narrowed to 2 keys |
 | `paraglide-style-per-message` | Paraglide-like per-message functions, all locales of used keys |
 
-Full competitor apps (next-intl precompile, Paraglide Next `--webpack`, Lingui SWC) and the matrix in #25 still to come.
+**Matrix** (`results/matrix.json`): keys ∈ {50, 1000} × locales ∈ {2, 10, 50} × used ∈ {2, 20}.
+
+**SSR** (`results/ssr.json`): 1,000 compiled `t()`-equivalent calls after warm-up.
+
+Full competitor Next apps (next-intl precompile, Paraglide `--webpack`, Lingui SWC) and hydration/build RSS metrics still to come for the go/no-go gate.

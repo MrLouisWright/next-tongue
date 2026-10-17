@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 
-export type MessageFn = (locale: string, values?: Record<string, unknown>) => string;
+export type MessageFn = ((
+  locale: string,
+  values?: Record<string, unknown>,
+) => string) & {
+  rich?: (locale: string, values?: Record<string, unknown>) => ReactNode;
+};
 
 export type TFunction = {
   (key: string, values?: Record<string, unknown>): string;
@@ -38,9 +43,17 @@ export function createT(options: CreateTOptions): TFunction {
   t.has = (key) => Object.prototype.hasOwnProperty.call(messages, key);
 
   t.rich = (key, values) => {
-    // v0.1: tags are stripped at compile for t(); rich uses the same string result
-    // until the rich emitter lands. Apps should prefer server getT + props.
-    return t(key, values);
+    const fn = messages[key];
+    if (!fn) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[next-tongue] Missing key "${key}" for locale "${locale}"`);
+      }
+      return key;
+    }
+    if (typeof fn.rich === 'function') {
+      return fn.rich(locale, values);
+    }
+    return fn(locale, values);
   };
 
   t.dynamic = (key, opts, values) => {

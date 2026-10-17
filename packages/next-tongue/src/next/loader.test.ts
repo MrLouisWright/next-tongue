@@ -17,6 +17,20 @@ export function Badge({ count }) {
     expect(code).toMatch(/__tongue_home_inbox\(__tongue_locale/);
   });
 
+  it('rewrites t.rich() to per-key .rich calls', () => {
+    const src = `
+import { useT } from 'next-tongue/client';
+export function Terms() {
+  const t = useT('legal');
+  return t.rich('terms', { link: (c) => c });
+}
+`;
+    const { code, warnings } = transformCallSites(src, 'terms.tsx');
+    expect(warnings).toHaveLength(0);
+    expect(code).toContain("#tongue/msg/legal/terms.js");
+    expect(code).toMatch(/__tongue_legal_terms\.rich\(__tongue_locale/);
+  });
+
   it('warns when t escapes', () => {
     const src = `
 const t = useT('home');

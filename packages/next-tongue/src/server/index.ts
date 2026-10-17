@@ -1,5 +1,5 @@
 import { createFormat, type Format } from '../runtime/format.js';
-import { createT, type TFunction } from '../runtime/create-t.js';
+import { createT, type MessageFn, type TFunction } from '../runtime/create-t.js';
 import { getDir, getOgLocale, isLocale as isLocaleValue } from '../runtime/locale.js';
 import { TongueError } from '../errors.js';
 
@@ -7,11 +7,7 @@ let runtimeLocales: readonly string[] = [];
 let runtimeDefaultLocale = 'en';
 let runtimeTimeZone = 'UTC';
 let namespaceLoader:
-  | ((
-      namespace: string,
-    ) => Promise<
-      Record<string, (locale: string, values?: Record<string, unknown>) => string>
-    >)
+  | ((namespace: string) => Promise<Record<string, MessageFn>>)
   | undefined;
 
 /** @internal Used by generated `.tongue/runtime.js` / tests. */

@@ -59,14 +59,12 @@ export function transformCallSites(
     if (escapes(source, varName)) continue;
 
     const callRe = new RegExp(
-      `\\b${escapeRegExp(varName)}\\s*\\(\\s*(['"])([^'"]+)\\1`,
+      `\\b${escapeRegExp(varName)}(?:\\.rich)?\\s*\\(\\s*(['"])([^'"]+)\\1`,
       'g',
     );
     code = code.replace(callRe, (full, _q: string, key: string) => {
       const ident = safeImportIdent(ns, key);
       imports.set(`${ns}:${key}`, { ns, key, ident });
-      // Keep call shape but we'll replace with ident(locale, …) in a second pass — v0.1
-      // inserts import and leaves a marker comment for now when full rewrite is complex.
       return full;
     });
   }
@@ -88,10 +86,20 @@ export function transformCallSites(
     `$1\n  const ${localeVar} = useLocale();`,
   );
 
-  // Second pass: replace t('key', values) with ident(locale, values)
+  // Second pass: replace t('key', values) / t.rich('key', values) with per-key calls
   for (const [varName, ns] of translators) {
     if (escapes(source, varName)) continue;
     for (const { key, ident } of [...imports.values()].filter((i) => i.ns === ns)) {
+      const richRe = new RegExp(
+        `\\b${escapeRegExp(varName)}\\.rich\\s*\\(\\s*(['"])${escapeRegExp(key)}\\1\\s*(,\\s*([^)]*))?\\)`,
+        'g',
+      );
+      code = code.replace(richRe, (_full, _q, _rest, values) => {
+        if (values != null && String(values).trim() !== '') {
+          return `${ident}.rich(${localeVar}, ${String(values).trim()})`;
+        }
+        return `${ident}.rich(${localeVar})`;
+      });
       const re = new RegExp(
         `\\b${escapeRegExp(varName)}\\s*\\(\\s*(['"])${escapeRegExp(key)}\\1\\s*(,\\s*([^)]*))?\\)`,
         'g',

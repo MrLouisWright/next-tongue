@@ -12,13 +12,15 @@ export type EmitContext = {
 /**
  * Emit a pure message function body for one locale AST.
  * Formatters are created lazily inside the function (never at module load).
+ * Tags are stripped to children text (use {@link emitRichMessageFunction} for t.rich).
  */
 export function emitMessageFunction(
   exportName: string,
   ast: MessageAst,
   ctx: EmitContext,
-  opts: { withLocaleArg: boolean },
+  opts: { withLocaleArg: boolean; exported?: boolean },
 ): string {
+  const exported = opts.exported !== false;
   const args = collectArgNames(ast);
   const hasArgs = args.size > 0;
   const needsPlural = hasPoundOrPlural(ast);
@@ -37,30 +39,87 @@ export function emitMessageFunction(
     valuesExpr: 'values',
     localeExpr: opts.withLocaleArg ? 'locale' : JSON.stringify(ctx.locale),
     countExpr: needsPlural ? 'values.__count' : '0',
+    mode: 'string',
+    tagIndex: { n: 0 },
   });
 
   const localeParam = opts.withLocaleArg ? 'locale, ' : '';
   const valuesParam = hasArgs || needsPlural ? 'values' : '';
-  // For pound we need the plural count in scope — codegen for plural sets values.__count conceptually;
-  // instead pass count through a local when emitting plural branches.
+  const decl = exported ? 'export function' : 'function';
 
-  if (!hasArgs && !hasFormatters(ast)) {
-    // Constant string
+  if (!hasArgs && !hasFormatters(ast) && !hasTags(ast)) {
     const lit = stringifyAstAsConstant(ast);
     if (lit != null) {
       if (opts.withLocaleArg) {
-        return `export function ${exportName}(_locale) {\n  return ${JSON.stringify(lit)};\n}\n`;
+        return `${decl} ${exportName}(_locale) {\n  return ${JSON.stringify(lit)};\n}\n`;
       }
-      return `export function ${exportName}() {\n  return ${JSON.stringify(lit)};\n}\n`;
+      return `${decl} ${exportName}() {\n  return ${JSON.stringify(lit)};\n}\n`;
     }
   }
 
   const lazyBlock = lazy.length ? lazy.join('\n  ') + '\n  ' : '';
   return (
-    `export function ${exportName}(${localeParam}${valuesParam ? 'values' : '_values'}) {\n` +
+    `${decl} ${exportName}(${localeParam}${valuesParam ? 'values' : '_values'}) {\n` +
     `  ${lazyBlock}return ${body};\n` +
     `}\n`
   );
+}
+
+/**
+ * Emit a rich-text message function that applies tag handlers from `values`
+ * and returns ReactNodes with stable keys per tag index.
+ */
+export function emitRichMessageFunction(
+  exportName: string,
+  ast: MessageAst,
+  ctx: EmitContext,
+  opts: { withLocaleArg: boolean; exported?: boolean },
+): string {
+  const exported = opts.exported !== false;
+  const args = collectArgNames(ast);
+  const hasArgs = args.size > 0;
+  const needsPlural = hasPoundOrPlural(ast);
+
+  const lazy: string[] = [];
+  let lazyId = 0;
+  const nextLazy = (expr: string) => {
+    const id = `_f${lazyId++}`;
+    lazy.push(`let ${id};`);
+    return `(${id} ??= ${expr})`;
+  };
+
+  const body = emitNodes(ast, {
+    ctx,
+    nextLazy,
+    valuesExpr: 'values',
+    localeExpr: opts.withLocaleArg ? 'locale' : JSON.stringify(ctx.locale),
+    countExpr: needsPlural ? 'values.__count' : '0',
+    mode: 'rich',
+    tagIndex: { n: 0 },
+  });
+
+  const localeParam = opts.withLocaleArg ? 'locale, ' : '';
+  const valuesParam = hasArgs || needsPlural || hasTags(ast) ? 'values' : '';
+  const decl = exported ? 'export function' : 'function';
+  const lazyBlock = lazy.length ? lazy.join('\n  ') + '\n  ' : '';
+  return (
+    `${decl} ${exportName}(${localeParam}${valuesParam ? 'values' : '_values'}) {\n` +
+    `  ${lazyBlock}return ${body};\n` +
+    `}\n`
+  );
+}
+
+/** True when the AST contains at least one rich tag. */
+export function hasTags(ast: MessageAst): boolean {
+  for (const el of ast) {
+    if (el.type === 'tag') return true;
+    if ('options' in el) {
+      for (const opt of el.options) {
+        if (hasTags(opt.value)) return true;
+      }
+    }
+  }
+  return false;
 }
 
 type EmitState = {
@@ -69,9 +128,16 @@ type EmitState = {
   valuesExpr: string;
   localeExpr: string;
   countExpr: string;
+  mode: 'string' | 'rich';
+  tagIndex: { n: number };
 };
 
 function emitNodes(ast: MessageAst, s: EmitState): string {
+  if (s.mode === 'rich') {
+    if (ast.length === 0) return 'null';
+    if (ast.length === 1) return emitNode(ast[0]!, s);
+    return `_rj([${ast.map((n) => emitNode(n, s)).join(', ')}])`;
+  }
   if (ast.length === 0) return '""';
   if (ast.length === 1) return emitNode(ast[0]!, s);
   return `(${ast.map((n) => emitNode(n, s)).join(' + ')})`;
@@ -113,9 +179,10 @@ function emitNode(el: MessageElement, s: EmitState): string {
       const cats = el.options.filter((o) => !String(o.selector).startsWith('='));
       const other = cats.find((c) => c.selector === 'other');
       const catExpr = `${pr}.select(${offsetCount})`;
+      const empty = s.mode === 'rich' ? 'null' : '""';
       let nested = other
         ? emitNodes(other.value, { ...s, countExpr: offsetCount })
-        : '""';
+        : empty;
       for (const opt of cats) {
         if (opt.selector === 'other') continue;
         const branch = emitNodes(opt.value, { ...s, countExpr: offsetCount });
@@ -132,7 +199,8 @@ function emitNode(el: MessageElement, s: EmitState): string {
     case 'select': {
       const val = `String(${s.valuesExpr}[${JSON.stringify(el.name)}])`;
       const other = el.options.find((o) => o.selector === 'other');
-      let nested = other ? emitNodes(other.value, s) : '""';
+      const empty = s.mode === 'rich' ? 'null' : '""';
+      let nested = other ? emitNodes(other.value, s) : empty;
       for (const opt of [...el.options].reverse()) {
         if (opt.selector === 'other') continue;
         nested = `${val} === ${JSON.stringify(opt.selector)} ? ${emitNodes(opt.value, s)} : ${nested}`;
@@ -140,10 +208,20 @@ function emitNode(el: MessageElement, s: EmitState): string {
       return nested;
     }
     case 'tag':
-      // Plain t() strips tags to children text; t.rich handled separately
-      return emitNodes(el.children, s);
+      if (s.mode === 'string') {
+        // Plain t() strips tags to children text
+        return emitNodes(el.children, s);
+      }
+      {
+        const idx = s.tagIndex.n++;
+        if (el.selfClosing) {
+          return `_rs(${s.valuesExpr}[${JSON.stringify(el.name)}], ${idx})`;
+        }
+        const chunks = emitNodes(el.children, s);
+        return `_rt(${s.valuesExpr}[${JSON.stringify(el.name)}], ${chunks}, ${idx})`;
+      }
     default:
-      return '""';
+      return s.mode === 'rich' ? 'null' : '""';
   }
 }
 

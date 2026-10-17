@@ -5,5 +5,6 @@ fixtures/client-entry.js
 results/*.js
 results/*.min.js
 results/paraglide-style/
+results/_matrix/
 results/catalog-pick-entry.js
 node_modules/

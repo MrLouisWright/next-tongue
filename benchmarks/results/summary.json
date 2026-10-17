@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-17T11:25:12.060Z",
+  "measuredAt": "2026-10-17T11:38:09.273Z",
   "scenario": "2 of 500 keys × 3 locales, esbuild minify + gzip",
   "rows": [
     {
@@ -10,8 +10,8 @@
     },
     {
       "library": "next-tongue",
-      "bytes": 514,
-      "bytesGz": 200
+      "bytes": 532,
+      "bytesGz": 213
     },
     {
       "library": "runtime-catalog-pick-2-keys",
@@ -19,5 +19,15 @@
       "bytes": 363,
       "bytesGz": 226
     }
-  ]
+  ],
+  "ssr": {
+    "calls": 1000,
+    "ms": 0.03454199999998764,
+    "msPerCall": 0.000034541999999987636
+  },
+  "matrix": {
+    "scenario": "matrix: keys∈{50,1000} × locales∈{2,10,50} × used∈{2,20}, esbuild minify + gzip",
+    "crossoverNote": "With all-locales-of-used-keys delivery, next-tongue and paraglide-style scale similarly with locale count; catalog-pick (narrowed JSON) stays competitive at small used×locales and loses as used keys grow. Per-locale client splitting would change the crossover — not enabled by default (ADR 0009).",
+    "cells": 12
+  }
 }
