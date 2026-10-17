@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT_BASIC = 3101;
 const PORT_CACHE = 3102;
 const PORT_EXPORT = 3103;
+const PORT_OG = 3104;
 
 export default defineConfig({
   testDir: 'e2e',
@@ -37,6 +38,11 @@ export default defineConfig({
       testMatch: /no-catalog\.spec\.ts/,
       use: { baseURL: `http://127.0.0.1:${PORT_CACHE}` },
     },
+    {
+      name: 'og-email',
+      testMatch: /og-email\.spec\.ts/,
+      use: { baseURL: `http://127.0.0.1:${PORT_OG}` },
+    },
   ],
   webServer: [
     {
@@ -54,6 +60,12 @@ export default defineConfig({
     {
       command: `pnpm exec serve examples/static-export/out -l ${PORT_EXPORT}`,
       url: `http://127.0.0.1:${PORT_EXPORT}/en`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: `pnpm --filter @next-tongue/example-og-email exec next start --port ${PORT_OG}`,
+      url: `http://127.0.0.1:${PORT_OG}/en`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

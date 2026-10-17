@@ -1,0 +1,10 @@
+{
+  "og": {
+    "title": "مرحباً بك في next-tongue"
+  },
+  "emails": {
+    "welcomeSubject": "أهلاً {name}!",
+    "welcomeBody": "انضممت في {joined}.",
+    "welcomeRich": "شكراً لانضمامك — <link>اقرأ الوثائق</link>."
+  }
+}

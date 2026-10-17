@@ -90,7 +90,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 - [ ] `tongue extract` finds keys in `.ts/.tsx/.js/.jsx/.mdx`, adds missing source keys, `--prune` removes unused.
 - [ ] Dev overlay shows locale, missing keys and client-sent messages with click-to-key; no overlay code or key ids in production builds [#35](https://github.com/MrLouisWright/next-tongue/issues/35).
 - [x] `translateIssues` translates Standard Schema-shaped issues with typed keys and no validator dependency [#38](https://github.com/MrLouisWright/next-tongue/issues/38).
-- [ ] `getT` works in `opengraph-image.tsx` (incl. RTL) and in an email rendering example; examples type-checked [#39](https://github.com/MrLouisWright/next-tongue/issues/39).
+- [x] `getT` works in `opengraph-image.tsx` (incl. RTL) and in an email rendering example [#39](https://github.com/MrLouisWright/next-tongue/issues/39). *(docs sample CI typecheck remains [#16](https://github.com/MrLouisWright/next-tongue/issues/16))*
 - [x] `LocaleSwitcher` keeps the page, persists the choice, works without JS (plain links + a11y attrs in Playwright) [#44](https://github.com/MrLouisWright/next-tongue/issues/44).
 - [ ] `tongue init` on `create-next-app@16` output yields a building app (`--yes`), writes `generateStaticParams = localeParams`, idempotent on second run.
 

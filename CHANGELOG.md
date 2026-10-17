@@ -52,6 +52,8 @@ All notable changes to this project will be documented in this file. The format 
 - ADR 0008 hydration demo (server `getFormat` + client `useFormat` under config `timeZone`) and `generateMetadata` via `getT`; Playwright asserts match under `America/New_York`.
 - `translateIssues(t, issues)` — Standard Schema–shaped validation errors → `Record<path, string[]>` (#38).
 - Headless `LocaleSwitcher` / `useLocaleSwitcher` via `createNavigation` (DisplayNames labels, plain links) (#44).
+- `examples/og-email`: prerendered `opengraph-image` / `twitter-image` with `getT`+`getDir` (RTL `ar` snapshot), welcome-email route with `t.rich` (#39).
+
 
 
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.

@@ -1,0 +1,10 @@
+{
+  "og": {
+    "title": "Welcome to next-tongue"
+  },
+  "emails": {
+    "welcomeSubject": "Welcome, {name}!",
+    "welcomeBody": "You joined on {joined}.",
+    "welcomeRich": "Thanks for joining — <link>read the docs</link>."
+  }
+}

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm -r --filter=./packages/* run build",
-    "build:examples": "pnpm --filter @next-tongue/example-basic run build && pnpm --filter @next-tongue/example-cache-components run build && pnpm --filter @next-tongue/example-static-export run build",
+    "build:examples": "pnpm --filter @next-tongue/example-basic run build && pnpm --filter @next-tongue/example-cache-components run build && pnpm --filter @next-tongue/example-static-export run build && pnpm --filter @next-tongue/example-og-email run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b && pnpm --filter next-tongue run typecheck",
