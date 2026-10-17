@@ -1,0 +1,6 @@
+{
+  "home": {
+    "title": "Statischer Export — {name}",
+    "note": "Gebaut mit output: export und prefix: always."
+  }
+}

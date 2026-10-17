@@ -1,0 +1,15 @@
+{
+  "name": "@next-tongue/benchmarks",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "generate-fixture": "node ./scripts/generate-fixture.mjs",
+    "measure": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-tongue.mjs",
+    "measure:tongue": "node ./scripts/measure-tongue.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10",
+    "next-tongue": "workspace:*"
+  }
+}

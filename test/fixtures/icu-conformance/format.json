@@ -1,0 +1,58 @@
+[
+  {
+    "id": "plural-en-0",
+    "message": "{count, plural, =0 {No messages} one {# message} other {# messages}}",
+    "locale": "en",
+    "values": { "count": 0 },
+    "result": "No messages"
+  },
+  {
+    "id": "plural-en-1",
+    "message": "{count, plural, =0 {No messages} one {# message} other {# messages}}",
+    "locale": "en",
+    "values": { "count": 1 },
+    "result": "1 message"
+  },
+  {
+    "id": "plural-en-5",
+    "message": "{count, plural, =0 {No messages} one {# message} other {# messages}}",
+    "locale": "en",
+    "values": { "count": 5 },
+    "result": "5 messages"
+  },
+  {
+    "id": "select-female",
+    "message": "{gender, select, female {She} male {He} other {They}}",
+    "locale": "en",
+    "values": { "gender": "female" },
+    "result": "She"
+  },
+  {
+    "id": "select-other",
+    "message": "{gender, select, female {She} male {He} other {They}}",
+    "locale": "en",
+    "values": { "gender": "unknown" },
+    "result": "They"
+  },
+  {
+    "id": "arg-interpolate",
+    "message": "Welcome, {name}!",
+    "locale": "en",
+    "values": { "name": "Ada" },
+    "result": "Welcome, Ada!"
+  },
+  {
+    "id": "tag-strips-for-plain-t",
+    "message": "Read <b>this</b>",
+    "locale": "en",
+    "values": {},
+    "result": "Read this"
+  },
+  {
+    "id": "plural-offset",
+    "message": "{count, plural, offset:1 =0 {You} =1 {You and one other} other {You and # others}}",
+    "locale": "en",
+    "values": { "count": 3 },
+    "result": "You and 2 others"
+  }
+]

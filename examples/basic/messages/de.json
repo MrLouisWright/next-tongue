@@ -1,0 +1,6 @@
+{
+  "home": {
+    "title": "Hallo, {name}!",
+    "body": "Das ist das einfache next-tongue Beispiel."
+  }
+}

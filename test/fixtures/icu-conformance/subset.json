@@ -1,0 +1,237 @@
+[
+  {
+    "id": "literal-empty",
+    "message": "",
+    "expected": []
+  },
+  {
+    "id": "literal-plain",
+    "message": "Hello world",
+    "expected": [{ "type": "literal", "value": "Hello world" }]
+  },
+  {
+    "id": "arg-simple",
+    "message": "Hello {name}!",
+    "args": { "name": { "kind": "string" } }
+  },
+  {
+    "id": "arg-multi",
+    "message": "{a} and {b}",
+    "args": { "a": { "kind": "string" }, "b": { "kind": "string" } }
+  },
+  {
+    "id": "number-bare",
+    "message": "{n, number}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-integer",
+    "message": "{n, number, integer}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-percent",
+    "message": "{n, number, percent}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-currency",
+    "message": "{n, number, currency}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-percent",
+    "message": "{n, number, ::percent}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-currency",
+    "message": "{n, number, ::currency/EUR}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-compact-short",
+    "message": "{n, number, ::compact-short}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-compact-long",
+    "message": "{n, number, ::compact-long}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-fraction",
+    "message": "{n, number, ::.00}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-fraction-optional",
+    "message": "{n, number, ::.##}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-unit",
+    "message": "{n, number, ::unit/meter}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-sign-always",
+    "message": "{n, number, ::sign-always}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-skeleton-group-off",
+    "message": "{n, number, ::group-off}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "number-preset",
+    "message": "{n, number, price}",
+    "args": { "n": { "kind": "bigint-number" } }
+  },
+  {
+    "id": "date-bare",
+    "message": "{d, date}",
+    "args": { "d": { "kind": "date" } }
+  },
+  {
+    "id": "date-short",
+    "message": "{d, date, short}",
+    "args": { "d": { "kind": "date" } }
+  },
+  {
+    "id": "date-medium",
+    "message": "{d, date, medium}",
+    "args": { "d": { "kind": "date" } }
+  },
+  {
+    "id": "date-long",
+    "message": "{d, date, long}",
+    "args": { "d": { "kind": "date" } }
+  },
+  {
+    "id": "date-full",
+    "message": "{d, date, full}",
+    "args": { "d": { "kind": "date" } }
+  },
+  {
+    "id": "date-skeleton",
+    "message": "{d, date, ::yMMMd}",
+    "args": { "d": { "kind": "date" } }
+  },
+  {
+    "id": "time-bare",
+    "message": "{t, time}",
+    "args": { "t": { "kind": "date" } }
+  },
+  {
+    "id": "time-short",
+    "message": "{t, time, short}",
+    "args": { "t": { "kind": "date" } }
+  },
+  {
+    "id": "plural-basic",
+    "message": "{count, plural, one {# item} other {# items}}",
+    "args": { "count": { "kind": "number" } }
+  },
+  {
+    "id": "plural-exact-and-offset",
+    "message": "{count, plural, offset:1 =0 {none} one {# item} other {# items}}",
+    "args": { "count": { "kind": "number" } }
+  },
+  {
+    "id": "plural-zero",
+    "message": "{count, plural, zero {none} one {one} other {many}}",
+    "args": { "count": { "kind": "number" } }
+  },
+  {
+    "id": "selectordinal",
+    "message": "{pos, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+    "args": { "pos": { "kind": "number" } }
+  },
+  {
+    "id": "select",
+    "message": "{gender, select, female {She} male {He} other {They}}",
+    "args": { "gender": { "kind": "select", "options": ["female", "male"] } }
+  },
+  {
+    "id": "tag-pair",
+    "message": "Read <b>this</b>",
+    "args": { "b": { "kind": "rich", "selfClosing": false } }
+  },
+  {
+    "id": "tag-self-closing",
+    "message": "Line<br/>break",
+    "args": { "br": { "kind": "rich", "selfClosing": true } }
+  },
+  {
+    "id": "tag-nested-arg",
+    "message": "Hello <b>{name}</b>",
+    "args": {
+      "b": { "kind": "rich", "selfClosing": false },
+      "name": { "kind": "string" }
+    }
+  },
+  {
+    "id": "escape-braces",
+    "message": "'{'literal'}'",
+    "expected": [{ "type": "literal", "value": "{literal}" }]
+  },
+  {
+    "id": "escape-apostrophe",
+    "message": "it''s",
+    "expected": [{ "type": "literal", "value": "it's" }]
+  },
+  {
+    "id": "nested-plural-in-select",
+    "message": "{g, select, other {{n, plural, one {1} other {#}}}}",
+    "args": { "g": { "kind": "select", "options": [] }, "n": { "kind": "number" } }
+  },
+  {
+    "id": "error-unclosed-arg",
+    "message": "Hello {name",
+    "error": "TONGUE_E_PARSE"
+  },
+  {
+    "id": "error-plural-no-other",
+    "message": "{n, plural, one {x}}",
+    "error": "TONGUE_E_PARSE"
+  },
+  {
+    "id": "error-select-no-other",
+    "message": "{g, select, male {he}}",
+    "error": "TONGUE_E_PARSE"
+  },
+  {
+    "id": "error-choice",
+    "message": "{n, choice, 0#none|1#one}",
+    "error": "TONGUE_E_UNSUPPORTED_ICU"
+  },
+  {
+    "id": "error-spellout",
+    "message": "{n, spellout}",
+    "error": "TONGUE_E_UNSUPPORTED_ICU"
+  },
+  {
+    "id": "error-ordinal-type",
+    "message": "{n, ordinal}",
+    "error": "TONGUE_E_UNSUPPORTED_ICU"
+  },
+  {
+    "id": "error-duration",
+    "message": "{n, duration}",
+    "error": "TONGUE_E_UNSUPPORTED_ICU"
+  },
+  {
+    "id": "error-bad-skeleton",
+    "message": "{n, number, ::scientific}",
+    "error": "TONGUE_E_UNSUPPORTED_ICU"
+  },
+  {
+    "id": "error-location",
+    "message": "Hi {",
+    "error": "TONGUE_E_PARSE",
+    "file": "en.json",
+    "key": "home.hi"
+  }
+]

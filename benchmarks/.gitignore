@@ -1,0 +1,6 @@
+fixtures/messages/
+fixtures/.tongue/
+fixtures/tongue.config.mjs
+fixtures/client-entry.js
+results/*.js
+node_modules/
