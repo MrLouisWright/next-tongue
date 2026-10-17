@@ -132,3 +132,9 @@ export const defaultLocale = {
 };
 
 export type { TFunction, Format };
+export type {
+  SanctionedUnit,
+  SimpleUnit,
+  DisplayNameType,
+} from '../runtime/format.js';
+export { isSanctionedUnit, SIMPLE_UNITS } from '../runtime/format.js';

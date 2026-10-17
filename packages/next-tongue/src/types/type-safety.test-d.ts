@@ -5,6 +5,7 @@
 import { expectTypeOf } from 'expect-type';
 import type { ReactNode } from 'react';
 import type { TFunction } from '../runtime/create-t.js';
+import type { Format, SanctionedUnit } from '../runtime/format.js';
 import type { Locale, MessageKey, Namespace } from '../index.js';
 
 /** Fixture registry matching the type-safety docs table. */
@@ -65,3 +66,20 @@ tStatus.dynamic('ok', { from: ['typo'] });
 expectTypeOf<Locale>().toEqualTypeOf<'en' | 'de'>();
 expectTypeOf<Namespace>().toEqualTypeOf<'home' | 'legal' | 'status'>();
 expectTypeOf<MessageKey<'home'>>().toEqualTypeOf<'title' | 'inbox'>();
+
+// Format helpers (#45)
+declare const f: Format;
+expectTypeOf(f.unit(1, 'kilometer')).toEqualTypeOf<string>();
+expectTypeOf(f.unit(100, 'kilometer-per-hour')).toEqualTypeOf<string>();
+expectTypeOf(
+  f.displayName('de', { type: 'language' }),
+).toEqualTypeOf<string>();
+expectTypeOf(f.list(['a', 'b'])).toEqualTypeOf<string>();
+expectTypeOf(
+  f.relativeTime(0, 1, { unit: 'hour' }),
+).toEqualTypeOf<string>();
+expectTypeOf<SanctionedUnit>().toMatchTypeOf<string>();
+// @ts-expect-error — not a sanctioned unit
+f.unit(1, 'furlong');
+// @ts-expect-error — invalid displayName type
+f.displayName('de', { type: 'emoji' });

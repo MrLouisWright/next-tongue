@@ -1,9 +1,21 @@
+import type { SanctionedUnit } from './sanctioned-units.js';
+
+export type { SanctionedUnit, SimpleUnit } from './sanctioned-units.js';
+export { SIMPLE_UNITS, isSanctionedUnit } from './sanctioned-units.js';
+
 export type FormatOptions = {
   locale: string;
   timeZone: string;
   numberPresets?: Record<string, Intl.NumberFormatOptions>;
   dateTimePresets?: Record<string, Intl.DateTimeFormatOptions>;
 };
+
+export type DisplayNameType =
+  | 'language'
+  | 'region'
+  | 'script'
+  | 'currency'
+  | 'calendar';
 
 export type Format = {
   number: (
@@ -24,14 +36,12 @@ export type Format = {
   list: (items: readonly string[], options?: Intl.ListFormatOptions) => string;
   unit: (
     value: number,
-    unit: string,
+    unit: SanctionedUnit,
     options?: { unitDisplay?: 'short' | 'long' | 'narrow' },
   ) => string;
   displayName: (
     code: string,
-    options: {
-      type: 'language' | 'region' | 'script' | 'currency' | 'calendar';
-    },
+    options: { type: DisplayNameType },
   ) => string;
 };
 
@@ -39,6 +49,7 @@ const numberCache = new Map<string, Intl.NumberFormat>();
 const dateCache = new Map<string, Intl.DateTimeFormat>();
 const relCache = new Map<string, Intl.RelativeTimeFormat>();
 const listCache = new Map<string, Intl.ListFormat>();
+const unitCache = new Map<string, Intl.NumberFormat>();
 const displayCache = new Map<string, Intl.DisplayNames>();
 
 function cacheKey(parts: unknown[]): string {
@@ -105,11 +116,18 @@ export function createFormat(opts: FormatOptions): Format {
     },
 
     unit(value, unit, options) {
-      return new Intl.NumberFormat(locale, {
-        style: 'unit',
-        unit,
-        unitDisplay: options?.unitDisplay ?? 'short',
-      }).format(value);
+      const unitDisplay = options?.unitDisplay ?? 'short';
+      const key = cacheKey(['u', locale, unit, unitDisplay]);
+      let fmt = unitCache.get(key);
+      if (!fmt) {
+        fmt = new Intl.NumberFormat(locale, {
+          style: 'unit',
+          unit,
+          unitDisplay,
+        });
+        unitCache.set(key, fmt);
+      }
+      return fmt.format(value);
     },
 
     displayName(code, options) {

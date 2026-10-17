@@ -127,7 +127,14 @@ export type {
   FormatMessageConfig,
 } from '../runtime/format-message.js';
 
-export type { TFunction, Format };
+export type { TFunction } from '../runtime/create-t.js';
+export type {
+  Format,
+  SanctionedUnit,
+  SimpleUnit,
+  DisplayNameType,
+} from '../runtime/format.js';
+export { isSanctionedUnit, SIMPLE_UNITS } from '../runtime/format.js';
 
 function assertLocale(locale: string): void {
   if (runtimeLocales.length && !runtimeLocales.includes(locale)) {
