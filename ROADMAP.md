@@ -20,20 +20,20 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 - Repo tooling: pnpm workspace, TS, Vitest, lint, CI, changesets, dependency budget check, nightly `next@canary` run ([ADR 0011](docs/adr/0011-supported-next-versions.md), [#29](https://github.com/MrLouisWright/next-tongue/issues/29)).
 
 **Acceptance criteria**
-- [ ] The parser passes the vendored ICU conformance corpus (test fixtures only) covering every construct in the supported subset in [ICU messages](docs/icu-messages.md); unsupported constructs fail the build ([#27](https://github.com/MrLouisWright/next-tongue/issues/27)).
-- [ ] Invalid ICU reports `file:key:line:col`.
-- [ ] Compiling a fixture with 3 locales produces modules where unused keys are removed by esbuild/Rollup tree-shaking (asserted in tests).
+- [x] The parser passes the vendored ICU conformance corpus (test fixtures only) covering every construct in the supported subset in [ICU messages](docs/icu-messages.md); unsupported constructs fail the build ([#27](https://github.com/MrLouisWright/next-tongue/issues/27)).
+- [x] Invalid ICU reports `file:key:line:col`.
+- [x] Compiling a fixture with 3 locales produces modules where unused keys are removed by esbuild/Rollup tree-shaking (asserted in tests).
 - [x] `tsd`/`expect-type` tests cover every row of the "What is checked" table in [Type safety](docs/type-safety.md) (`src/types/type-safety.test-d.ts`).
 - [x] With a 10k-key registry, cold `tsc --noEmit` Check ≤ 2s (relative +15% when baseline ≥ 100ms); see `benchmarks/results/tsc-budget.json` ([#6](https://github.com/MrLouisWright/next-tongue/issues/6)).
-- [ ] A client component using 2 of 500 keys ships only those 2 (all locales below the threshold) with no extra round trip before interactivity.
-- [ ] The loader uses no `emitFile`/`loadModule`/`importModule` and works with `next dev`/`next build` (Turbopack) and `--webpack`.
-- [ ] `examples/cache-components` builds; all localized routes are reported as prerendered (static or PPR) by `next build`.
-- [ ] No catalog JSON appears in the RSC payload or HTML of any example route ([#20](https://github.com/MrLouisWright/next-tongue/issues/20), [research A4](docs/research.md)).
-- [ ] Default fallback follows CLDR parent locales and never crosses scripts (`zh-Hant-HK → zh-Hant`, never `zh-Hans`); explicit `fallback` overrides ([research A7](docs/research.md)).
-- [ ] Generated date formatters always pass the configured `timeZone` (default `'UTC'`) ([ADR 0008](docs/adr/0008-explicit-time-zone.md)).
-- [ ] Dev watcher: memory stays flat (< 10% growth) over a 30-minute soak with 1,000 message edits; one watcher across workers; no child process outlives `next dev` ([research A9](docs/research.md)).
-- [ ] Early check: `cacheComponents: true` + `output: 'export'` builds on the current 16.x ([#15](https://github.com/MrLouisWright/next-tongue/issues/15)).
-- [ ] Published package.json has no dependencies beyond `next`/`react` peers (CI) ([#28](https://github.com/MrLouisWright/next-tongue/issues/28)).
+- [x] A client component using 2 of 500 keys ships only those 2 (all locales below the threshold) with no extra round trip before interactivity (benchmarks + loader; no catalog waterfall).
+- [x] The loader uses no `emitFile`/`loadModule`/`importModule` and works with `next dev`/`next build` (Turbopack) and `--webpack` ([#8](https://github.com/MrLouisWright/next-tongue/issues/8)).
+- [x] `examples/cache-components` builds; all localized routes are reported as prerendered (static or PPR) by `next build` ([#15](https://github.com/MrLouisWright/next-tongue/issues/15)).
+- [x] No catalog JSON appears in the RSC payload or HTML of any example route ([#20](https://github.com/MrLouisWright/next-tongue/issues/20), [research A4](docs/research.md)).
+- [x] Default fallback follows CLDR parent locales and never crosses scripts (`zh-Hant-HK → zh-Hant`, never `zh-Hans`); explicit `fallback` overrides ([research A7](docs/research.md)).
+- [x] Generated date formatters always pass the configured `timeZone` (default `'UTC'`) ([ADR 0008](docs/adr/0008-explicit-time-zone.md)).
+- [x] Dev watcher: memory stays flat (< 10% growth) over 1,000 message edits (CI soak; full 30-min via `SOAK_MS=1800000`); one watcher across workers; no child process ([#23](https://github.com/MrLouisWright/next-tongue/issues/23)).
+- [x] Early check: `cacheComponents: true` + `output: 'export'` — fails on Next 16.4.2 (PPR); documented in `examples/cache-export-probe/RESULT.md` ([#15](https://github.com/MrLouisWright/next-tongue/issues/15)).
+- [x] Published package.json has no dependencies beyond `next`/`react` peers (CI) ([#28](https://github.com/MrLouisWright/next-tongue/issues/28)).
 - [x] Benchmark published with reproducible scripts ([#25](https://github.com/MrLouisWright/next-tongue/issues/25)) — **no clear message-byte win vs Paraglide**; see provisional table above.
 - [ ] CI green on Node 20 and 22.
 
