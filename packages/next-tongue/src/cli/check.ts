@@ -8,6 +8,7 @@ import {
   duplicateSourceKeys,
   loadAndMergeSources,
 } from '../compiler/sources.js';
+import { validateLength } from '../compiler/validate/length.js';
 import {
   reportGithub,
   reportJson,
@@ -50,6 +51,12 @@ export async function cmdCheck(opts: CheckCliOptions): Promise<void> {
   issues.push(...(await validateA11y(config, cwd)));
   issues.push(
     ...(await validateBidi(config, cwd, {
+      ...(localeFilter ? { locales: localeFilter } : {}),
+    })),
+  );
+
+  issues.push(
+    ...(await validateLength(config, cwd, {
       ...(localeFilter ? { locales: localeFilter } : {}),
     })),
   );

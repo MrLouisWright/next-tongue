@@ -68,6 +68,11 @@ async function collectUnits(
   const targetCat = catalogs[locale] ?? {};
   const lock = await loadLock(cwd, config.translate?.lockfile ?? './tongue.lock');
   const lockLocale = lock[locale] ?? {};
+  const descriptions = await loadDescriptions(
+    cwd,
+    config.messages,
+    config.defaultLocale,
+  );
 
   // Keys from sources cache are read-only
   const readonlyKeys = new Set<string>();
@@ -106,11 +111,54 @@ async function collectUnits(
         source,
         target,
         state,
+        ...(descriptions[fullKey] ? { description: descriptions[fullKey] } : {}),
         ...(readonlyKeys.has(fullKey) ? { readonly: true } : {}),
       });
     }
   }
   return units;
+}
+
+async function loadDescriptions(
+  cwd: string,
+  pattern: string,
+  locale: string,
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  try {
+    const raw = await readFile(resolveMessagePath(cwd, pattern, locale), 'utf8');
+    const json = JSON.parse(raw) as Record<string, unknown>;
+    walkMeta(json, '', out);
+  } catch {
+    /* optional */
+  }
+  return out;
+}
+
+function walkMeta(
+  node: Record<string, unknown>,
+  prefix: string,
+  out: Record<string, string>,
+): void {
+  for (const [key, value] of Object.entries(node)) {
+    if (key.endsWith('$description') && typeof value === 'string') {
+      const base = key.slice(0, -'$description'.length);
+      const full = prefix ? `${prefix}.${base}` : base;
+      out[full] = value;
+      continue;
+    }
+    if (key.endsWith('$meta') && value && typeof value === 'object') {
+      const base = key.slice(0, -'$meta'.length);
+      const full = prefix ? `${prefix}.${base}` : base;
+      const desc = (value as Record<string, unknown>).description;
+      if (typeof desc === 'string') out[full] = desc;
+      continue;
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const full = prefix ? `${prefix}.${key}` : key;
+      if (!key.includes('$')) walkMeta(value as Record<string, unknown>, full, out);
+    }
+  }
 }
 
 export async function cmdExport(opts: ExportCliOptions): Promise<void> {
