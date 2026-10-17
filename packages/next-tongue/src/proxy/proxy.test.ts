@@ -1,0 +1,162 @@
+import { describe, expect, it } from 'vitest';
+import {
+  createProxy,
+  isUnsafePath,
+  matchLocalePrefix,
+  parseAcceptLanguage,
+  type TongueProxyRequest,
+} from './index.js';
+
+function req(
+  path: string,
+  init?: { acceptLanguage?: string; cookie?: string },
+): TongueProxyRequest {
+  const href = `http://localhost${path}`;
+  const url = new URL(href);
+  return {
+    url: href,
+    nextUrl: {
+      get pathname() {
+        return url.pathname;
+      },
+      clone() {
+        const c = new URL(url.href);
+        return {
+          get pathname() {
+            return c.pathname;
+          },
+          set pathname(v: string) {
+            c.pathname = v;
+          },
+          get href() {
+            return c.href;
+          },
+          toString() {
+            return c.href;
+          },
+        };
+      },
+    },
+    cookies: {
+      get(name) {
+        if (!init?.cookie) return undefined;
+        const m = new RegExp(`(?:^|;\\s*)${name}=([^;]+)`).exec(init.cookie);
+        return m ? { value: decodeURIComponent(m[1]!) } : undefined;
+      },
+    },
+    headers: {
+      get(name) {
+        if (name.toLowerCase() === 'accept-language') {
+          return init?.acceptLanguage ?? null;
+        }
+        return null;
+      },
+    },
+  };
+}
+
+describe('matchLocalePrefix', () => {
+  const locales = new Set(['en', 'de', 'fr']);
+  it('extracts locale and rest', () => {
+    expect(matchLocalePrefix('/en/about', locales)).toEqual({
+      locale: 'en',
+      rest: '/about',
+    });
+    expect(matchLocalePrefix('/de', locales)).toEqual({ locale: 'de', rest: '' });
+  });
+  it('returns null when no prefix', () => {
+    expect(matchLocalePrefix('/about', locales)).toBeNull();
+    expect(matchLocalePrefix('/', locales)).toBeNull();
+  });
+});
+
+describe('isUnsafePath', () => {
+  it('rejects protocol-relative and encoded tricks', () => {
+    expect(isUnsafePath('//evil.com')).toBe(true);
+    expect(isUnsafePath('/%2F%2Fevil.com')).toBe(true);
+    expect(isUnsafePath('/about')).toBe(false);
+    expect(isUnsafePath('/de/blog/v1.2')).toBe(false);
+  });
+});
+
+describe('parseAcceptLanguage', () => {
+  it('picks best match', () => {
+    expect(parseAcceptLanguage('de-DE,de;q=0.9,en;q=0.8', ['en', 'de'])).toBe(
+      'de',
+    );
+    expect(parseAcceptLanguage('fr-CA,fr;q=0.9', ['en', 'de'])).toBeUndefined();
+    expect(parseAcceptLanguage('en-US,en;q=0.9', ['en', 'de'])).toBe('en');
+  });
+});
+
+describe('createProxy', () => {
+  const base = {
+    locales: ['en', 'de'] as const,
+    defaultLocale: 'en',
+  };
+
+  it('prefix always: redirects bare path to /{locale}/…', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'always',
+      localeDetection: false,
+    });
+    const res = await proxy(req('/about'));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe('http://localhost/en/about');
+  });
+
+  it('prefix as-needed: rewrites default locale without exposing prefix', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'as-needed',
+      localeDetection: false,
+    });
+    const res = await proxy(req('/about'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-middleware-rewrite')).toContain('/en/about');
+  });
+
+  it('prefix as-needed: 308 /en/about → /about', async () => {
+    const proxy = createProxy({ ...base, prefix: 'as-needed' });
+    const res = await proxy(req('/en/about'));
+    expect(res.status).toBe(308);
+    expect(res.headers.get('location')).toBe('http://localhost/about');
+  });
+
+  it('uses Accept-Language when no cookie', async () => {
+    const proxy = createProxy({ ...base, prefix: 'always' });
+    const res = await proxy(req('/about', { acceptLanguage: 'de,en;q=0.8' }));
+    expect(res.headers.get('location')).toBe('http://localhost/de/about');
+  });
+
+  it('does not open-redirect on //evil.com', async () => {
+    const proxy = createProxy({ ...base, prefix: 'always' });
+    const res = await proxy(req('//evil.com'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('sets TONGUE_LOCALE cookie by default', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'always',
+      localeDetection: false,
+    });
+    const res = await proxy(req('/about'));
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toMatch(/TONGUE_LOCALE=en/);
+    expect(setCookie.toLowerCase()).toMatch(/samesite=lax/);
+  });
+
+  it('prefers cookie over Accept-Language', async () => {
+    const proxy = createProxy({ ...base, prefix: 'always' });
+    const res = await proxy(
+      req('/about', {
+        acceptLanguage: 'de',
+        cookie: 'TONGUE_LOCALE=en',
+      }),
+    );
+    expect(res.headers.get('location')).toBe('http://localhost/en/about');
+  });
+});
