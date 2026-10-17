@@ -39,7 +39,7 @@
 | Symptom | Upstream |
 |---|---|
 | Localized dynamic segments (`/[locale]/x/[id]`) not cached with Cache Components | [vercel/next.js#86870](https://github.com/vercel/next.js/issues/86870), [#85240](https://github.com/vercel/next.js/issues/85240) |
-| `next/root-params` types missing with two root layouts | [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756) (next-tongue does not depend on it, see [ADR 0007](adr/0007-root-params-not-default.md)) |
+| `next/root-params` types missing with two root layouts | [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756) — keep explicit `getT(locale, ns)`; only enable `routing.rootParams` with a single `[locale]` root layout ([ADR 0007](adr/0007-root-params-not-default.md)) |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.
 

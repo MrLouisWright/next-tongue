@@ -29,6 +29,7 @@ export function withTongue<T extends object>(
   const loaderPath = resolveLoaderPath();
   const input = nextConfig as T & {
     output?: string;
+    experimental?: Record<string, unknown>;
     turbopack?: {
       resolveAlias?: Record<string, unknown>;
       rules?: Record<string, unknown>;
@@ -112,11 +113,41 @@ export function withTongue<T extends object>(
     return userWebpack ? userWebpack(config, ctx) : config;
   };
 
+  const enableRootParams = peekRootParamsFlag(cwd, options.config);
+  const experimental = enableRootParams
+    ? {
+        ...(input.experimental ?? {}),
+        rootParams: true,
+      }
+    : input.experimental;
+
   return {
     ...input,
+    ...(experimental ? { experimental } : {}),
     turbopack,
     webpack,
   };
+}
+
+/** Sync peek: `routing.rootParams: true` in tongue.config (ADR 0007 / #24). */
+function peekRootParamsFlag(cwd: string, configPath?: string): boolean {
+  const candidates = configPath
+    ? [resolve(cwd, configPath)]
+    : [
+        join(cwd, 'tongue.config.ts'),
+        join(cwd, 'tongue.config.mjs'),
+        join(cwd, 'tongue.config.js'),
+      ];
+  for (const file of candidates) {
+    if (!existsSync(file)) continue;
+    try {
+      const src = readFileSync(file, 'utf8');
+      if (/rootParams\s*:\s*true/.test(src)) return true;
+    } catch {
+      /* ignore */
+    }
+  }
+  return false;
 }
 
 function warnConfigCombos(

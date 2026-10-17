@@ -54,7 +54,7 @@ async function Products({ locale }: { locale: Locale }) {
 
 ## Why not `next/root-params`?
 
-Next.js 16.3 added `next/root-params`, which can read `[locale]` without passing it down. next-tongue keeps the explicit `locale` argument for now. Upstream issues in 2026 included missing types with two root layouts ([vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756)) and a stale `"use cache"` segment after switching locale ([#98493](https://github.com/vercel/next.js/issues/98493)). An opt-in will be re-evaluated at v0.9. See [ADR 0007](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0007-root-params-not-default.md).
+Next.js 16.3 added `next/root-params`, which can read `[locale]` without passing it down. The explicit `getT(locale, ns)` API stays canonical. Opt in with `routing.rootParams: true` to use `getT(ns)` / `getFormat()` (requires Next ≥ 16.3.8 for correct `"use cache"` locale switches). Two sibling root layouts still lack generated types ([vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756)) — keep the explicit locale there. See [ADR 0007](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0007-root-params-not-default.md).
 
 ## Dates and time zones
 

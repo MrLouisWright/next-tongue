@@ -51,6 +51,11 @@ export type TongueConfig = {
     localeCookie?: LocaleCookieConfig | false;
     domains?: DomainConfig[];
     pathnames?: Record<string, Partial<Record<string, string>>>;
+    /**
+     * Opt-in: `getT(ns)` / `getFormat()` resolve locale from `next/root-params`
+     * (ADR 0007 / #24). Explicit `getT(locale, ns)` always works.
+     */
+    rootParams?: boolean;
   };
   formats?: {
     number?: Record<string, Intl.NumberFormatOptions>;
@@ -96,6 +101,7 @@ export type ResolvedTongueConfig = {
     localeCookie: LocaleCookieConfig | false;
     domains: DomainConfig[] | undefined;
     pathnames: Record<string, Partial<Record<string, string>>> | undefined;
+    rootParams: boolean;
   };
   formats: {
     number: Record<string, Intl.NumberFormatOptions>;

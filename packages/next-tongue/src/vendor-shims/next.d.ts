@@ -32,6 +32,11 @@ declare module 'next/navigation' {
   export function permanentRedirect(url: string): never;
 }
 
+declare module 'next/root-params' {
+  /** Present when `experimental.rootParams` is on and `[locale]` is a root layout. */
+  export function locale(): Promise<string>;
+}
+
 declare module 'next/headers' {
   export function cookies(): Promise<{
     set: (

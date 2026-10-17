@@ -162,6 +162,7 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
       localeCookie,
       domains: input.routing?.domains,
       pathnames: input.routing?.pathnames,
+      rootParams: input.routing?.rootParams === true,
     },
     formats: {
       number: input.formats?.number ?? {},

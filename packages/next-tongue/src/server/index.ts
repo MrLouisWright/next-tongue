@@ -7,6 +7,8 @@ import type { Locale, Namespace } from '../index.js';
 let runtimeLocales: readonly string[] = [];
 let runtimeDefaultLocale = 'en';
 let runtimeTimeZone = 'UTC';
+let runtimeRootParams = false;
+let rootLocaleReader: (() => Promise<string>) | undefined;
 let namespaceLoader:
   | ((namespace: string) => Promise<Record<string, MessageFn>>)
   | undefined;
@@ -16,12 +18,22 @@ export function __setServerRuntime(opts: {
   locales: readonly string[];
   defaultLocale: string;
   timeZone?: string;
+  rootParams?: boolean;
+  /** Injected in tests instead of `next/root-params`. */
+  readRootLocale?: () => Promise<string>;
   loadNamespace?: typeof namespaceLoader;
 }): void {
   runtimeLocales = opts.locales;
   runtimeDefaultLocale = opts.defaultLocale;
   runtimeTimeZone = opts.timeZone ?? 'UTC';
+  runtimeRootParams = opts.rootParams === true;
+  rootLocaleReader = opts.readRootLocale;
   namespaceLoader = opts.loadNamespace;
+}
+
+/** Whether `routing.rootParams` is enabled after `ensureTongue()`. */
+export function isRootParamsEnabled(): boolean {
+  return runtimeRootParams;
 }
 
 /** Configured locales after `ensureTongue()` / `__setServerRuntime`. */
@@ -49,11 +61,39 @@ export const defaultLocale = {
 
 export type LocaleProps = { locale: string };
 
+/**
+ * Explicit locale (always available).
+ * With `routing.rootParams: true`, also `getT(ns)` — locale from `next/root-params`.
+ */
 export async function getT<N extends Namespace>(
   locale: Locale | string,
+  namespace: N,
+): Promise<TFunction<N>>;
+export async function getT<N extends Namespace>(
+  namespace: N,
+): Promise<TFunction<N>>;
+export async function getT(
+  locale: string,
+): Promise<TFunction<'_root' & Namespace>>;
+export async function getT<N extends Namespace>(
+  localeOrNs: Locale | string | N,
   namespace?: N,
 ): Promise<TFunction<N>> {
-  const ns = (namespace ?? ('_root' as unknown as N)) as N;
+  if (namespace !== undefined) {
+    return getTWithLocale(String(localeOrNs), namespace);
+  }
+  if (runtimeRootParams) {
+    const locale = await resolveRootLocale();
+    return getTWithLocale(locale, localeOrNs as N);
+  }
+  // Legacy: single arg is locale, `_root` namespace.
+  return getTWithLocale(String(localeOrNs), '_root' as unknown as N);
+}
+
+async function getTWithLocale<N extends Namespace>(
+  locale: string,
+  ns: N,
+): Promise<TFunction<N>> {
   assertLocale(locale);
   if (!namespaceLoader) {
     throw new TongueError(
@@ -74,14 +114,49 @@ export async function getT<N extends Namespace>(
 }
 
 export async function getFormat(
-  locale: string,
+  locale?: string,
   options?: { timeZone?: string },
 ): Promise<Format> {
-  assertLocale(locale);
+  const resolved =
+    locale ?? (runtimeRootParams ? await resolveRootLocale() : undefined);
+  if (resolved == null) {
+    throw new TongueError(
+      'TONGUE_E_LOCALE',
+      'getFormat(locale) requires a locale, or routing.rootParams: true',
+    );
+  }
+  assertLocale(resolved);
   return createFormat({
-    locale,
+    locale: resolved,
     timeZone: options?.timeZone ?? runtimeTimeZone,
   });
+}
+
+async function resolveRootLocale(): Promise<string> {
+  if (rootLocaleReader) return rootLocaleReader();
+  try {
+    const mod = (await import('next/root-params')) as {
+      locale?: () => Promise<string | undefined>;
+    };
+    if (typeof mod.locale !== 'function') {
+      throw new Error('locale() missing');
+    }
+    const locale = await mod.locale();
+    if (typeof locale !== 'string' || locale === '') {
+      throw new TongueError(
+        'TONGUE_E_LOCALE',
+        'next/root-params locale() returned empty',
+      );
+    }
+    assertLocale(locale);
+    return locale;
+  } catch (err) {
+    if (err instanceof TongueError) throw err;
+    throw new TongueError(
+      'TONGUE_E_CONFIG',
+      'routing.rootParams is enabled but next/root-params is unavailable. Enable rootParams in next.config and use a single [locale] root layout (see ADR 0007).',
+    );
+  }
 }
 
 export function isLocale(value: unknown): value is string {

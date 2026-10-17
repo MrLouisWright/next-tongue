@@ -89,6 +89,7 @@ export default defineConfig({
 | `routing.localeCookie` | `{ name, maxAge, sameSite?, secure?, path? } \| false` | `{ name: 'TONGUE_LOCALE', maxAge: 1y, sameSite: 'lax', path: '/' }` | `sameSite: 'strict'` is allowed but discouraged: the cookie is then not sent on cross-site navigation, so returning visitors from external links get the detected locale instead of the one they chose ([next-international#453](https://github.com/QuiiBz/next-international/issues/453)). `secure` defaults to `true` on HTTPS. |
 | `routing.domains` | `DomainConfig[]` | `undefined` | |
 | `routing.pathnames` | `Record<string, Partial<Record<Locale, string>>>` | `undefined` | Typed: `Link href` only accepts known internal pathnames when set. |
+| `routing.rootParams` | `boolean` | `false` | Opt-in `getT(ns)` / `getFormat()` via `next/root-params` (ADR 0007). `withTongue` sets `experimental.rootParams`. Prefer Next ≥ 16.3.8; avoid with two sibling root layouts until [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756). |
 | `formats` | `{ number?, dateTime?, list? }` | `{}` | `Intl` options by preset name. |
 | `outDir` | `string` | `'.tongue'` | Git-ignore it. |
 | `strict.*` | `'error' \| 'warn' \| 'off'` | see above | Used by both the build and `tongue check`. |

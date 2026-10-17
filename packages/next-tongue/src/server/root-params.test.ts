@@ -1,0 +1,82 @@
+import { describe, expect, it, beforeEach } from 'vitest';
+import { TongueError } from '../errors.js';
+import {
+  __setServerRuntime,
+  getT,
+  getFormat,
+  isRootParamsEnabled,
+} from './index.js';
+
+beforeEach(() => {
+  __setServerRuntime({
+    locales: ['en', 'de'],
+    defaultLocale: 'en',
+    rootParams: false,
+    loadNamespace: async (ns) => {
+      if (ns === 'home') {
+        return {
+          title: () => 'Hello',
+        };
+      }
+      return {
+        root: () => 'Root',
+      };
+    },
+  });
+});
+
+describe('getT rootParams opt-in (#24)', () => {
+  it('single-arg is locale + _root when rootParams is off', async () => {
+    const t = await getT('de');
+    expect(t('root')).toBe('Root');
+  });
+
+  it('getT(ns) reads locale from root-params when enabled', async () => {
+    __setServerRuntime({
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      rootParams: true,
+      readRootLocale: async () => 'de',
+      loadNamespace: async (ns) => {
+        if (ns === 'home') {
+          return { title: () => (ns === 'home' ? 'Hallo' : '') };
+        }
+        return {};
+      },
+    });
+    expect(isRootParamsEnabled()).toBe(true);
+    const t = await getT('home');
+    expect(t('title')).toBe('Hallo');
+    // Explicit overload still works
+    const tEn = await getT('en', 'home');
+    expect(tEn('title')).toBe('Hallo');
+  });
+
+  it('getFormat() without locale uses root-params', async () => {
+    __setServerRuntime({
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      rootParams: true,
+      readRootLocale: async () => 'de',
+      timeZone: 'UTC',
+    });
+    const format = await getFormat();
+    expect(format.number(1.5)).toMatch(/1/);
+  });
+
+  it('getFormat() without locale throws when rootParams is off', async () => {
+    await expect(getFormat()).rejects.toBeInstanceOf(TongueError);
+  });
+
+  it('throws a clear error when root-params module is missing', async () => {
+    __setServerRuntime({
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      rootParams: true,
+      // no readRootLocale → tries next/root-params
+    });
+    await expect(getT('home')).rejects.toMatchObject({
+      code: 'TONGUE_E_CONFIG',
+    });
+  });
+});

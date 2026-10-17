@@ -441,6 +441,7 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     `    locales: allLocales,`,
     `    defaultLocale,`,
     `    timeZone,`,
+    `    rootParams: ${config.routing.rootParams ? 'true' : 'false'},`,
     `    loadNamespace: async (namespace) => {`,
     `      const messages = namespaces[namespace];`,
     `      if (!messages) throw new Error('[next-tongue] Unknown namespace: ' + namespace);`,
