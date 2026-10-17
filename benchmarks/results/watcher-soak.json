@@ -1,0 +1,12 @@
+{
+  "edits": 1000,
+  "pauseMs": 5,
+  "elapsedMs": 5730,
+  "baselineHeapBytes": 4520112,
+  "afterHeapBytes": 4875520,
+  "growthRatio": 0.07862814018767676,
+  "maxGrowth": 0.1,
+  "lockCleaned": true,
+  "ok": true,
+  "measuredAt": "2026-10-17T11:46:51.476Z"
+}
