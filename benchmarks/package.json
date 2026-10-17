@@ -1,6 +1,6 @@
 {
-  "name": "@next-tongue/benchmarks",
-  "private": true,
+  "name": "@next-tongue/bench-paraglide",
+  "private": "true",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "measure:ssr": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-ssr.mjs",
     "measure:tsc": "node ./tsc-budget/measure.mjs",
     "measure:next-intl": "pnpm --filter @next-tongue/bench-next-intl run measure",
+    "measure:paraglide": "pnpm --filter @next-tongue/bench-paraglide run measure",
     "measure:all": "node ./scripts/generate-fixture.mjs && node ./scripts/measure-tongue.mjs && node ./scripts/measure-catalog-pick.mjs && node ./scripts/measure-paraglide-style.mjs && node ./scripts/measure-ssr.mjs && node ./scripts/measure-matrix.mjs && node ./tsc-budget/measure.mjs && node ./scripts/summarize.mjs"
   },
   "devDependencies": {

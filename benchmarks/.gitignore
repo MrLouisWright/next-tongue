@@ -8,4 +8,10 @@ results/paraglide-style/
 results/_matrix/
 results/catalog-pick-entry.js
 tsc-budget/fixture/
+apps/paraglide/messages/
+apps/paraglide/src/paraglide/
+apps/paraglide/src/client-entry.js
+apps/paraglide/src/runtime-stub.js
+apps/next-intl/messages/
+apps/next-intl/.next/
 node_modules/

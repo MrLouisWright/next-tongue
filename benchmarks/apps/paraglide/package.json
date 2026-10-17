@@ -1,0 +1,15 @@
+{
+  "name": "@next-tongue/bench-paraglide",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "generate": "node ./scripts/generate-messages.mjs",
+    "compile": "node ./scripts/generate-messages.mjs && paraglide-js compile --project ./project.inlang --outdir ./src/paraglide",
+    "measure": "node ./scripts/generate-messages.mjs && paraglide-js compile --project ./project.inlang --outdir ./src/paraglide && node ./scripts/measure.mjs"
+  },
+  "devDependencies": {
+    "@inlang/paraglide-js": "^2.14.0",
+    "esbuild": "^0.25.10"
+  }
+}

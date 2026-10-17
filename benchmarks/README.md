@@ -28,6 +28,11 @@ Results land in `benchmarks/results/` as JSON (`summary.json` ranks by gzip).
 
 **SSR** (`results/ssr.json`): 1,000 compiled `t()`-equivalent calls after warm-up.
 
-**Real next-intl app** (`apps/next-intl`): Next 16 + `precompile` + 2-of-500 narrowed catalog → `results/next-intl-app.json`.
+**Real competitors**
 
-Still open for the go/no-go gate: Paraglide Next + Lingui apps, hydration timing, build RSS, published ROADMAP decision.
+| App | Measure |
+|---|---|
+| `apps/next-intl` | Next 16 + `precompile` + 2-of-500 narrowed catalog → `results/next-intl-app.json` |
+| `apps/paraglide` | `@inlang/paraglide-js compile` + esbuild of k0+k1 → `results/paraglide-real.json` |
+
+Still open for the go/no-go gate: Lingui SWC app, hydration timing, build RSS, published ROADMAP decision.

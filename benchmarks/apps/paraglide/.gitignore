@@ -1,0 +1,4 @@
+node_modules/
+messages/
+src/paraglide/
+src/client-entry.js

@@ -1,0 +1,13 @@
+{
+  "library": "paraglide-js",
+  "config": "@inlang/paraglide-js compile; esbuild tree-shake of k0+k1",
+  "keysTotal": 500,
+  "keysUsed": 2,
+  "locales": 3,
+  "bytes": 11144,
+  "bytesGz": 4043,
+  "messagesOnlyBytes": 503,
+  "messagesOnlyBytesGz": 249,
+  "measuredAt": "2026-10-17T11:44:54.093Z",
+  "note": "with-runtime is the default client import (pulls Paraglide locale runtime). messagesOnly* stubs runtime.js for an apples-to-apples compare with next-tongue / proxy rows."
+}
