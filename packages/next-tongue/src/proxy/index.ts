@@ -25,6 +25,11 @@ export type CreateProxyOptions = {
   prefix?: 'always' | 'as-needed' | 'never';
   localeDetection?: boolean;
   localeCookie?: LocaleCookieConfig | false;
+  /**
+   * Never selected by cookie / Accept-Language (e.g. `en-XA`).
+   * Still routable when the URL already has the prefix (#36).
+   */
+  excludeFromDetection?: readonly string[];
   /** Override detection (cookie → Accept-Language → default). */
   resolveLocale?: (
     req: TongueProxyRequest,
@@ -56,6 +61,7 @@ export function createProxy(options: CreateProxyOptions): (
     options.localeCookie === false
       ? false
       : { ...DEFAULT_COOKIE, ...(options.localeCookie ?? {}) };
+  const excludeDetection = new Set(options.excludeFromDetection ?? []);
 
   const localeSet = new Set(locales);
   if (!localeSet.has(defaultLocale)) {
@@ -101,7 +107,7 @@ export function createProxy(options: CreateProxyOptions): (
     let locale =
       sanitizeLocale(resolved, locales) ??
       (localeDetection
-        ? detectLocale(req, locales, defaultLocale, cookieCfg)
+        ? detectLocale(req, locales, defaultLocale, cookieCfg, excludeDetection)
         : defaultLocale);
 
     locale = sanitizeLocale(locale, locales) ?? defaultLocale;
@@ -202,15 +208,17 @@ function detectLocale(
   locales: readonly string[],
   defaultLocale: string,
   cookieCfg: LocaleCookieConfig | false,
+  excludeDetection: Set<string>,
 ): string {
   if (cookieCfg) {
     const raw = req.cookies.get(cookieCfg.name)?.value;
     const fromCookie = sanitizeLocale(raw, locales);
-    if (fromCookie) return fromCookie;
+    if (fromCookie && !excludeDetection.has(fromCookie)) return fromCookie;
   }
+  const detectable = locales.filter((l) => !excludeDetection.has(l));
   const fromHeader = parseAcceptLanguage(
     req.headers.get('accept-language'),
-    locales,
+    detectable,
   );
   return fromHeader ?? defaultLocale;
 }

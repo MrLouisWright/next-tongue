@@ -206,6 +206,28 @@ describe('createProxy', () => {
     const httpsRes = await proxy(req('/about', { https: true }));
     expect(httpsRes.headers.get('set-cookie') ?? '').toMatch(/Secure/);
   });
+
+  it('never detects excluded pseudo locales (#36)', async () => {
+    const proxy = createProxy({
+      locales: ['en', 'de', 'en-XA'],
+      defaultLocale: 'en',
+      prefix: 'always',
+      excludeFromDetection: ['en-XA'],
+    });
+    const fromCookie = await proxy(
+      req('/about', { cookie: 'TONGUE_LOCALE=en-XA', acceptLanguage: 'de' }),
+    );
+    expect(fromCookie.headers.get('location')).toBe('http://localhost/de/about');
+    const fromHeader = await proxy(
+      req('/about', { acceptLanguage: 'en-XA,fr;q=0.8' }),
+    );
+    // en-XA is skipped; may fall back to en via language prefix, never to en-XA
+    expect(fromHeader.headers.get('location')).not.toContain('/en-XA/');
+    expect(fromHeader.headers.get('location')).toBe('http://localhost/en/about');
+    // Explicit URL prefix still works
+    const direct = await proxy(req('/en-XA/about'));
+    expect(direct.status).toBe(200);
+  });
 });
 
 describe('sanitizeLocale', () => {

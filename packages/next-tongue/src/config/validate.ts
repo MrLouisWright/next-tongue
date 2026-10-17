@@ -78,10 +78,30 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
   if (input.pseudo === true) {
     pseudo = { locale: 'en-XA', enabled: 'dev', expand: 0.35 };
   } else if (input.pseudo && typeof input.pseudo === 'object') {
+    const pl = input.pseudo.locale ?? 'en-XA';
+    if (!isValidBcp47(pl)) {
+      throw new TongueError(
+        'TONGUE_E_CONFIG',
+        `Invalid pseudo locale: ${JSON.stringify(pl)}`,
+      );
+    }
+    if (locales.includes(pl)) {
+      throw new TongueError(
+        'TONGUE_E_CONFIG',
+        `pseudo.locale "${pl}" must not already be in \`locales\``,
+      );
+    }
+    const expand = input.pseudo.expand ?? 0.35;
+    if (typeof expand !== 'number' || expand < 0 || expand > 3) {
+      throw new TongueError(
+        'TONGUE_E_CONFIG',
+        '`pseudo.expand` must be a number between 0 and 3',
+      );
+    }
     pseudo = {
-      locale: input.pseudo.locale ?? 'en-XA',
+      locale: pl,
       enabled: input.pseudo.enabled ?? 'dev',
-      expand: input.pseudo.expand ?? 0.35,
+      expand,
     };
   }
 

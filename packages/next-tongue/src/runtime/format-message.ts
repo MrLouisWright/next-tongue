@@ -6,6 +6,7 @@ import type {
   NumberStyle,
 } from '../compiler/ast.js';
 import { parseMessage } from '../compiler/parse/icu-parser.js';
+import { pseudoLocalizeAst } from '../compiler/pseudo.js';
 import { TongueError } from '../errors.js';
 import { LruCache } from './lru.js';
 
@@ -21,6 +22,8 @@ export type FormatMessageRichOptions = {
 export type FormatMessageConfig = {
   cacheSize?: number;
   timeZone?: string;
+  /** When set, `formatMessage(pseudo.locale, …)` accents+expands literals (#36). */
+  pseudo?: { locale: string; expand?: number } | false;
 };
 
 type Compiled = {
@@ -29,6 +32,7 @@ type Compiled = {
 
 let cacheSize = 500;
 let defaultTimeZone = 'UTC';
+let pseudoCfg: { locale: string; expand: number } | false = false;
 let cache = new LruCache<string, Compiled>(cacheSize);
 
 export function configureFormatMessage(opts: FormatMessageConfig): void {
@@ -37,11 +41,22 @@ export function configureFormatMessage(opts: FormatMessageConfig): void {
     cache = new LruCache(cacheSize);
   }
   if (opts.timeZone != null) defaultTimeZone = opts.timeZone;
+  if (opts.pseudo !== undefined) {
+    pseudoCfg =
+      opts.pseudo === false
+        ? false
+        : {
+            locale: opts.pseudo.locale,
+            expand: opts.pseudo.expand ?? 0.35,
+          };
+    cache.clear();
+  }
 }
 
 /** @internal test helper */
 export function __resetFormatMessageCache(): void {
   cache.clear();
+  pseudoCfg = false;
 }
 
 /** @internal test helper */
@@ -58,13 +73,19 @@ function assertServer(): void {
   }
 }
 
-function compile(icu: string): Compiled {
-  const hit = cache.get(icu);
+function compile(icu: string, applyPseudo: boolean): Compiled {
+  const cacheKey = applyPseudo
+    ? `p:${pseudoCfg ? pseudoCfg.expand : 0}:${icu}`
+    : icu;
+  const hit = cache.get(cacheKey);
   if (hit) return hit;
   try {
-    const ast = parseMessage(icu, { file: 'formatMessage', key: 'icu' });
+    let ast = parseMessage(icu, { file: 'formatMessage', key: 'icu' });
+    if (applyPseudo && pseudoCfg) {
+      ast = pseudoLocalizeAst(ast, { expand: pseudoCfg.expand });
+    }
     const compiled = { ast };
-    cache.set(icu, compiled);
+    cache.set(cacheKey, compiled);
     return compiled;
   } catch (err) {
     if (err instanceof TongueError) {
@@ -84,6 +105,10 @@ function compile(icu: string): Compiled {
   }
 }
 
+function shouldPseudo(locale: string): boolean {
+  return Boolean(pseudoCfg && locale === pseudoCfg.locale);
+}
+
 /**
  * Request-time ICU formatting (ADR 0013). Untyped; tags stripped to text.
  * Pure — reads no request data; safe inside `'use cache'`.
@@ -94,7 +119,7 @@ export function formatMessage(
   values?: FormatMessageValues,
 ): string {
   assertServer();
-  const { ast } = compile(icu);
+  const { ast } = compile(icu, shouldPseudo(locale));
   return formatAst(ast, {
     locale,
     values: values ?? {},
@@ -115,7 +140,7 @@ formatMessage.rich = function formatMessageRich(
   options?: FormatMessageRichOptions,
 ): ReactNode {
   assertServer();
-  const { ast } = compile(icu);
+  const { ast } = compile(icu, shouldPseudo(locale));
   return formatAst(ast, {
     locale,
     values: values ?? {},
