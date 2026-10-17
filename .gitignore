@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.tongue/
+.next/
+*.tsbuildinfo
+coverage/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+pnpm-debug.log*
+.turbo/
+playwright-report/
+test-results/

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "literal",
+    "message": "Hello",
+    "expected": [{ "type": "literal", "value": "Hello" }]
+  },
+  {
+    "id": "arg",
+    "message": "Hi {name}",
+    "args": { "name": { "kind": "string" } }
+  },
+  {
+    "id": "plural-en",
+    "message": "{n, plural, one {# day} other {# days}}",
+    "format": { "locale": "en", "values": { "n": 1 }, "result": "1 day" }
+  },
+  {
+    "id": "select",
+    "message": "{g, select, male {he} female {she} other {they}}",
+    "args": { "g": { "kind": "select", "options": ["male", "female"] } }
+  },
+  {
+    "id": "unsupported-choice",
+    "message": "{n, choice, 0#none|1#one}",
+    "error": "TONGUE_E_UNSUPPORTED_ICU"
+  }
+]

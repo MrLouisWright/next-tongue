@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file. The format 
 ## [Unreleased]
 
 ### Added
+- **Library code (pre-alpha, unpublished):** `packages/next-tongue` — pnpm workspace, TypeScript, Vitest, ESLint, GitHub Actions (Node 20/22), changesets, CI dependency budget (#1, #28).
+- `defineConfig` + validated config loader (BCP 47 locales, `{locale}` in messages) (#2).
+- Own ICU MessageFormat parser with documented subset, `file:key:line:col` errors, and a starter conformance corpus (#3, #27).
+- Codegen (`tongue build`): per-key modules under `.tongue/msg/`, namespace modules, CLDR fallback chains, lazy `Intl` formatters (#4, #22).
+- CLDR plural-category checks via `Intl.PluralRules` (#5).
+- Type generator: `.tongue/types.d.ts` with per-namespace `TongueRegister` interfaces (#6).
+- Core runtime: `createT` (`t` / `t.rich` / `t.has` / `t.dynamic` / `t.ns`), `createFormat`, `getDir` / `getOgLocale` (#7).
+- Server/client export surfaces (`getT`, `TongueProvider`/`useT`), `withTongue` config wrapper + call-site loader, CLI `tongue build` (#8, #10, #11 — partial).
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).
@@ -24,4 +32,4 @@ All notable changes to this project will be documented in this file. The format 
 - Codemods moved after v1.0; the next-international codemod is dropped (migration page kept as a manual guide).
 - The "runtime catalogs from a CMS" non-goal (superseded by ADR 0013); client-side runtime catalogs remain out of scope.
 
-No package has been published yet.
+No package has been published to npm yet (still pre-alpha).

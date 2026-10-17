@@ -11,7 +11,7 @@
 </div>
 
 > [!WARNING]
-> **next-tongue is pre-alpha and not published to npm.** Everything below describes the **planned** API. No library code exists yet; the design is open for feedback in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
+> **next-tongue is pre-alpha and not published to npm.** Library code lives in `packages/next-tongue` and is under active development toward [v0.1](https://github.com/MrLouisWright/next-tongue/milestone/1). Docs below mix shipped surfaces with still-planned API — treat anything not covered by green CI acceptance criteria as provisional. Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
 
 ## Why
 

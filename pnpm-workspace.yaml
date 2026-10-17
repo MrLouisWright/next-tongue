@@ -1,0 +1,3 @@
+packages:
+  - 'packages/*'
+  # examples/* added once examples/cache-components lands (#15)

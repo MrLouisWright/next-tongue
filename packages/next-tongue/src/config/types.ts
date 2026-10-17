@@ -1,0 +1,100 @@
+export type StrictLevel = 'error' | 'warn' | 'off';
+
+export type LocaleCookieConfig = {
+  name: string;
+  maxAge: number;
+  sameSite?: 'lax' | 'strict' | 'none';
+  secure?: boolean;
+  path?: string;
+};
+
+export type DomainConfig = {
+  domain: string;
+  defaultLocale: string;
+  locales: readonly string[];
+};
+
+export type PseudoConfig = {
+  locale?: string;
+  enabled?: 'dev' | 'always' | false;
+  expand?: number;
+};
+
+export type TongueConfig = {
+  locales: readonly string[];
+  defaultLocale: string;
+  messages?: string;
+  fallback?: Partial<Record<string, string>>;
+  timeZone?: string;
+  sources?: Array<() => Promise<Record<string, Record<string, Record<string, string>>>>>;
+  sourcesOnError?: 'fail' | 'use-cache';
+  pseudo?: PseudoConfig | boolean;
+  client?: { split?: 'none' | 'locale' };
+  devOverlay?: boolean;
+  routing?: {
+    prefix?: 'always' | 'as-needed' | 'never';
+    localeDetection?: boolean;
+    localeCookie?: LocaleCookieConfig | false;
+    domains?: DomainConfig[];
+    pathnames?: Record<string, Partial<Record<string, string>>>;
+  };
+  formats?: {
+    number?: Record<string, Intl.NumberFormatOptions>;
+    dateTime?: Record<string, Intl.DateTimeFormatOptions>;
+    list?: Record<string, Intl.ListFormatOptions>;
+  };
+  outDir?: string;
+  strict?: {
+    missing?: StrictLevel;
+    unused?: StrictLevel;
+    mismatch?: StrictLevel;
+    a11y?: StrictLevel;
+    bidi?: StrictLevel;
+    stale?: StrictLevel;
+    length?: StrictLevel;
+  };
+  translate?: {
+    baseURL?: string;
+    model?: string;
+    apiKeyEnv?: string;
+    glossary?: string;
+    lockfile?: string;
+    context?: string;
+  };
+};
+
+export type ResolvedTongueConfig = {
+  locales: readonly string[];
+  defaultLocale: string;
+  messages: string;
+  fallback: Partial<Record<string, string>>;
+  timeZone: string;
+  sources: Array<() => Promise<Record<string, Record<string, Record<string, string>>>>>;
+  sourcesOnError: 'fail' | 'use-cache';
+  pseudo: false | Required<PseudoConfig>;
+  client: { split: 'none' | 'locale' };
+  devOverlay: boolean;
+  routing: {
+    prefix: 'always' | 'as-needed' | 'never';
+    localeDetection: boolean;
+    localeCookie: LocaleCookieConfig | false;
+    domains: DomainConfig[] | undefined;
+    pathnames: Record<string, Partial<Record<string, string>>> | undefined;
+  };
+  formats: {
+    number: Record<string, Intl.NumberFormatOptions>;
+    dateTime: Record<string, Intl.DateTimeFormatOptions>;
+    list: Record<string, Intl.ListFormatOptions>;
+  };
+  outDir: string;
+  strict: {
+    missing: StrictLevel;
+    unused: StrictLevel;
+    mismatch: StrictLevel;
+    a11y: StrictLevel;
+    bidi: StrictLevel;
+    stale: StrictLevel;
+    length: StrictLevel;
+  };
+  translate: TongueConfig['translate'];
+};

@@ -1,26 +1,26 @@
 # Contributing to next-tongue
 
-Thanks for your interest! next-tongue is **pre-alpha**: there is no library code yet. The most valuable contributions right now are:
+Thanks for your interest! next-tongue is **pre-alpha**: the library is under construction in `packages/next-tongue`. The most valuable contributions right now are:
 
 1. **Design feedback** on the planned API ([docs](docs/README.md)) and [ADRs](docs/adr/README.md) — open an issue with the `type: design` template.
 2. **Real-world requirements** — tell us about your Next.js 16 i18n setup and what breaks today.
-3. **Picking up a roadmap issue** in [v0.1](https://github.com/MrLouisWright/next-tongue/milestone/1) once scaffolding lands.
+3. **Picking up a roadmap issue** in [v0.1](https://github.com/MrLouisWright/next-tongue/milestone/1).
 
 ## Ground rules
 - Be kind; we follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Discuss significant changes in an issue before a PR. Changes to core principles need an ADR (`docs/adr/template.md`).
 - Docs and code must stay consistent: if a PR changes an API, it updates `docs/api-reference.md` and every affected guide.
 
-## Development (planned, from v0.1)
+## Development
 ```bash
 pnpm install
 pnpm test          # vitest
 pnpm typecheck     # tsc + type tests
 pnpm lint
-pnpm e2e           # playwright against examples/
-pnpm changeset     # describe your change
+pnpm --filter next-tongue run build
+pnpm changeset     # describe your change (publish disabled while pre-alpha)
 ```
-Repo layout (planned): `packages/next-tongue` (one published package: runtime, compiler, call-site loader, `withTongue` and the CLI, with zero dependencies beyond the `next`/`react` peers, see [ADR 0012](docs/adr/0012-zero-dependencies.md)), `packages/vscode` (v1.1), `examples/*`, `test/fixtures/` (incl. the vendored ICU conformance corpus), `docs/`.
+Repo layout: `packages/next-tongue` (one published package: runtime, compiler, call-site loader, `withTongue` and the CLI, with zero dependencies beyond the `next`/`react` peers, see [ADR 0012](docs/adr/0012-zero-dependencies.md)), `packages/vscode` (v1.1), `examples/*` (coming), `test/fixtures/` (incl. the vendored ICU conformance corpus), `docs/`.
 
 **Scope freeze:** no new features are accepted before v0.1 ships ([ROADMAP](ROADMAP.md)).
 
