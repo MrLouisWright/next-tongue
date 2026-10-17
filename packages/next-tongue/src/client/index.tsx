@@ -70,8 +70,27 @@ export function useLocale(): string {
   return useTongue().locale;
 }
 
+let warnedTimezoneMismatch = false;
+
 export function useFormat(): Format {
   const { locale, timeZone } = useTongue();
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    typeof window !== 'undefined' &&
+    !warnedTimezoneMismatch
+  ) {
+    try {
+      const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (browserZone && browserZone !== timeZone) {
+        warnedTimezoneMismatch = true;
+        console.warn(
+          `[next-tongue] TONGUE_W_TIMEZONE: TongueProvider timeZone="${timeZone}" differs from browser "${browserZone}". Pass an explicit timeZone to avoid hydration mismatches (ADR 0008).`,
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   return createFormat({ locale, timeZone });
 }
 

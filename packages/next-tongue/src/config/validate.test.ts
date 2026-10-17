@@ -21,6 +21,13 @@ describe('resolveConfig', () => {
     const c = resolveConfig({ locales: ['en', 'de'], defaultLocale: 'en' });
     expect(c.messages).toBe('./messages/{locale}.json');
     expect(c.timeZone).toBe('UTC');
+    expect(() =>
+      resolveConfig({
+        locales: ['en'],
+        defaultLocale: 'en',
+        timeZone: 'Not/AZone',
+      }),
+    ).toThrow(/IANA time zone/);
     expect(c.routing.prefix).toBe('as-needed');
     expect(c.outDir).toBe('.tongue');
   });

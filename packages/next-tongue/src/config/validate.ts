@@ -23,6 +23,17 @@ export function isValidBcp47(tag: string): boolean {
   }
 }
 
+/** IANA time zone id — validated via `Intl.DateTimeFormat`. */
+export function isValidTimeZone(timeZone: string): boolean {
+  if (!timeZone || timeZone.length > 100) return false;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
   if (!input || typeof input !== 'object') {
     throw new TongueError('TONGUE_E_CONFIG', 'Config must be an object');
@@ -74,6 +85,14 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
     };
   }
 
+  const timeZone = input.timeZone ?? 'UTC';
+  if (!isValidTimeZone(timeZone)) {
+    throw new TongueError(
+      'TONGUE_E_CONFIG',
+      `Invalid IANA time zone: ${JSON.stringify(timeZone)}`,
+    );
+  }
+
   const localeCookie =
     input.routing?.localeCookie === false
       ? false
@@ -87,7 +106,7 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
     defaultLocale,
     messages,
     fallback: input.fallback ?? {},
-    timeZone: input.timeZone ?? 'UTC',
+    timeZone,
     sources: input.sources ?? [],
     sourcesOnError: input.sourcesOnError ?? 'fail',
     pseudo,
