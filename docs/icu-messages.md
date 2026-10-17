@@ -14,7 +14,19 @@ next-tongue uses [ICU MessageFormat](https://unicode-org.github.io/icu/userguide
 | Select | `{gender, select, female {She} male {He} other {They}}` | `gender: 'female' \| 'male' \| (string & {})` |
 | Rich tag | `Read <b>this</b>` | `b: (chunks) => ReactNode` (via `t.rich`) |
 | Rich tag (self-closing) | `Line<br/>break` | `br: () => ReactNode` |
-| Escaping (apostrophes) | `'{'literal'}'`, `it''s` | — |
+| Escaping (apostrophes) | `'{'literal'}'`, `it''s`, `"data-ns=\"'<id>'\"` | — |
+
+### Angle brackets are rich tags
+
+`<name>…</name>` and `<name/>` are **rich tags** (for `t.rich`), not HTML in the string. Copy that only *mentions* angle brackets (docs, examples, attribute placeholders) must be apostrophe-escaped or the build fails with `TONGUE_E_PARSE`:
+
+```json
+{
+  "example": "Use data-ns=\"'<id>.<signature>'\""
+}
+```
+
+Without the quotes around `'<id>…'`, `<id>` is parsed as a tag named `id`.
 
 ## Supported subset
 

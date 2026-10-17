@@ -63,9 +63,11 @@ export function withTongue<T extends object>(
 
   // Next 16: content must be RegExp; omit `as` when returning the same module type
   // (using `as: '*.tsx'` previously doubled extensions → `file.tsx.tsx`).
+  // Do NOT gate on `browser` — client components still SSR, and useT must be
+  // rewritten on the server graph too (otherwise SSR throws without loadNamespace).
   const tongueLoaderRule = {
     condition: {
-      all: [{ not: 'foreign' }, 'browser', { content: /useT\s*\(/ }],
+      all: [{ not: 'foreign' }, { content: /useT\s*\(/ }],
     },
     loaders: [
       {
@@ -101,18 +103,17 @@ export function withTongue<T extends object>(
       ...(config.resolve.alias ?? {}),
       '#tongue': outDir,
     };
-    if (!ctx.isServer) {
-      config.module ??= {};
-      config.module.rules = [
-        ...(config.module.rules ?? []),
-        {
-          test: /\.[jt]sx?$/,
-          exclude: /node_modules/,
-          enforce: 'pre',
-          use: [{ loader: loaderPath, options: { outDir: '.tongue' } }],
-        },
-      ];
-    }
+    // Client components SSR under webpack too — apply on both graphs.
+    config.module ??= {};
+    config.module.rules = [
+      ...(config.module.rules ?? []),
+      {
+        test: /\.[jt]sx?$/,
+        exclude: /node_modules/,
+        enforce: 'pre',
+        use: [{ loader: loaderPath, options: { outDir: '.tongue' } }],
+      },
+    ];
     return userWebpack ? userWebpack(config, ctx) : config;
   };
 

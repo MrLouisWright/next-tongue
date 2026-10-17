@@ -46,9 +46,10 @@
 | `<html>` in `app/[locale]/layout` with existing root layout | Invalid in Next — keep `<html>` on root layout; nest `TongueProvider` only under `[locale]` |
 | `/de/…` 404 on non-localized routes | No partial-localization config — gate in your proxy allow-list and only put localized pages under `[locale]` |
 | Existing `turbopack.rules` for `*.tsx` | `withTongue` **appends** the tongue loader to that glob (array merge); it does not remove your rules |
-| `getServerSnapshot` infinite loop / overlay | Fixed in `0.9.4`: `getTongueDevSnapshot()` caches until `notify()`. Or set `devOverlay={false}` |
-| `useT` SSR `TONGUE_E_NO_PROVIDER` without `loadNamespace` | Fixed in `0.9.4`: `useT()` no longer throws until a non-rewritten `t()` call. Prefer server `getT`; for dynamic keys use `t.dynamic(key, { from })` |
-| `tongue check` unused on `t(key)` from an array | Fixed in `0.9.4`: dynamic `t(var)`, `t.dynamic({ from })`, and string arrays are treated as used |
+| `getServerSnapshot` infinite loop / overlay | Fixed in `0.9.4` (cached snapshot). `0.9.5` also defers `notify()` via `queueMicrotask` so `t()` during render does not update DevOverlay mid-render. Or `devOverlay={false}` |
+| `useT` SSR without rewrite / still needs `loadNamespace` | `0.9.5`: Turbopack loader is no longer `browser`-only (SSR graph gets rewrites). Prefer server `getT` for root chrome; see [root-layout chrome](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale) |
+| `tongue check` unused / false missing keys | `0.9.5`: ignores comments; does not treat unrelated string arrays (cache tags) as keys. Use `t.dynamic(key, { from })` for dynamic keys |
+| `TONGUE_E_PARSE` on copy with `<id>` | Angle brackets are rich tags — apostrophe-escape: `"data-ns=\"'<id>'\""` ([ICU messages](icu-messages.md)) |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.
 

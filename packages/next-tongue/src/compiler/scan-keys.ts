@@ -12,8 +12,8 @@ export type ReferencedKey = {
 export type ScanResult = {
   refs: ReferencedKey[];
   /**
-   * Namespaces where `t(variable)` / `t.ns(...)` was seen — unused-key warnings
-   * for these namespaces are suppressed (dynamic / whole-ns usage).
+   * Namespaces where `t(variable)` / `t.ns(...)` / `t.dynamic` was seen —
+   * unused-key warnings for these namespaces are suppressed.
    */
   dynamicNamespaces: Set<string>;
 };
@@ -87,10 +87,74 @@ function extname(name: string): string {
   return i === -1 ? '' : name.slice(i);
 }
 
+/** Strip // and /* *\/ comments; preserve newlines for line numbers. */
+export function stripComments(source: string): string {
+  let out = '';
+  let i = 0;
+  while (i < source.length) {
+    const ch = source[i]!;
+    const next = source[i + 1];
+
+    // string / template — copy verbatim so // inside strings stay
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch;
+      out += ch;
+      i++;
+      while (i < source.length) {
+        const c = source[i]!;
+        out += c;
+        if (c === '\\' && i + 1 < source.length) {
+          out += source[i + 1]!;
+          i += 2;
+          continue;
+        }
+        if (c === quote) {
+          i++;
+          break;
+        }
+        // template ${ } — shallow skip (good enough for comment strip)
+        if (quote === '`' && c === '$' && source[i + 1] === '{') {
+          out += '{';
+          i += 2;
+          let depth = 1;
+          while (i < source.length && depth > 0) {
+            if (source[i] === '{') depth++;
+            else if (source[i] === '}') depth--;
+            out += source[i]!;
+            i++;
+          }
+          continue;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      while (i < source.length && source[i] !== '\n') i++;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      i += 2;
+      while (i < source.length && !(source[i] === '*' && source[i + 1] === '/')) {
+        out += source[i] === '\n' ? '\n' : ' ';
+        i++;
+      }
+      i += 2;
+      continue;
+    }
+
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
 export function extractFromSource(
   source: string,
   file: string,
 ): ScanResult {
+  const code = stripComments(source);
   const out: ReferencedKey[] = [];
   const dynamicNamespaces = new Set<string>();
   const translators = new Map<string, string>(); // var → ns
@@ -99,7 +163,7 @@ export function extractFromSource(
   const declRe =
     /(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(?:useT|getT)\s*\(\s*(?:[^'"\n,]+,\s*)?(['"])([^'"]*)\2\s*\)/g;
   let m: RegExpExecArray | null;
-  while ((m = declRe.exec(source)) !== null) {
+  while ((m = declRe.exec(code)) !== null) {
     translators.set(m[1]!, m[3] || '_root');
   }
 
@@ -110,7 +174,7 @@ export function extractFromSource(
       namespace: ns || '_root',
       key,
       file,
-      line: lineAt(source, index),
+      line: lineAt(code, index),
     });
   };
 
@@ -121,24 +185,23 @@ export function extractFromSource(
       'g',
     );
     let cm: RegExpExecArray | null;
-    while ((cm = callRe.exec(source)) !== null) {
+    while ((cm = callRe.exec(code)) !== null) {
       push(ns, cm[2]!, cm.index);
     }
 
-    // t.dynamic(any, { from: ['a', 'b'] })
+    // t.dynamic(any, { from: ['a', 'b'] }) — only `from` keys become refs
     const dynRe = new RegExp(
       `\\b${escapeRegExp(varName)}\\.dynamic\\s*\\(`,
       'g',
     );
     let dm: RegExpExecArray | null;
-    while ((dm = dynRe.exec(source)) !== null) {
-      const tail = source.slice(dm.index, dm.index + 400);
+    while ((dm = dynRe.exec(code)) !== null) {
+      const tail = code.slice(dm.index, dm.index + 400);
       const fromMatch = /from\s*:\s*\[([^\]]*)\]/.exec(tail);
       if (fromMatch) {
         const keys = fromMatch[1]!.match(/['"]([^'"]+)['"]/g) ?? [];
         for (const raw of keys) {
-          const key = raw.slice(1, -1);
-          push(ns, key, dm.index);
+          push(ns, raw.slice(1, -1), dm.index);
         }
       }
       dynamicNamespaces.add(ns || '_root');
@@ -150,31 +213,18 @@ export function extractFromSource(
       'g',
     );
     let nm: RegExpExecArray | null;
-    while ((nm = nsRe.exec(source)) !== null) {
+    while ((nm = nsRe.exec(code)) !== null) {
       dynamicNamespaces.add(nm[2] || '_root');
     }
 
-    // Non-literal t(var) / t.rich(var) — mark namespace dynamic + harvest nearby string arrays
+    // Non-literal t(var) — suppress unused for the namespace only.
+    // Do NOT harvest unrelated string arrays (cache tags, sort keys, …).
     const nonLitRe = new RegExp(
       `\\b${escapeRegExp(varName)}(?:\\.rich)?\\s*\\(\\s*(?!['"])([A-Za-z_$][\\w$]*)`,
       'g',
     );
-    let nl: RegExpExecArray | null;
-    let sawNonLit = false;
-    while ((nl = nonLitRe.exec(source)) !== null) {
-      sawNonLit = true;
+    if (nonLitRe.test(code)) {
       dynamicNamespaces.add(ns || '_root');
-    }
-    if (sawNonLit) {
-      // Keys listed in string arrays in this file (e.g. KEYS.map((k) => t(k)))
-      const arrayLitRe = /\[\s*((?:['"][^'"]+['"]\s*,?\s*)+)\]/g;
-      let am: RegExpExecArray | null;
-      while ((am = arrayLitRe.exec(source)) !== null) {
-        const keys = am[1]!.match(/['"]([^'"]+)['"]/g) ?? [];
-        for (const raw of keys) {
-          push(ns, raw.slice(1, -1), am.index);
-        }
-      }
     }
   }
 

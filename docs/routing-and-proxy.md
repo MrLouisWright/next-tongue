@@ -41,6 +41,57 @@ Next.js allows `<html>` **only** on the root layout. If you already have `app/la
 
 There is **no** first-class “only these pathnames are localized” option. Gate in your own `proxy` before calling tongue (allow-list marketing routes, skip `/api`, dashboards, etc.). A request like `/de/sites` will 404 unless that route exists under `[locale]` — keep the allow-list and `app/` tree aligned.
 
+### Root-layout chrome (Header / Footer outside `[locale]`)
+
+Shared chrome in `app/layout.tsx` has **no** `params.locale`. Patterns that work:
+
+1. **Preferred — translate on the server and pass strings** into client chrome (no `useT` in the root layout).
+2. **Path-based shell** — a small server wrapper that reads the locale from the URL (or cookie) and wraps children in `TongueProvider`:
+
+```tsx
+// app/layout.tsx (root)
+import { TongueShell } from './tongue-shell';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">{/* or sync via client HtmlLang */}
+      <body>
+        <TongueShell>
+          <Header />
+          {children}
+          <Footer />
+        </TongueShell>
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx
+// app/tongue-shell.tsx — Server Component
+import { cookies, headers } from 'next/headers';
+import { TongueProvider } from 'next-tongue/client';
+import { defaultLocale, locales } from '#tongue/runtime';
+
+export async function TongueShell({ children }: { children: React.ReactNode }) {
+  // Prefer a signed preference cookie / Host; fall back to default.
+  // Do NOT call headers() inside a cached page — only in this dynamic shell.
+  const cookieStore = await cookies();
+  const raw = cookieStore.get('TONGUE_LOCALE')?.value;
+  const locale =
+    raw && (locales as readonly string[]).includes(raw) ? raw : defaultLocale;
+  return (
+    <TongueProvider locale={locale} /* loadNamespace only if bypassing the loader */>
+      {children}
+    </TongueProvider>
+  );
+}
+```
+
+3. **Nested `[locale]` provider** — keep marketing chrome untranslated, and put `TongueProvider` only under `app/[locale]/layout.tsx` for localized trees.
+
+Client `useT` in root chrome needs the call-site loader on the **SSR** graph (enabled from 0.9.5) or an explicit `loadNamespace`. Prefer pattern 1 when possible.
+
 ## What the proxy does
 
 1. If the pathname starts with a known locale prefix → pass through (and refresh the locale cookie if enabled).

@@ -3,6 +3,7 @@ import {
   __resetTongueDev,
   getTongueDevSnapshot,
   installTongueDevReporter,
+  subscribeTongueDev,
   tongueDevEscape,
   tongueDevLoaded,
   tongueDevMissing,
@@ -34,6 +35,18 @@ describe('dev-registry', () => {
     const c = getTongueDevSnapshot();
     expect(c).not.toBe(a);
     expect(c.loaded).toHaveLength(2);
+  });
+
+  it('defers subscriber notify until after the current turn', async () => {
+    let calls = 0;
+    const unsub = subscribeTongueDev(() => {
+      calls++;
+    });
+    tongueDevLoaded('home', 'title');
+    expect(calls).toBe(0);
+    await Promise.resolve();
+    expect(calls).toBeGreaterThanOrEqual(1);
+    unsub();
   });
 
   it('installTongueDevReporter wires global hooks', () => {

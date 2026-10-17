@@ -64,6 +64,14 @@ describe('parseMessage', () => {
     );
   });
 
+  it('treats angle-bracket placeholders as tags unless apostrophe-escaped', () => {
+    expect(() => parseMessage('data-ns="<id>.<signature>"')).toThrow(/TONGUE_E_PARSE|Expected/);
+    const escaped = parseMessage("data-ns=\"'<id>.<signature>'\"");
+    expect(escaped.some((e) => e.type === 'literal' && e.value.includes('<id>'))).toBe(
+      true,
+    );
+  });
+
   it('reports file:key:line:col on error', () => {
     try {
       parseMessage('Hello {name', { file: 'en.json', key: 'home.title' });

@@ -49,8 +49,9 @@ const g = globalThis as typeof globalThis & {
     escapes: Map<string, DevEscape>;
     rendered: DevRendered[];
     listeners: Set<Listener>;
-    /** Cached for useSyncExternalStore getServerSnapshot — same ref until notify(). */
+    /** Cached for useSyncExternalStore getServerSnapshot — same ref until invalidate. */
     snapshot: Snapshot | null;
+    notifyScheduled: boolean;
   };
 };
 
@@ -64,15 +65,27 @@ function store() {
       rendered: [],
       listeners: new Set(),
       snapshot: null,
+      notifyScheduled: false,
     };
   }
   return g.__nextTongueDev;
 }
 
+/**
+ * Invalidate snapshot and notify subscribers **after** the current render.
+ * Synchronous notify from inside `t()` (render) caused
+ * "Cannot update DevOverlay while rendering Header".
+ */
 function notify() {
   const s = store();
   s.snapshot = null;
-  for (const l of s.listeners) l();
+  if (s.notifyScheduled) return;
+  s.notifyScheduled = true;
+  queueMicrotask(() => {
+    const st = store();
+    st.notifyScheduled = false;
+    for (const l of st.listeners) l();
+  });
 }
 
 export function tongueDevLoaded(namespace: string, key: string): void {

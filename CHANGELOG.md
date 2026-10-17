@@ -7,6 +7,17 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.5] — 2026-10-17
+
+### Fixed
+- Call-site loader runs on the SSR graph too (Turbopack no longer `browser`-only; webpack loader applies on server) so client `useT` rewrites during SSR.
+- Dev overlay: defer `notify()` with `queueMicrotask` so `t()` during render does not update DevOverlay mid-tree.
+- `tongue check`: strip comments before scanning; stop treating unrelated string arrays (cache tags) as message keys.
+
+### Docs
+- Apostrophe-escape angle brackets in messages (`'<id>'`).
+- Root-layout chrome pattern for Header/Footer outside `[locale]`.
+
 ## [0.9.4] — 2026-10-17
 
 ### Fixed

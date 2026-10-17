@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractFromSource } from './scan-keys.js';
+import { extractFromSource, stripComments } from './scan-keys.js';
 
 describe('extractFromSource', () => {
   it('finds literal t(key) under getT/useT', () => {
@@ -11,6 +11,19 @@ describe('extractFromSource', () => {
       'page.tsx',
     );
     expect(refs.map((r) => r.fullKey)).toContain('home.title');
+  });
+
+  it('ignores t(key) inside comments', () => {
+    const { refs } = extractFromSource(
+      `
+      const t = await getT(locale, 'home');
+      // t('commented')
+      /* t('block') */
+      return t('title');
+      `,
+      'page.tsx',
+    );
+    expect(refs.map((r) => r.fullKey)).toEqual(['home.title']);
   });
 
   it('marks t.dynamic from: keys as used', () => {
@@ -28,19 +41,27 @@ describe('extractFromSource', () => {
     expect(dynamicNamespaces.has('status')).toBe(true);
   });
 
-  it('harvests string arrays when t(variable) is used', () => {
+  it('does not treat unrelated string arrays as missing keys', () => {
     const { refs, dynamicNamespaces } = extractFromSource(
       `
       const t = await getT(locale, 'home');
-      const KEYS = ['title', 'body'] as const;
+      const tags = ['taxonomy', 'sort'] as const;
       return KEYS.map((key) => t(key));
       `,
       'page.tsx',
     );
     expect(dynamicNamespaces.has('home')).toBe(true);
-    expect(refs.map((r) => r.fullKey).sort()).toEqual([
-      'home.body',
-      'home.title',
-    ]);
+    // no false "taxonomy" / "sort" undefined refs
+    expect(refs.map((r) => r.fullKey)).not.toContain('home.taxonomy');
+    expect(refs.map((r) => r.fullKey)).not.toContain('home.sort');
+  });
+
+  it('stripComments preserves strings with //', () => {
+    expect(stripComments(`const u = "https://x"; // trail\n`)).toContain(
+      'https://x',
+    );
+    expect(stripComments(`const u = "https://x"; // trail\n`)).not.toContain(
+      'trail',
+    );
   });
 });

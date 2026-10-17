@@ -6,7 +6,7 @@
 
 `TongueProvider` (in your `[locale]` layout, see [Getting started](getting-started.md)) provides the **locale** (and optionally a `timeZone` for `useFormat`, see [ADR 0008](adr/0008-explicit-time-zone.md)). It does not take a `messages` prop.
 
-Outside `[locale]` (global `app/not-found.tsx`, the static-export root `app/page.tsx`) there is no provider: `useT` throws `TONGUE_E_NO_PROVIDER`. Wrap such trees in `<TongueProvider locale={defaultLocale}>` deliberately ([ADR 0002](adr/0002-locale-from-params-only.md)).
+Outside `[locale]` (global `app/not-found.tsx`, root `app/layout.tsx` chrome, static-export root) there is no locale param. Wrap those trees in `<TongueProvider locale={…}>` (see [Routing — root-layout chrome](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)). Prefer passing server-translated strings into Header/Footer instead of `useT` in the root layout.
 
 ## Preferred: translate on the server, pass strings
 
@@ -33,7 +33,7 @@ export function Counter() {
 }
 ```
 
-`TongueProvider` does **not** need a `loadNamespace` prop for normal client usage — the call-site loader rewrites literal `t('key')` to per-key imports (works during SSR). Pass `loadNamespace` only for tests or when you intentionally bypass the loader. If a call is not rewritten (dynamic key without `t.dynamic`), invoking `t` throws `TONGUE_E_NO_PROVIDER` with a rewrite hint.
+`TongueProvider` does **not** need a `loadNamespace` prop when the call-site loader rewrites literal `t('key')` (Turbopack/webpack, including SSR from 0.9.5). Pass `loadNamespace` for tests or when the loader cannot run. If a call is not rewritten (dynamic key without `t.dynamic`), invoking `t` throws `TONGUE_E_NO_PROVIDER` with a rewrite hint.
 
 Disable the Alt+Shift+T overlay with `devOverlay={false}` (or config `devOverlay: false`) if needed.
 
