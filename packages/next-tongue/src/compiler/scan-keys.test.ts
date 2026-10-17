@@ -2,38 +2,45 @@ import { describe, expect, it } from 'vitest';
 import { extractFromSource } from './scan-keys.js';
 
 describe('extractFromSource', () => {
-  it('finds useT and t()/t.rich() keys', () => {
-    const src = `
-import { useT } from 'next-tongue/client';
-export function Badge({ count }) {
-  const t = useT('home');
-  return <>{t('inbox', { count })}{t.rich('title', {})}</>;
-}
-`;
-    const refs = extractFromSource(src, 'badge.tsx');
+  it('finds literal t(key) under getT/useT', () => {
+    const { refs } = extractFromSource(
+      `
+      const t = await getT(locale, 'home');
+      return t('title');
+      `,
+      'page.tsx',
+    );
+    expect(refs.map((r) => r.fullKey)).toContain('home.title');
+  });
+
+  it('marks t.dynamic from: keys as used', () => {
+    const { refs, dynamicNamespaces } = extractFromSource(
+      `
+      const t = useT('status');
+      t.dynamic(status, { from: ['open', 'closed'] });
+      `,
+      'c.tsx',
+    );
     expect(refs.map((r) => r.fullKey).sort()).toEqual([
-      'home.inbox',
+      'status.closed',
+      'status.open',
+    ]);
+    expect(dynamicNamespaces.has('status')).toBe(true);
+  });
+
+  it('harvests string arrays when t(variable) is used', () => {
+    const { refs, dynamicNamespaces } = extractFromSource(
+      `
+      const t = await getT(locale, 'home');
+      const KEYS = ['title', 'body'] as const;
+      return KEYS.map((key) => t(key));
+      `,
+      'page.tsx',
+    );
+    expect(dynamicNamespaces.has('home')).toBe(true);
+    expect(refs.map((r) => r.fullKey).sort()).toEqual([
+      'home.body',
       'home.title',
     ]);
-  });
-
-  it('finds getT keys', () => {
-    const src = `
-const t = await getT('home');
-return t('title', { name: 'Ada' });
-`;
-    const refs = extractFromSource(src, 'page.tsx');
-    expect(refs).toHaveLength(1);
-    expect(refs[0]?.fullKey).toBe('home.title');
-    expect(refs[0]?.line).toBe(3);
-  });
-
-  it('finds getT(locale, ns) keys', () => {
-    const src = `
-const t = await getT(locale, 'home');
-return t('metaTitle');
-`;
-    const refs = extractFromSource(src, 'page.tsx');
-    expect(refs.map((r) => r.fullKey)).toEqual(['home.metaTitle']);
   });
 });

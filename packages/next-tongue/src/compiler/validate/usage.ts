@@ -1,12 +1,17 @@
 import type { ResolvedTongueConfig, StrictLevel } from '../../config/types.js';
 import type { CheckIssue, CheckSeverity } from '../../cli/check-types.js';
 import { loadLocaleMessages } from '../load-messages.js';
-import { scanReferencedKeys } from '../scan-keys.js';
+import { scanKeys } from '../scan-keys.js';
 
 function severityFor(level: StrictLevel, alwaysError = false): CheckSeverity | null {
   if (alwaysError) return 'error';
   if (level === 'off') return null;
   return level === 'error' ? 'error' : 'warn';
+}
+
+function namespaceOf(fullKey: string): string {
+  const i = fullKey.indexOf('.');
+  return i === -1 ? '_root' : fullKey.slice(0, i);
 }
 
 /** unused + undefined checks against scanned source references. */
@@ -26,7 +31,7 @@ export async function validateUsage(
     }
   }
 
-  const refs = await scanReferencedKeys(cwd);
+  const { refs, dynamicNamespaces } = await scanKeys(cwd);
   const used = new Set<string>();
   for (const ref of refs) {
     used.add(ref.fullKey);
@@ -46,6 +51,8 @@ export async function validateUsage(
   if (unusedSev) {
     for (const fullKey of defined) {
       if (used.has(fullKey)) continue;
+      // Dynamic t(var) / t.ns / t.dynamic — do not false-flag catalog keys as unused
+      if (dynamicNamespaces.has(namespaceOf(fullKey))) continue;
       issues.push({
         check: 'unused',
         severity: unusedSev,

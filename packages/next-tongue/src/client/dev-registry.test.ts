@@ -25,6 +25,17 @@ describe('dev-registry', () => {
     expect(snap.escapes[0]?.namespace).toBe('home');
   });
 
+  it('caches snapshot identity until notify (useSyncExternalStore)', () => {
+    tongueDevLoaded('home', 'title');
+    const a = getTongueDevSnapshot();
+    const b = getTongueDevSnapshot();
+    expect(a).toBe(b);
+    tongueDevLoaded('home', 'body');
+    const c = getTongueDevSnapshot();
+    expect(c).not.toBe(a);
+    expect(c.loaded).toHaveLength(2);
+  });
+
   it('installTongueDevReporter wires global hooks', () => {
     installTongueDevReporter();
     const g = globalThis as typeof globalThis & {

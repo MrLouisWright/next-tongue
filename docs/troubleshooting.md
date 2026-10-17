@@ -46,6 +46,9 @@
 | `<html>` in `app/[locale]/layout` with existing root layout | Invalid in Next — keep `<html>` on root layout; nest `TongueProvider` only under `[locale]` |
 | `/de/…` 404 on non-localized routes | No partial-localization config — gate in your proxy allow-list and only put localized pages under `[locale]` |
 | Existing `turbopack.rules` for `*.tsx` | `withTongue` **appends** the tongue loader to that glob (array merge); it does not remove your rules |
+| `getServerSnapshot` infinite loop / overlay | Fixed in `0.9.4`: `getTongueDevSnapshot()` caches until `notify()`. Or set `devOverlay={false}` |
+| `useT` SSR `TONGUE_E_NO_PROVIDER` without `loadNamespace` | Fixed in `0.9.4`: `useT()` no longer throws until a non-rewritten `t()` call. Prefer server `getT`; for dynamic keys use `t.dynamic(key, { from })` |
+| `tongue check` unused on `t(key)` from an array | Fixed in `0.9.4`: dynamic `t(var)`, `t.dynamic({ from })`, and string arrays are treated as used |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.
 

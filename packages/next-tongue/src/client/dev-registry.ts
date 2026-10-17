@@ -49,6 +49,8 @@ const g = globalThis as typeof globalThis & {
     escapes: Map<string, DevEscape>;
     rendered: DevRendered[];
     listeners: Set<Listener>;
+    /** Cached for useSyncExternalStore getServerSnapshot — same ref until notify(). */
+    snapshot: Snapshot | null;
   };
 };
 
@@ -61,13 +63,16 @@ function store() {
       escapes: new Map(),
       rendered: [],
       listeners: new Set(),
+      snapshot: null,
     };
   }
   return g.__nextTongueDev;
 }
 
 function notify() {
-  for (const l of store().listeners) l();
+  const s = store();
+  s.snapshot = null;
+  for (const l of s.listeners) l();
 }
 
 export function tongueDevLoaded(namespace: string, key: string): void {
@@ -147,13 +152,15 @@ export function subscribeTongueDev(listener: Listener): () => void {
 
 export function getTongueDevSnapshot(): Snapshot {
   const s = store();
-  return {
+  if (s.snapshot) return s.snapshot;
+  s.snapshot = {
     loaded: [...s.loaded.values()],
     missing: [...s.missing.values()],
     fallbacks: [...s.fallbacks.values()],
     escapes: [...s.escapes.values()],
     rendered: [...s.rendered],
   };
+  return s.snapshot;
 }
 
 /** @internal test helper */

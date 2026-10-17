@@ -126,11 +126,11 @@ export function useFormat(): Format {
 export function useT<N extends Namespace>(namespace?: N): TFunction<N> {
   const ns = (namespace ?? ('_root' as unknown as N)) as N;
   const { locale, loadNamespace } = useTongue();
+  // Literal `t('key')` is rewritten by the call-site loader to per-key imports;
+  // `useT()` itself must still be safe during SSR without loadNamespace.
+  // Invoking the returned `t` without a rewrite (dynamic/escaped) throws below.
   if (!loadNamespace) {
-    throw new TongueError(
-      'TONGUE_E_NO_PROVIDER',
-      `useT('${String(ns)}') needs the call-site loader (or pass loadNamespace to TongueProvider). Prefer translating on the server with getT and passing strings.`,
-    );
+    return createLoaderStubT(locale, String(ns)) as TFunction<N>;
   }
   const messages = loadNamespace(ns);
   return createT({
@@ -138,6 +138,28 @@ export function useT<N extends Namespace>(namespace?: N): TFunction<N> {
     messages,
     loadNamespace,
   }) as TFunction<N>;
+}
+
+/**
+ * Stub used when the call-site loader owns message delivery. Calling the
+ * function (or .rich / .dynamic / .ns) means a key was not rewritten — usually
+ * a missing loader or a non-literal key without `t.dynamic({ from })`.
+ */
+function createLoaderStubT(locale: string, ns: string): TFunction {
+  const fail = (): never => {
+    throw new TongueError(
+      'TONGUE_E_NO_PROVIDER',
+      `useT('${ns}') call was not rewritten to a per-key import. Ensure withTongue() is applied, or pass loadNamespace to TongueProvider. Prefer getT on the server for static copy; for dynamic keys use t.dynamic(key, { from: [...] }).`,
+    );
+  };
+  const t = Object.assign((..._args: unknown[]) => fail(), {
+    rich: fail,
+    has: () => false,
+    dynamic: fail,
+    ns: fail,
+  }) as unknown as TFunction;
+  void locale;
+  return t;
 }
 
 export function getClientLocales(): readonly string[] {

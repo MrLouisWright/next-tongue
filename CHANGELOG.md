@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.4] — 2026-10-17
+
+### Fixed
+- Dev overlay: cache `getTongueDevSnapshot()` until `notify()` so React `useSyncExternalStore` / `getServerSnapshot` does not infinite-loop.
+- `useT()` no longer throws during SSR when `TongueProvider` has no `loadNamespace` (call-site loader delivers keys); invoking a non-rewritten `t` still throws with a clearer hint.
+- `tongue check` unused: honor `t.dynamic({ from })`, `t(var)` + string arrays, and `t.ns` so dynamically used keys are not false-flagged.
+
 ## [0.9.3] — 2026-10-17
 
 ### Fixed

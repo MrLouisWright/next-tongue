@@ -33,6 +33,10 @@ export function Counter() {
 }
 ```
 
+`TongueProvider` does **not** need a `loadNamespace` prop for normal client usage — the call-site loader rewrites literal `t('key')` to per-key imports (works during SSR). Pass `loadNamespace` only for tests or when you intentionally bypass the loader. If a call is not rewritten (dynamic key without `t.dynamic`), invoking `t` throws `TONGUE_E_NO_PROVIDER` with a rewrite hint.
+
+Disable the Alt+Shift+T overlay with `devOverlay={false}` (or config `devOverlay: false`) if needed.
+
 ## How messages reach the browser
 
 A per-file loader rewrites each `t('key')` call in a client module into a static import of a per-key message module (`#tongue/msg/{namespace}/{key}`). The bundler then includes only the keys that client code calls, deduplicated across routes.
