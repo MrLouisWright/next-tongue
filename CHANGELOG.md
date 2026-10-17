@@ -48,6 +48,7 @@ All notable changes to this project will be documented in this file. The format 
 - Precomputed Accept-Language matcher (exact / parent / language tables + LRU); codegen emits `.tongue/locale-matcher.js`; 150-locale bench gate (#18).
 - `generateAlternates` / `createGenerateAlternates` for hreflang + `x-default` (prefix, pathnames, domains) (#13).
 - Server-action locale patterns + `withLocale` / `isLocale` (empty-runtime safe); contact e2e in `examples/basic` (#26).
+- `examples/basic` `proxy.ts` with as-needed routing; Playwright covers canonical `/en`→`/`, Accept-Language, and SameSite=Lax cookie.
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

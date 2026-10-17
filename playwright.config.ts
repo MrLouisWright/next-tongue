@@ -41,7 +41,7 @@ export default defineConfig({
   webServer: [
     {
       command: `pnpm --filter @next-tongue/example-basic exec next start --port ${PORT_BASIC}`,
-      url: `http://127.0.0.1:${PORT_BASIC}/en`,
+      url: `http://127.0.0.1:${PORT_BASIC}/`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
