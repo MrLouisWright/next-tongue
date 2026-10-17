@@ -83,6 +83,17 @@ export async function validateCatalog(
         });
         continue;
       }
+      if (likelyUnescapedApostrophe(source)) {
+        issues.push({
+          check: 'icu',
+          severity: 'warn',
+          message: `Key "${fullKey}" looks like a natural-language apostrophe (e.g. French). In ICU, double it: "l''été" → l'été`,
+          key: fullKey,
+          locale: config.defaultLocale,
+          file,
+          ...(line != null ? { line } : {}),
+        });
+      }
       const defaultArgs = collectArgs(defaultAst);
 
       for (const locale of locales) {
@@ -269,4 +280,17 @@ export async function validateStale(
     }
   }
   return issues;
+}
+
+/** Letter + single quote + letter — usually meant as prose apostrophe, not ICU quote. */
+export function likelyUnescapedApostrophe(icu: string): boolean {
+  for (let i = 0; i < icu.length - 2; i++) {
+    const a = icu[i]!;
+    const b = icu[i + 1]!;
+    const c = icu[i + 2]!;
+    if (b === "'" && /[A-Za-zÀ-ÿ]/.test(a) && /[A-Za-zÀ-ÿ]/.test(c)) {
+      return true;
+    }
+  }
+  return false;
 }

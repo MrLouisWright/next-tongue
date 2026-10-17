@@ -52,6 +52,11 @@
 | `TONGUE_E_PARSE` on copy with `<id>` | Angle brackets are rich tags — apostrophe-escape: `"data-ns=\"'<id>'\""` ([ICU messages](icu-messages.md)) |
 | Next 500 / `"use client"` after loader | Fixed in `0.9.6`: loader re-hoists `"use client"` / `"use server"` before injected imports. Remove any `postinstall` patch that only re-hoisted the directive |
 | `t.dynamic` throws without `loadNamespace` | Fixed in `0.9.6` for inline `from: [...]`. `0.9.7` also resolves same-file `const FROM = [...]` and `Object.values(OBJ)`. Imported `from` still needs an inline/same-file list |
+| `t(variable)` blows up in prod / passes typecheck | Client `useT`: always use `t.dynamic(key, { from })`. `0.9.8` `tongue check` reports these as `dynamic` errors |
+| Unused keys that `getT` definitely uses | Scanner defaults now include `lib/`, `server/`, `actions/`; set `scan.include` if needed. Intentional leftovers: `strict.unusedIgnore` |
+| `.tongue/ns/*.js` syntax error (`continue: continue`) | Reserved message keys sanitized in `0.9.8` (`continue` → export `continue_`) |
+| `ENOTEMPTY` / locked `.tongue` during `tongue build` | `0.9.8` writes to a staging dir then renames; if it still fails, delete `.tongue` and `.tongue.tmp-*` and retry |
+| Nested `TongueProvider` / root chrome | One provider under `[locale]`; pass strings into Header/Footer outside the segment — see [Client components](client-components.md#one-tongueprovider) |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.
 

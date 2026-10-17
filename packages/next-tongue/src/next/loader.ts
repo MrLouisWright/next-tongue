@@ -13,6 +13,7 @@
  */
 
 import { findDynamicCalls } from '../compiler/dynamic-from.js';
+import { safeIdent } from '../compiler/codegen/emit-js.js';
 
 export type LoaderOptions = {
   /** Absolute or project-relative outDir (default .tongue) */
@@ -236,8 +237,7 @@ function safeImportIdent(ns: string, key: string): string {
 }
 
 function safeExport(key: string): string {
-  const cleaned = key.replace(/[^A-Za-z0-9_]/g, '_');
-  return /^[0-9]/.test(cleaned) ? `_${cleaned}` : cleaned || '_';
+  return safeIdent(key);
 }
 
 /** Webpack/Turbopack loader entry. */

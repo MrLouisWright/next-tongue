@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Status: beta 0.9** (API freeze; npm staged approve / `0.9.1` publish pending). Dates are not promised. Each milestone ships when its acceptance criteria are met. Tracked in [GitHub milestones](https://github.com/MrLouisWright/next-tongue/milestones) and issues.
+> **Status: beta 0.9** (API freeze; `0.9.x` on npm; freeze timer started **2026-10-17**). Dates are not promised. Each milestone ships when its acceptance criteria are met. Tracked in [GitHub milestones](https://github.com/MrLouisWright/next-tongue/milestones) and issues.
 
 > **Scope freeze (2026-10-14):** no new features are added to any milestone before v0.1 ships. New ideas go to issues labelled for triage after v0.1.
 
@@ -125,7 +125,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 
 **Acceptance criteria**
 - [x] Decision recorded on an opt-in `getT(ns)` via `next/root-params` ([ADR 0007](docs/adr/0007-root-params-not-default.md), [#24](https://github.com/MrLouisWright/next-tongue/issues/24)): `routing.rootParams: true` + unit tests. Two-root-layout typing still blocked on [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756); stale-cache fix requires Next ≥ 16.3.8 ([#98493](https://github.com/vercel/next.js/issues/98493)).
-- [ ] No breaking changes for 4 weeks; 3+ external production-like apps report success. *(timer starts when 0.9.x is live on npm — staged approve pending; in-repo production-like builds verified in [docs/adopters.md](docs/adopters.md))*
+- [ ] No breaking changes for 4 weeks; 3+ external production-like apps report success. *(freeze start 2026-10-17; 1/3 external — Noticed Sites; see [docs/adopters.md](docs/adopters.md))*
 - [x] All docs pages verified against real code (doc examples are type-checked in CI via `pnpm check:docs` / #16).
 
 ## v1.0 — Stable

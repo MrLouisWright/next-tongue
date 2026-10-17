@@ -2,13 +2,15 @@ export type CheckKind =
   | 'missing'
   | 'unused'
   | 'undefined'
+  | 'dynamic'
   | 'mismatch'
   | 'syntax'
   | 'stale'
   | 'a11y'
   | 'bidi'
   | 'length'
-  | 'duplicate';
+  | 'duplicate'
+  | 'icu';
 
 export type CheckSeverity = 'error' | 'warn';
 

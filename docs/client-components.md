@@ -62,7 +62,34 @@ t.dynamic(BTN_KEYS[mode], { from: Object.values(BTN_KEYS) }); // same-file objec
 const s = t.ns('status'); s(status);              // needs loadNamespace / escape path
 ```
 
-The call-site loader rewrites `t.dynamic(key, { from })` to a map of per-key imports (same as literal `t('…')`) when `from` is an **inline array**, a **same-file** `const` array, or `Object.values(sameFileConst)`. Imported or computed `from` expressions are not resolved and stay as the runtime stub (throws without `loadNamespace`). Prefer that over ternaries. An undeclared non-literal `t(someString)` without `from` is not rewritten and will throw at runtime without `loadNamespace`.
+The call-site loader rewrites `t.dynamic(key, { from })` to a map of per-key imports (same as literal `t('…')`) when `from` is an **inline array**, a **same-file** `const` array, or `Object.values(sameFileConst)`. Imported or computed `from` expressions are not resolved and stay as the runtime stub (throws without `loadNamespace`). Prefer that over ternaries. An undeclared non-literal `t(someString)` without `from` is not rewritten and will throw at runtime without `loadNamespace`. `tongue check` reports those client sites as `dynamic` errors.
+
+### Ternaries and conditionals
+
+Each **literal** call is rewritten on its own:
+
+```tsx
+pending ? t('saving') : t('changePassword');
+toast(v ? t('dirIn') : t('dirOut'));
+```
+
+Both legs become per-key imports. A variable key still needs `t.dynamic`.
+
+### When to use what
+
+| Situation | Prefer |
+|---|---|
+| Server page / layout / API / Server Action | `getT(locale, ns)` + `t('literal')` |
+| Client component, fixed keys | `useT(ns)` + `t('literal')` (loader imports) |
+| Client component, key from data / map / step | `t.dynamic(key, { from: [...] })` or pass **strings** from a server parent |
+| Root chrome outside `[locale]` | Server `getT` + pass strings as props — avoid a second `TongueProvider` |
+
+Never `LINKS.map(({ key }) => t(key))` on the client — that typechecks and often “works” in a misconfigured local setup, then throws in production when the stub runs.
+
+### One `TongueProvider`
+
+Nest a single provider under `[locale]` (or a shell that already has locale). Root Header/Footer outside `[locale]` should take translated strings from the server (or parse the path), not wrap the tree in another provider.
+
 ## Other hooks
 
 | Hook | Returns |

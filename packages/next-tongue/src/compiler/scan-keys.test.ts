@@ -56,6 +56,31 @@ describe('extractFromSource', () => {
     ]);
   });
 
+  it('flags useT t(variable) as undeclared dynamic', () => {
+    const { undeclaredDynamics } = extractFromSource(
+      `
+      const t = useT('nav');
+      LINKS.map(({ key }) => t(key));
+      `,
+      'nav.tsx',
+    );
+    expect(undeclaredDynamics.length).toBeGreaterThan(0);
+    expect(undeclaredDynamics[0]?.namespace).toBe('nav');
+  });
+
+  it('does not flag getT t(variable) as undeclared dynamic', () => {
+    const { undeclaredDynamics, refs } = extractFromSource(
+      `
+      const t = await getT(locale, 'checks');
+      t('literal');
+      return items.map((k) => t(k));
+      `,
+      'lib/checks.ts',
+    );
+    expect(undeclaredDynamics).toHaveLength(0);
+    expect(refs.map((r) => r.fullKey)).toContain('checks.literal');
+  });
+
   it('does not treat unrelated string arrays as missing keys', () => {
     const { refs, dynamicNamespaces } = extractFromSource(
       `

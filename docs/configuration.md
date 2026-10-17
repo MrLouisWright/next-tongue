@@ -92,7 +92,9 @@ export default defineConfig({
 | `routing.rootParams` | `boolean` | `false` | Opt-in `getT(ns)` / `getFormat()` via `next/root-params` (ADR 0007). `withTongue` sets `experimental.rootParams`. Prefer Next ≥ 16.3.8; avoid with two sibling root layouts until [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756). |
 | `formats` | `{ number?, dateTime?, list? }` | `{}` | `Intl` options by preset name. |
 | `outDir` | `string` | `'.tongue'` | Git-ignore it. |
+| `scan.include` | `string[]` | `[]` (→ app, src, components, lib, server, actions) | Roots for `tongue check` / `extract` key scanning. Set explicitly if messages are referenced from other dirs. |
 | `strict.*` | `'error' \| 'warn' \| 'off'` | see above | Used by both the build and `tongue check`. |
+| `strict.unusedIgnore` | `string[]` | `[]` | Full keys or globs (`common.*`) skipped by unused warnings. |
 | `translate.*` | object | `undefined` | Only read by `tongue translate`. |
 
 ## `withTongue` and Turbopack / TypeScript
@@ -101,6 +103,7 @@ export default defineConfig({
 
 - Runs `tongue build` when Next loads config.
 - Sets `turbopack.resolveAlias['#tongue']` and **appends** a call-site loader to `turbopack.rules['*.tsx']` / `['*.jsx']` (and a webpack pre-loader). Existing rules for those globs are kept (merged into an array).
+- The same loader rules apply to **production** client (and SSR) bundles — “works in `next dev`” without `withTongue()` does **not** mean Vercel/`next build` rewrote `useT` / `t.dynamic`. Always wrap `next.config` with `withTongue`.
 - Expects `#tongue/*` resolution via package.json `imports` **and** `tsconfig` `paths` (`tongue init` writes both). TypeScript does not use `imports` alone.
 
 ## Environment variables

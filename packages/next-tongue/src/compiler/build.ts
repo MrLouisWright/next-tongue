@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import type { ResolvedTongueConfig } from '../config/types.js';
 import { TongueError } from '../errors.js';
@@ -38,7 +38,9 @@ export type BuildOptions = {
 
 export async function buildMessages(options: BuildOptions): Promise<BuildResult> {
   const { config, cwd } = options;
-  const outDir = resolve(cwd, config.outDir);
+  /** Final `.tongue` path; may briefly point at a staging dir while writing. */
+  let outDir = resolve(cwd, config.outDir);
+  const publishedOutDir = outDir;
   const fileCatalogs = await loadLocaleMessages(config, cwd);
   const { catalogs, payloads: sourcePayloads } = await loadAndMergeSources(
     config,
@@ -170,7 +172,8 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
   const emitLocales = localesForEmit(config);
 
   // Content hash for idempotency (bump CODEGEN_VERSION when emit format changes)
-  const CODEGEN_VERSION = 7;
+  // Bump when emit shape changes (incl. reserved-key ident sanitization).
+  const CODEGEN_VERSION = 8;
   const hash = createHash('sha256')
     .update(
       JSON.stringify({
@@ -200,11 +203,15 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     }
   }
 
-  await rm(outDir, { recursive: true, force: true });
+  // Write into a staging dir, then atomically replace `.tongue` (avoids ENOTEMPTY
+  // when the previous tree is partially locked by the bundler / another build).
+  const staging = `${publishedOutDir}.tmp-${process.pid}`;
+  await clearOutputDir(staging);
+  outDir = staging;
   await mkdir(join(outDir, 'msg'), { recursive: true });
   await mkdir(join(outDir, 'ns'), { recursive: true });
   if (sourcePayloads.length) {
-    await writeSourcesCache(cwd, config.outDir, sourcePayloads);
+    await writeSourcesCache(cwd, staging, sourcePayloads);
   }
 
   // Shared rich-text helpers (imported by per-key modules that contain tags)
@@ -540,7 +547,7 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     ),
   };
   await writeFile(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
-  await writeFile(hashPath, hash, 'utf8');
+  await writeFile(join(outDir, '.hash'), hash, 'utf8');
 
   // package.json imports helper note — apps map "#tongue/*" themselves / via withTongue
   await writeFile(
@@ -549,6 +556,18 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     'utf8',
   );
 
+  await clearOutputDir(publishedOutDir);
+  try {
+    await rename(outDir, publishedOutDir);
+  } catch (err) {
+    throw new TongueError(
+      'TONGUE_E_IO',
+      `Cannot publish ${publishedOutDir} from staging (${err instanceof Error ? err.message : err}). Delete ${publishedOutDir} and any \`${config.outDir}.tmp-*\` dirs, then re-run tongue build.`,
+      { file: publishedOutDir },
+    );
+  }
+  outDir = publishedOutDir;
+
   return {
     outDir,
     locales: emitLocales,
@@ -556,6 +575,35 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
     keyCount: keys.length,
     hash,
   };
+}
+
+/** Remove a directory tree; on ENOTEMPTY/EBUSY, retry then rename-aside. */
+async function clearOutputDir(path: string): Promise<void> {
+  for (let i = 0; i < 6; i++) {
+    try {
+      await rm(path, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOTEMPTY' && code !== 'EBUSY' && code !== 'EPERM') {
+        if (code === 'ENOENT') return;
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, 40 * (i + 1)));
+    }
+  }
+  const trash = `${path}.trash-${process.pid}-${Date.now()}`;
+  try {
+    await rename(path, trash);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return;
+    throw new TongueError(
+      'TONGUE_E_IO',
+      `Cannot clear ${path} (${err instanceof Error ? err.message : err}). Delete it manually and re-run tongue build.`,
+      { file: path },
+    );
+  }
+  void rm(trash, { recursive: true, force: true }).catch(() => {});
 }
 
 /** Locales written into message modules / types (includes pseudo when enabled). */

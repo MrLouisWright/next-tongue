@@ -7,6 +7,20 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.8] — 2026-10-17
+
+### Fixed
+- Reserved message keys (`continue`, `default`, …) sanitize to valid JS idents in per-key and namespace modules (`continue_`).
+- `tongue build` writes `.tongue` via staging + rename; clearer recovery when the dir is locked (`ENOTEMPTY`).
+- `tongue check` errors on client `useT` + `t(variable)` (`dynamic`); scans `lib/`, `server/`, `actions/` by default; warns on likely unescaped ICU apostrophes (`icu`).
+
+### Added
+- `scan.include` and `strict.unusedIgnore` config options.
+- Docs: when to use `getT` / `useT` / `t.dynamic`, ternaries, one `TongueProvider`, prod Turbopack loader.
+
+### Docs
+- Freeze start 2026-10-17; Noticed Sites recorded as first external adopter.
+
 ## [0.9.7] — 2026-10-17
 
 ### Fixed

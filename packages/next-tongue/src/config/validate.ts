@@ -170,9 +170,13 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
       list: input.formats?.list ?? {},
     },
     outDir: input.outDir ?? '.tongue',
+    scan: {
+      include: input.scan?.include ?? [],
+    },
     strict: {
       missing: input.strict?.missing ?? 'error',
       unused: input.strict?.unused ?? 'warn',
+      unusedIgnore: input.strict?.unusedIgnore ?? [],
       mismatch: input.strict?.mismatch ?? 'error',
       a11y: input.strict?.a11y ?? 'error',
       bidi: input.strict?.bidi ?? 'warn',

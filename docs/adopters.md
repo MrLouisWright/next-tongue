@@ -1,6 +1,6 @@
 # Adopters & production-like verification
 
-Tracks the v0.9 freeze AC: *no breaking changes for 4 weeks; 3+ external production-like apps report success* (timer starts when `0.9.x` is live on npm, after staged approve).
+Tracks the v0.9 freeze AC: *no breaking changes for 4 weeks; 3+ external production-like apps report success* (timer starts when `0.9.x` is live on npm).
 
 ## In-repo production-like apps (verified 2026-10-17)
 
@@ -16,23 +16,20 @@ Tracks the v0.9 freeze AC: *no breaking changes for 4 weeks; 3+ external product
 
 These are first-party, not external. They prove the surfaces an adopter hits; they do **not** close the external-apps checkbox alone.
 
-## External (wanted)
-
-After `next-tongue@0.9.x` is installable from npm, record success here:
+## External
 
 | App / org | Contact | Version | Notes |
 |---|---|---|---|
-| *(open)* | | | |
+| Noticed Sites | (beta feedback 2026-10-17) | 0.9.7+ | Next 16, ~950 keys, 4 locales; marketing + dashboard + wizard + API `getT`. Drove 0.9.8 fixes (reserved key `continue`, `tongue check` `dynamic`, scan `lib/`, unused ignore, ICU apostrophe hint, atomic `.tongue` write). |
 
 File an issue with label `adopter` or a PR updating this table.
 
 ## Freeze checklist
 
-1. [x] `0.9.1` live on npm (Turbopack root-params fix)
-2. [ ] Approve staged **`0.9.2`** (README + LICENSE on the registry page)
-3. [ ] Freeze start date recorded in ROADMAP / CHANGELOG *(starts when adopters can install a documented release — treat `0.9.1` as start if preferred)*
-4. [ ] Three external production-like apps listed above
-5. [ ] No breaking public-API changes for 4 weeks
+1. [x] `0.9.x` live on npm (through `0.9.7`; `0.9.8` ships adopter fixes)
+2. [x] Freeze start: **2026-10-17** (first documented installable `0.9.x` on npm)
+3. [ ] Three external production-like apps listed above *(1/3 — Noticed Sites)*
+4. [ ] No breaking public-API changes for 4 weeks from freeze start
 
 ---
 [Releasing](releasing.md) · [API freeze](api-freeze.md) · [Roadmap](../ROADMAP.md)

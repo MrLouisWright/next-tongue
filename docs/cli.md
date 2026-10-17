@@ -16,7 +16,7 @@ Flags: `--locales en,de`, `--default en`, `--prefix always|as-needed|never`, `--
 Refuses to overwrite existing files unless `--force`; prints a diff in `--dry-run`.
 
 ## `tongue extract`
-Scans source (`app/`, `src/`, `components/` by default; `--include` glob) for `t()`, `t.rich()`, `useT()` and `getT()` calls and:
+Scans source (`app/`, `src/`, `components/`, `lib/`, `server/`, `actions/` by default; `--include` or `scan.include` in config) for `t()`, `t.rich()`, `useT()` and `getT()` calls and:
 - adds keys found in code but missing from the **default-locale** file (value = key, or `--placeholder ''`),
 - reports keys in files but unused in code (`--prune` removes them, after confirmation),
 - regenerates `.tongue/types.d.ts` (same as `tongue build`).
@@ -29,6 +29,8 @@ CI gate. Reads messages + source, reports:
 | `missing` | Key in default locale but absent in another locale | `strict.missing` |
 | `unused` | Key in messages, never referenced in code | `strict.unused` |
 | `undefined` | Key referenced in code, absent in default locale | always `error` |
+| `dynamic` | Client `useT` + `t(variable)` without a string literal | always `error` — use `t.dynamic(key, { from })` |
+| `icu` | Likely unescaped prose apostrophe (`l'été` → write `l''été`) | always `warn` |
 | `mismatch` | ICU args, tags or plural categories differ from default locale | `strict.mismatch` |
 | `syntax` | ICU parse error | always `error` |
 | `stale` | Source text changed since the target was translated (source hashes in `tongue.lock`) | `strict.stale` (default `warn`) |

@@ -10,6 +10,14 @@ export type ReferencedKey = {
   line: number;
 };
 
+export type UndeclaredDynamic = {
+  file: string;
+  line: number;
+  /** Translator binding, e.g. `t` */
+  name: string;
+  namespace: string;
+};
+
 export type ScanResult = {
   refs: ReferencedKey[];
   /**
@@ -17,7 +25,22 @@ export type ScanResult = {
    * unused-key warnings for these namespaces are suppressed.
    */
   dynamicNamespaces: Set<string>;
+  /**
+   * Client `useT` + `t(variable)` without `t.dynamic` — runtime stub will throw.
+   * Server `getT` non-literals are OK (whole namespace is loaded).
+   */
+  undeclaredDynamics: UndeclaredDynamic[];
 };
+
+/** Default directories scanned by `tongue check` / `extract`. */
+export const DEFAULT_SCAN_ROOTS = [
+  'app',
+  'src',
+  'components',
+  'lib',
+  'server',
+  'actions',
+] as const;
 
 const SOURCE_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mdx']);
 
@@ -37,14 +60,14 @@ const SKIP_DIRS = new Set([
  */
 export async function scanReferencedKeys(
   cwd: string,
-  roots: string[] = ['app', 'src', 'components'],
+  roots: readonly string[] = DEFAULT_SCAN_ROOTS,
 ): Promise<ReferencedKey[]> {
   return (await scanKeys(cwd, roots)).refs;
 }
 
 export async function scanKeys(
   cwd: string,
-  roots: string[] = ['app', 'src', 'components'],
+  roots: readonly string[] = DEFAULT_SCAN_ROOTS,
 ): Promise<ScanResult> {
   const files: string[] = [];
   for (const root of roots) {
@@ -59,14 +82,16 @@ export async function scanKeys(
 
   const refs: ReferencedKey[] = [];
   const dynamicNamespaces = new Set<string>();
+  const undeclaredDynamics: UndeclaredDynamic[] = [];
   for (const file of files) {
     const src = await readFile(file, 'utf8');
     const rel = relative(cwd, file);
     const part = extractFromSource(src, rel);
     refs.push(...part.refs);
     for (const ns of part.dynamicNamespaces) dynamicNamespaces.add(ns);
+    undeclaredDynamics.push(...part.undeclaredDynamics);
   }
-  return { refs, dynamicNamespaces };
+  return { refs, dynamicNamespaces, undeclaredDynamics };
 }
 
 async function walk(dir: string, out: string[]): Promise<void> {
@@ -158,14 +183,18 @@ export function extractFromSource(
   const code = stripComments(source);
   const out: ReferencedKey[] = [];
   const dynamicNamespaces = new Set<string>();
-  const translators = new Map<string, string>(); // var → ns
+  const undeclaredDynamics: UndeclaredDynamic[] = [];
+  const translators = new Map<string, { ns: string; kind: 'useT' | 'getT' }>();
 
   // useT('ns') | getT('ns') | getT(locale, 'ns')
   const declRe =
-    /(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(?:useT|getT)\s*\(\s*(?:[^'"\n,]+,\s*)?(['"])([^'"]*)\2\s*\)/g;
+    /(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(useT|getT)\s*\(\s*(?:[^'"\n,]+,\s*)?(['"])([^'"]*)\3\s*\)/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(code)) !== null) {
-    translators.set(m[1]!, m[3] || '_root');
+    translators.set(m[1]!, {
+      ns: m[4] || '_root',
+      kind: m[2] as 'useT' | 'getT',
+    });
   }
 
   const push = (ns: string, key: string, index: number) => {
@@ -179,7 +208,7 @@ export function extractFromSource(
     });
   };
 
-  for (const [varName, ns] of translators) {
+  for (const [varName, { ns, kind }] of translators) {
     // Literal t('key') / t.rich('key')
     const callRe = new RegExp(
       `\\b${escapeRegExp(varName)}(?:\\.rich)?\\s*\\(\\s*(['"])([^'"]+)\\1`,
@@ -210,18 +239,32 @@ export function extractFromSource(
       dynamicNamespaces.add(nm[2] || '_root');
     }
 
-    // Non-literal t(var) — suppress unused for the namespace only.
+    // Non-literal t(var) — suppress unused for the namespace.
+    // Client useT stubs throw — report each site. Server getT is fine.
     // Do NOT harvest unrelated string arrays (cache tags, sort keys, …).
     const nonLitRe = new RegExp(
       `\\b${escapeRegExp(varName)}(?:\\.rich)?\\s*\\(\\s*(?!['"])([A-Za-z_$][\\w$]*)`,
       'g',
     );
-    if (nonLitRe.test(code)) {
+    let nl: RegExpExecArray | null;
+    let sawNonLit = false;
+    while ((nl = nonLitRe.exec(code)) !== null) {
+      sawNonLit = true;
+      if (kind === 'useT') {
+        undeclaredDynamics.push({
+          file,
+          line: lineAt(code, nl.index),
+          name: varName,
+          namespace: ns || '_root',
+        });
+      }
+    }
+    if (sawNonLit) {
       dynamicNamespaces.add(ns || '_root');
     }
   }
 
-  return { refs: out, dynamicNamespaces };
+  return { refs: out, dynamicNamespaces, undeclaredDynamics };
 }
 
 function lineAt(source: string, index: number): number {

@@ -63,9 +63,18 @@ export type TongueConfig = {
     list?: Record<string, Intl.ListFormatOptions>;
   };
   outDir?: string;
+  /**
+   * Directories scanned by `tongue check` / `extract` for `getT`/`useT` call sites.
+   * Defaults to app, src, components, lib, server, actions.
+   */
+  scan?: {
+    include?: string[];
+  };
   strict?: {
     missing?: StrictLevel;
     unused?: StrictLevel;
+    /** Full keys or globs (`common.*`) excluded from unused warnings. */
+    unusedIgnore?: string[];
     mismatch?: StrictLevel;
     a11y?: StrictLevel;
     bidi?: StrictLevel;
@@ -109,9 +118,13 @@ export type ResolvedTongueConfig = {
     list: Record<string, Intl.ListFormatOptions>;
   };
   outDir: string;
+  scan: {
+    include: readonly string[];
+  };
   strict: {
     missing: StrictLevel;
     unused: StrictLevel;
+    unusedIgnore: readonly string[];
     mismatch: StrictLevel;
     a11y: StrictLevel;
     bidi: StrictLevel;

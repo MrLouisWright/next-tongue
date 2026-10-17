@@ -376,9 +376,63 @@ function stringifyAstAsConstant(ast: MessageAst): string | null {
   return out;
 }
 
-/** Safe JS identifier from a message key. */
+/** ECMAScript reserved words / strict-mode reserved — unsafe as bare identifiers. */
+const RESERVED_IDENTS = new Set([
+  'arguments',
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'enum',
+  'eval',
+  'export',
+  'extends',
+  'false',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'instanceof',
+  'interface',
+  'let',
+  'new',
+  'null',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'static',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+]);
+
+/** Safe JS identifier from a message key (e.g. `continue` → `continue_`). */
 export function safeIdent(key: string): string {
-  const cleaned = key.replace(/[^A-Za-z0-9_]/g, '_');
-  if (/^[0-9]/.test(cleaned)) return `_${cleaned}`;
-  return cleaned || '_';
+  let cleaned = key.replace(/[^A-Za-z0-9_]/g, '_');
+  if (!cleaned) cleaned = '_';
+  if (/^[0-9]/.test(cleaned)) cleaned = `_${cleaned}`;
+  if (RESERVED_IDENTS.has(cleaned)) cleaned = `${cleaned}_`;
+  return cleaned;
 }

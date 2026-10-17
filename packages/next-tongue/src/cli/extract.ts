@@ -3,7 +3,10 @@ import * as readline from 'node:readline';
 import { loadConfig } from '../config/load-config.js';
 import { buildMessages } from '../compiler/build.js';
 import { loadLocaleMessages, resolveMessagePath } from '../compiler/load-messages.js';
-import { scanReferencedKeys } from '../compiler/scan-keys.js';
+import {
+  DEFAULT_SCAN_ROOTS,
+  scanReferencedKeys,
+} from '../compiler/scan-keys.js';
 import { TongueError } from '../errors.js';
 
 export type ExtractCliOptions = {
@@ -35,7 +38,9 @@ export async function cmdExtract(opts: ExtractCliOptions): Promise<void> {
 
   const roots = opts.include
     ? opts.include.split(',').map((s) => s.trim()).filter(Boolean)
-    : ['app', 'src', 'components'];
+    : config.scan.include.length > 0
+      ? [...config.scan.include]
+      : [...DEFAULT_SCAN_ROOTS];
 
   const refs = await scanReferencedKeys(cwd, roots);
   const used = new Set(refs.map((r) => r.fullKey));
