@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getPathname, stripLocalePrefix } from './pathname.js';
+import {
+  getPathname,
+  stripLocalePrefix,
+  toInternalPathname,
+} from './pathname.js';
 
 describe('getPathname', () => {
   it('as-needed omits default locale prefix', () => {
@@ -61,5 +65,18 @@ describe('stripLocalePrefix', () => {
     expect(stripLocalePrefix('/de/about', ['en', 'de'])).toBe('/about');
     expect(stripLocalePrefix('/en', ['en', 'de'])).toBe('/');
     expect(stripLocalePrefix('/about', ['en', 'de'])).toBe('/about');
+  });
+});
+
+describe('toInternalPathname', () => {
+  it('reverses localized pathnames', () => {
+    expect(
+      toInternalPathname('/ueber-uns', 'de', {
+        '/about': { de: '/ueber-uns' },
+      }),
+    ).toBe('/about');
+    expect(toInternalPathname('/about', 'en', { '/about': { de: '/ueber-uns' } })).toBe(
+      '/about',
+    );
   });
 });

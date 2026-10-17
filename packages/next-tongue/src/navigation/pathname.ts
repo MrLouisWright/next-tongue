@@ -61,6 +61,22 @@ export function stripLocalePrefix(
   return pathname || '/';
 }
 
+/**
+ * Map a public (possibly localized) pathname back to the internal key
+ * used in `routing.pathnames` (e.g. `/ueber-uns` → `/about` for `de`).
+ */
+export function toInternalPathname(
+  pathname: string,
+  locale: string,
+  pathnames?: Record<string, Partial<Record<string, string>>>,
+): string {
+  if (!pathnames) return pathname;
+  for (const [internal, map] of Object.entries(pathnames)) {
+    if (map[locale] === pathname) return internal;
+  }
+  return pathname;
+}
+
 function resolveHref(href: PathnameInput): string {
   if (typeof href === 'string') return href.startsWith('/') ? href : `/${href}`;
   let path = href.pathname.startsWith('/') ? href.pathname : `/${href.pathname}`;

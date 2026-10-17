@@ -68,6 +68,27 @@ test('generateMetadata title from getT (cold worker / A8)', async ({
   await expect(page).toHaveTitle('Start — next-tongue');
 });
 
+test('LocaleSwitcher links keep page and are accessible (#44)', async ({
+  page,
+}) => {
+  await page.goto('/de');
+  const nav = page.getByTestId('language-menu');
+  await expect(nav).toHaveAttribute('aria-label', 'Language');
+  const de = page.getByTestId('lang-de');
+  const en = page.getByTestId('lang-en');
+  await expect(de).toHaveAttribute('aria-current', 'page');
+  await expect(de).toHaveAttribute('hreflang', 'de');
+  await expect(de).toHaveAttribute('lang', 'de');
+  await expect(en).toHaveAttribute('href', '/en');
+  await en.click();
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('h1')).toHaveText('Hello, Ada!');
+  await expect(page.getByTestId('lang-en')).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+});
+
 test.describe('explicit timeZone hydration (ADR 0008)', () => {
   // Browser zone differs from config UTC — shell + client must still agree.
   test.use({ timezoneId: 'America/New_York' });

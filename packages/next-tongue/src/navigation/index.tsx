@@ -13,11 +13,21 @@ import type { Locale, Pathname } from '../index.js';
 import {
   getPathname as getPathnameImpl,
   stripLocalePrefix,
+  toInternalPathname,
   type PathnameInput,
 } from './pathname.js';
+import { createLocaleSwitcher } from './locale-switcher.js';
 
 export type { PathnameInput };
-export { getPathnameImpl as getPathname, stripLocalePrefix };
+export { getPathnameImpl as getPathname, stripLocalePrefix, toInternalPathname };
+export {
+  buildLocaleSwitcherOptions,
+  createLocaleSwitcher,
+} from './locale-switcher.js';
+export type {
+  LocaleSwitcherOption,
+  UseLocaleSwitcherResult,
+} from './locale-switcher.js';
 
 export type NavigationConfig = {
   locales: readonly string[];
@@ -105,6 +115,8 @@ export function createNavigation(config: NavigationConfig) {
     return stripLocalePrefix(raw, bound.locales);
   }
 
+  const { useLocaleSwitcher, LocaleSwitcher } = createLocaleSwitcher(config);
+
   return {
     Link,
     redirect,
@@ -113,5 +125,7 @@ export function createNavigation(config: NavigationConfig) {
     usePathname,
     getPathname: (args: { href: Href; locale: Locale }) =>
       resolve(args.href, args.locale),
+    useLocaleSwitcher,
+    LocaleSwitcher,
   };
 }

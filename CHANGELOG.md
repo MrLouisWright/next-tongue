@@ -51,6 +51,8 @@ All notable changes to this project will be documented in this file. The format 
 - `examples/basic` `proxy.ts` with as-needed routing; Playwright covers canonical `/en`→`/`, Accept-Language, and SameSite=Lax cookie.
 - ADR 0008 hydration demo (server `getFormat` + client `useFormat` under config `timeZone`) and `generateMetadata` via `getT`; Playwright asserts match under `America/New_York`.
 - `translateIssues(t, issues)` — Standard Schema–shaped validation errors → `Record<path, string[]>` (#38).
+- Headless `LocaleSwitcher` / `useLocaleSwitcher` via `createNavigation` (DisplayNames labels, plain links) (#44).
+
 
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).

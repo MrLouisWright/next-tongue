@@ -3,6 +3,7 @@ import { getFormat, getT } from 'next-tongue/server';
 import { FIXED_INSTANT } from '../../lib/fixed-instant';
 import { ensureTongue, isAppLocale } from '../../lib/tongue-runtime';
 import { ClientDate } from './client-date';
+import { LanguageMenu } from './language-menu';
 
 export async function generateMetadata({
   params,
@@ -34,6 +35,7 @@ export default async function Page({
 
   return (
     <main>
+      <LanguageMenu />
       <h1>{t('title', { name: 'Ada' })}</h1>
       <p>{t('body')}</p>
       <p>
