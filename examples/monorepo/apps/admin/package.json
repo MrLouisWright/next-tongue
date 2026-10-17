@@ -1,0 +1,20 @@
+{
+  "name": "@next-tongue/mono-admin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "imports": {
+    "#tongue/*": "./.tongue/*"
+  },
+  "scripts": {
+    "typecheck": "tongue build && tsc -p tsconfig.json --noEmit",
+    "build": "pnpm run typecheck"
+  },
+  "dependencies": {
+    "@next-tongue/mono-messages": "workspace:*",
+    "next-tongue": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

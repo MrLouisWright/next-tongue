@@ -1,0 +1,9 @@
+{
+  "name": "@next-tongue/example-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "pnpm --filter @next-tongue/mono-messages run build && pnpm --filter @next-tongue/mono-web run build && pnpm --filter @next-tongue/mono-admin run typecheck",
+    "typecheck": "pnpm --filter @next-tongue/mono-messages run typecheck && pnpm --filter @next-tongue/mono-web run typecheck && pnpm --filter @next-tongue/mono-admin run typecheck"
+  }
+}

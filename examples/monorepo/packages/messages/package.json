@@ -1,0 +1,14 @@
+{
+  "name": "@next-tongue/mono-messages",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./en.json": "./en.json",
+    "./de.json": "./de.json"
+  },
+  "scripts": {
+    "build": "node -e \"console.log('messages package: ok')\"",
+    "typecheck": "node -e \"console.log('messages package: ok')\""
+  }
+}

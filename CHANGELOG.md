@@ -65,6 +65,7 @@ All notable changes to this project will be documented in this file. The format 
 - `tongue export` / `tongue import` for XLIFF 2.0 and CSV (Node built-ins only), with ICU validation and tongue.lock updates (#37).
 - `tongue check` `length`: flag targets longer than `$meta.maxLength` (#43).
 - `tongue report`: scan `.next` client chunks for per-key markers; `--json` / `--max-bytes` (#41).
+- `examples/monorepo`: shared messages package + web/admin apps with `declaration: true` (no TS2742) (#21).
 
 
 
