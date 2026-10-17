@@ -2,6 +2,7 @@ import { parseArgs } from 'node:util';
 import { loadConfig } from '../config/load-config.js';
 import { buildMessages } from '../compiler/build.js';
 import { TongueError } from '../errors.js';
+import { cmdCheck } from './check.js';
 
 export async function runCli(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -13,6 +14,9 @@ export async function runCli(argv: string[]): Promise<void> {
       quiet: { type: 'boolean', default: false },
       watch: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
+      locale: { type: 'string' },
+      reporter: { type: 'string' },
+      'max-warnings': { type: 'string' },
     },
     allowPositionals: true,
     strict: false,
@@ -36,13 +40,55 @@ export async function runCli(argv: string[]): Promise<void> {
           quiet: values.quiet === true,
         });
         break;
+      case 'check': {
+        const reporterRaw =
+          typeof values.reporter === 'string' ? values.reporter : undefined;
+        const reporter =
+          reporterRaw === 'json' ||
+          reporterRaw === 'github' ||
+          reporterRaw === 'pretty'
+            ? reporterRaw
+            : values.json === true
+              ? 'json'
+              : 'pretty';
+        if (
+          reporterRaw != null &&
+          reporterRaw !== 'pretty' &&
+          reporterRaw !== 'json' &&
+          reporterRaw !== 'github'
+        ) {
+          console.error(
+            `Invalid --reporter ${JSON.stringify(reporterRaw)} (expected pretty|json|github)`,
+          );
+          process.exitCode = 2;
+          break;
+        }
+        let maxWarnings: number | undefined;
+        if (typeof values['max-warnings'] === 'string') {
+          const n = Number(values['max-warnings']);
+          if (!Number.isFinite(n) || n < 0) {
+            console.error('`--max-warnings` must be a non-negative number');
+            process.exitCode = 2;
+            break;
+          }
+          maxWarnings = n;
+        }
+        await cmdCheck({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          ...(typeof values.config === 'string' ? { config: values.config } : {}),
+          ...(typeof values.locale === 'string' ? { locale: values.locale } : {}),
+          reporter,
+          ...(maxWarnings != null ? { maxWarnings } : {}),
+          quiet: values.quiet === true,
+        });
+        break;
+      }
       case 'init':
         console.error(
           'tongue init lands in v0.3. Create tongue.config.ts manually for now — see docs/getting-started.md',
         );
         process.exitCode = 2;
         break;
-      case 'check':
       case 'extract':
       case 'translate':
       case 'export':
@@ -91,7 +137,8 @@ function printHelp(): void {
 
 Usage:
   tongue build [--cwd <dir>] [--config <path>] [--json] [--quiet]
-  tongue init | check | extract | translate   (later milestones)
+  tongue check [--cwd <dir>] [--config <path>] [--locale de] [--reporter pretty|json|github] [--max-warnings N]
+  tongue init | extract | translate   (later milestones)
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);

@@ -1,6 +1,6 @@
 # CLI
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** `tongue build` and `tongue check` ship in v0.3; other commands remain planned. See [ROADMAP](../ROADMAP.md).
 
 Binary: `tongue` (via `npx tongue` or a package.json script). Every command reads `tongue.config.ts`, supports `--config <path>`, `--cwd <dir>`, `--json` (machine-readable output) and `--quiet`. Exit codes: `0` ok, `1` check failures, `2` usage/config error.
 

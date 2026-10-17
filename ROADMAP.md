@@ -85,7 +85,7 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fetch`).
 
 **Acceptance criteria**
-- [ ] `tongue check` implements all six checks in [CLI](docs/cli.md) with `pretty|json|github` reporters and documented exit codes, reusing the codegen AST.
+- [x] `tongue check` implements all six checks in [CLI](docs/cli.md) with `pretty|json|github` reporters and documented exit codes, reusing the codegen AST.
 - [ ] `tongue check` on a 10k-key, 500-file repo completes in < 5 s.
 - [ ] `tongue extract` finds keys in `.ts/.tsx/.js/.jsx/.mdx`, adds missing source keys, `--prune` removes unused.
 - [x] Dev overlay shows locale, missing keys and client-sent messages with click-to-key; no overlay code or key ids in production builds [#35](https://github.com/MrLouisWright/next-tongue/issues/35).
