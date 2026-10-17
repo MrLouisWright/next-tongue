@@ -1,7 +1,8 @@
 {
   "home": {
     "title": "Hallo, {name}!",
-    "body": "Das ist das einfache next-tongue Beispiel."
+    "body": "Das ist das einfache next-tongue Beispiel.",
+    "metaTitle": "Start — next-tongue"
   },
   "contact": {
     "title": "Kontakt",

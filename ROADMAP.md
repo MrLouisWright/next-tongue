@@ -72,8 +72,8 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 - [x] Client runtime ≤ 2 kB min+gz enforced by `size-limit`.
 - [x] `createProxy` locale resolution: p50 < 1 ms and p99 < 3 ms with 150 locales (benchmark in CI); no `Intl.*` construction per request; LRU on the header string ([research A3](docs/research.md)).
 - [x] Locale cookie is `SameSite=Lax` by default (unit + e2e Set-Cookie). *(full cross-site navigation Playwright still nice-to-have)*
-- [ ] Hydration test: a date formatted in the static shell and a client component shows no hydration warning when the server `TZ` differs from the browser ([ADR 0008](docs/adr/0008-explicit-time-zone.md)).
-- [ ] `getT` works in `generateMetadata` and a server action on a freshly started worker ([research A8](docs/research.md)).
+- [x] Hydration test: a date formatted in the static shell and a client component shows no hydration warning when the server `TZ` differs from the browser ([ADR 0008](docs/adr/0008-explicit-time-zone.md)) — Playwright with `timezoneId: America/New_York` vs config `UTC`.
+- [x] `getT` works in `generateMetadata` and a server action on a freshly started worker ([research A8](docs/research.md)) — metadata titles + contact action e2e after `next start`.
 - [x] `formatMessage` uses the own parser with a bounded LRU, works inside `'use cache'`, and passes an XSS corpus for rich-text tags [#34](https://github.com/MrLouisWright/next-tongue/issues/34).
 - [x] `Format.list`, `relativeTime` (explicit `now`), `unit` and `displayName` are typed and tested in en, de, ar, ja [#45](https://github.com/MrLouisWright/next-tongue/issues/45).
 - [x] XSS corpus passes for `t.rich` and `formatMessage`; locale inputs reject path traversal and CRLF/header injection; threat model published [#46](https://github.com/MrLouisWright/next-tongue/issues/46).

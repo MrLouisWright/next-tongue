@@ -15,6 +15,30 @@ describe('createFormat', () => {
     const then = now - 3600_000;
     expect(f.relativeTime(then, now)).toMatch(/hour/);
   });
+
+  it('dateTime ignores process TZ when timeZone is explicit (ADR 0008)', () => {
+    const instant = Date.UTC(2024, 0, 15, 12, 0, 0);
+    const prev = process.env.TZ;
+    try {
+      process.env.TZ = 'America/New_York';
+      const easternHost = createFormat({ locale: 'en', timeZone: 'UTC' });
+      process.env.TZ = 'Asia/Tokyo';
+      const tokyoHost = createFormat({ locale: 'en', timeZone: 'UTC' });
+      const a = easternHost.dateTime(instant, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      const b = tokyoHost.dateTime(instant, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+      expect(a).toBe(b);
+      expect(a).toMatch(/Jan.*15.*2024/i);
+    } finally {
+      if (prev === undefined) delete process.env.TZ;
+      else process.env.TZ = prev;
+    }
+  });
 });
 
 describe('Format helpers (#45)', () => {

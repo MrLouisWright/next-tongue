@@ -1,9 +1,11 @@
 import { notFound } from 'next/navigation';
+import { TongueProvider } from 'next-tongue/client';
 import {
   ensureTongue,
   getDir,
   isAppLocale,
   localeStaticParams,
+  timeZone,
 } from '../../lib/tongue-runtime';
 
 export function generateStaticParams() {
@@ -24,7 +26,11 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} dir={getDir(locale)}>
-      <body>{children}</body>
+      <body>
+        <TongueProvider locale={locale} timeZone={timeZone}>
+          {children}
+        </TongueProvider>
+      </body>
     </html>
   );
 }

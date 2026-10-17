@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test('basic example renders English at / (as-needed)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('h1')).toHaveText('Hello, Ada!');
-  await expect(page.locator('p')).toContainText('basic next-tongue example');
+  await expect(page.getByText('basic next-tongue example')).toBeVisible();
 });
 
 test('basic example renders German', async ({ page }) => {
@@ -57,4 +57,47 @@ test('server action returns translated error without JS (#26)', async ({
     'Gib eine gültige E-Mail ein.',
   );
   await context.close();
+});
+
+test('generateMetadata title from getT (cold worker / A8)', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page).toHaveTitle('Home — next-tongue');
+  await page.goto('/de');
+  await expect(page).toHaveTitle('Start — next-tongue');
+});
+
+test.describe('explicit timeZone hydration (ADR 0008)', () => {
+  // Browser zone differs from config UTC — shell + client must still agree.
+  test.use({ timezoneId: 'America/New_York' });
+
+  test('server and client date match; no hydration mismatch', async ({
+    page,
+  }) => {
+    const hydrationErrors: string[] = [];
+    page.on('console', (msg) => {
+      const text = msg.text();
+      if (
+        msg.type() === 'error' &&
+        (/hydrat/i.test(text) || /did not match/i.test(text))
+      ) {
+        hydrationErrors.push(text);
+      }
+    });
+    page.on('pageerror', (err) => {
+      if (/hydrat/i.test(err.message) || /did not match/i.test(err.message)) {
+        hydrationErrors.push(err.message);
+      }
+    });
+
+    await page.goto('/');
+    const server = await page.getByTestId('server-date').innerText();
+    const client = await page.getByTestId('client-date').innerText();
+    expect(server.length).toBeGreaterThan(0);
+    expect(client).toBe(server);
+    // UTC noon on 15 Jan 2024 — not midnight Eastern
+    expect(server).toMatch(/Jan.*15.*2024/i);
+    expect(hydrationErrors).toEqual([]);
+  });
 });
