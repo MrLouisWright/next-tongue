@@ -1,6 +1,7 @@
 export type TongueErrorCode =
   | 'TONGUE_E_CONFIG'
   | 'TONGUE_E_PARSE'
+  | 'TONGUE_E_ICU_SYNTAX'
   | 'TONGUE_E_UNSUPPORTED_ICU'
   | 'TONGUE_E_TYPES_MISSING'
   | 'TONGUE_E_LOCALE'

@@ -4,14 +4,15 @@ import {
   isUnsafePath,
   matchLocalePrefix,
   parseAcceptLanguage,
+  sanitizeLocale,
   type TongueProxyRequest,
 } from './index.js';
 
 function req(
   path: string,
-  init?: { acceptLanguage?: string; cookie?: string },
+  init?: { acceptLanguage?: string; cookie?: string; https?: boolean },
 ): TongueProxyRequest {
-  const href = `http://localhost${path}`;
+  const href = `${init?.https ? 'https' : 'http'}://localhost${path}`;
   const url = new URL(href);
   return {
     url: href,
@@ -158,5 +159,61 @@ describe('createProxy', () => {
       }),
     );
     expect(res.headers.get('location')).toBe('http://localhost/en/about');
+  });
+
+  it('ignores spoofed cookie locales (traversal / injection)', async () => {
+    const proxy = createProxy({ ...base, prefix: 'always' });
+    for (const bad of ['../en', 'en%0d%0a', 'en\r\n', 'fr', 'en/../../x']) {
+      const res = await proxy(
+        req('/about', {
+          acceptLanguage: 'de',
+          cookie: `TONGUE_LOCALE=${bad}`,
+        }),
+      );
+      // falls back to Accept-Language → de
+      expect(res.headers.get('location')).toBe('http://localhost/de/about');
+    }
+  });
+
+  it('honours localeCookie sameSite/secure/path', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'always',
+      localeDetection: false,
+      localeCookie: {
+        name: 'TONGUE_LOCALE',
+        maxAge: 60,
+        sameSite: 'strict',
+        secure: true,
+        path: '/app',
+      },
+    });
+    const res = await proxy(req('/about'));
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toMatch(/Path=\/app/);
+    expect(setCookie).toMatch(/SameSite=Strict/);
+    expect(setCookie).toMatch(/Secure/);
+  });
+
+  it('defaults Secure on HTTPS and omits it on HTTP (#19)', async () => {
+    const proxy = createProxy({
+      ...base,
+      prefix: 'always',
+      localeDetection: false,
+    });
+    const httpRes = await proxy(req('/about'));
+    expect(httpRes.headers.get('set-cookie') ?? '').not.toMatch(/Secure/i);
+    const httpsRes = await proxy(req('/about', { https: true }));
+    expect(httpsRes.headers.get('set-cookie') ?? '').toMatch(/Secure/);
+  });
+});
+
+describe('sanitizeLocale', () => {
+  it('rejects traversal, encoding, and unknown tags', () => {
+    expect(sanitizeLocale('en', ['en', 'de'])).toBe('en');
+    expect(sanitizeLocale('../en', ['en'])).toBeUndefined();
+    expect(sanitizeLocale('en%2e%2e', ['en'])).toBeUndefined();
+    expect(sanitizeLocale('en\0', ['en'])).toBeUndefined();
+    expect(sanitizeLocale('fr', ['en', 'de'])).toBeUndefined();
   });
 });

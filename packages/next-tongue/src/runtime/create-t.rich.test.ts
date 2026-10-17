@@ -104,4 +104,25 @@ describe('t.rich', () => {
     );
     expect(html).toBe('<div>I accept the terms.</div>');
   });
+
+  it('XSS: values stay text; omitted tags never become raw HTML (#46)', () => {
+    const withPayload = ((locale: string) => {
+      void locale;
+      return 'Click me';
+    }) as MessageFn;
+    withPayload.rich = (_locale, values) => {
+      const label = String(values?.label ?? '');
+      return richJoin(['Click ', label]);
+    };
+    const t = createT({ locale: 'en', messages: { cta: withPayload } });
+    const html = renderToStaticMarkup(
+      createElement(
+        'div',
+        null,
+        t.rich('cta', { label: '" onclick="alert(1)' as never }),
+      ),
+    );
+    expect(html).toBe('<div>Click &quot; onclick=&quot;alert(1)</div>');
+    expect(html).not.toMatch(/<[^>]+onclick=/i);
+  });
 });

@@ -41,6 +41,8 @@ All notable changes to this project will be documented in this file. The format 
 - `createProxy`: `always` / `as-needed` prefix routing, cookie + Accept-Language detection, open-redirect guards, canonical `/en/*` → `/*` (#9, #30).
 - `createNavigation`: `Link`, `redirect`, `useRouter`, `usePathname`, `getPathname` with prefix + localized pathnames (#12).
 - IANA `timeZone` validation + `TONGUE_W_TIMEZONE` client mismatch warning (ADR 0008, #17).
+- `formatMessage` / `formatMessage.rich` with bounded LRU, tag stripping, allow-listed rich tags (#34).
+- Proxy locale sanitization (traversal/CRLF) + XSS corpus tests; localeCookie sameSite/secure/path covered (#19, #46).
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

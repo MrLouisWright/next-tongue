@@ -66,9 +66,10 @@ export function createProxy(options: CreateProxyOptions): (
 
   return async (req: TongueProxyRequest) => {
     const { pathname } = req.nextUrl;
+    const https = isHttpsRequest(req);
 
     if (isUnsafePath(pathname)) {
-      return passthrough(cookieCfg, null);
+      return passthrough(cookieCfg, null, https);
     }
 
     const matched = matchLocalePrefix(pathname, localeSet);
@@ -81,39 +82,46 @@ export function createProxy(options: CreateProxyOptions): (
         const redirectUrl = req.nextUrl.clone();
         redirectUrl.pathname = dest;
         options.onLocale?.(locale, req);
-        return redirectResponse(redirectUrl.toString(), 308, cookieCfg, locale);
+        return redirectResponse(
+          redirectUrl.toString(),
+          308,
+          cookieCfg,
+          locale,
+          https,
+        );
       }
 
       options.onLocale?.(locale, req);
-      return passthrough(cookieCfg, locale);
+      return passthrough(cookieCfg, locale, https);
     }
 
+    const resolved = options.resolveLocale
+      ? await options.resolveLocale(req)
+      : undefined;
     let locale =
-      (options.resolveLocale
-        ? await options.resolveLocale(req)
-        : undefined) ??
+      sanitizeLocale(resolved, locales) ??
       (localeDetection
         ? detectLocale(req, locales, defaultLocale, cookieCfg)
         : defaultLocale);
 
-    if (!localeSet.has(locale)) locale = defaultLocale;
+    locale = sanitizeLocale(locale, locales) ?? defaultLocale;
     options.onLocale?.(locale, req);
 
     if (prefix === 'never') {
       const url = req.nextUrl.clone();
       url.pathname = joinLocalePath(locale, pathname);
-      return rewriteResponse(url.toString(), cookieCfg, locale);
+      return rewriteResponse(url.toString(), cookieCfg, locale, https);
     }
 
     if (prefix === 'as-needed' && locale === defaultLocale) {
       const url = req.nextUrl.clone();
       url.pathname = joinLocalePath(defaultLocale, pathname);
-      return rewriteResponse(url.toString(), cookieCfg, locale);
+      return rewriteResponse(url.toString(), cookieCfg, locale, https);
     }
 
     const url = req.nextUrl.clone();
     url.pathname = joinLocalePath(locale, pathname);
-    return redirectResponse(url.toString(), 307, cookieCfg, locale);
+    return redirectResponse(url.toString(), 307, cookieCfg, locale, https);
   };
 }
 
@@ -174,6 +182,21 @@ export function parseAcceptLanguage(
   return undefined;
 }
 
+/**
+ * Accept only an exact configured locale. Rejects path traversal, NUL, CRLF,
+ * and any value that is not in the allow-list (#46).
+ */
+export function sanitizeLocale(
+  value: string | undefined | null,
+  locales: readonly string[],
+): string | undefined {
+  if (value == null || value === '') return undefined;
+  if (/[\0\r\n\\/]/.test(value)) return undefined;
+  if (value.includes('..') || value.includes('%')) return undefined;
+  if (!locales.includes(value)) return undefined;
+  return value;
+}
+
 function detectLocale(
   req: TongueProxyRequest,
   locales: readonly string[],
@@ -182,7 +205,8 @@ function detectLocale(
 ): string {
   if (cookieCfg) {
     const raw = req.cookies.get(cookieCfg.name)?.value;
-    if (raw && locales.includes(raw)) return raw;
+    const fromCookie = sanitizeLocale(raw, locales);
+    if (fromCookie) return fromCookie;
   }
   const fromHeader = parseAcceptLanguage(
     req.headers.get('accept-language'),
@@ -196,17 +220,31 @@ function joinLocalePath(locale: string, pathname: string): string {
   return `/${locale}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
 }
 
+function isHttpsRequest(req: TongueProxyRequest): boolean {
+  try {
+    return new URL(req.url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function cookieHeader(
   locale: string,
   cookieCfg: LocaleCookieConfig,
+  https: boolean,
 ): string {
+  // Locale is allow-listed; still encode and refuse CRLF in name/path.
+  const name = cookieCfg.name.replace(/[\r\n;=]/g, '');
+  const path = (cookieCfg.path ?? '/').replace(/[\r\n;]/g, '');
   const parts = [
-    `${cookieCfg.name}=${encodeURIComponent(locale)}`,
-    `Path=${cookieCfg.path ?? '/'}`,
+    `${name}=${encodeURIComponent(locale)}`,
+    `Path=${path}`,
     `Max-Age=${cookieCfg.maxAge}`,
     `SameSite=${capitalizeSameSite(cookieCfg.sameSite ?? 'lax')}`,
   ];
-  if (cookieCfg.secure) parts.push('Secure');
+  // Default Secure on HTTPS; explicit `secure: false` opts out (#19).
+  const useSecure = cookieCfg.secure ?? https;
+  if (useSecure) parts.push('Secure');
   return parts.join('; ');
 }
 
@@ -220,9 +258,10 @@ function withCookie(
   headers: Headers,
   cookieCfg: LocaleCookieConfig | false,
   locale: string | null,
+  https: boolean,
 ): Headers {
   if (cookieCfg && locale) {
-    headers.append('Set-Cookie', cookieHeader(locale, cookieCfg));
+    headers.append('Set-Cookie', cookieHeader(locale, cookieCfg, https));
   }
   return headers;
 }
@@ -230,8 +269,14 @@ function withCookie(
 function passthrough(
   cookieCfg: LocaleCookieConfig | false,
   locale: string | null,
+  https: boolean,
 ): Response {
-  const headers = withCookie(new Headers({ 'x-middleware-next': '1' }), cookieCfg, locale);
+  const headers = withCookie(
+    new Headers({ 'x-middleware-next': '1' }),
+    cookieCfg,
+    locale,
+    https,
+  );
   return new Response(null, { status: 200, headers });
 }
 
@@ -240,8 +285,14 @@ function redirectResponse(
   status: 307 | 308,
   cookieCfg: LocaleCookieConfig | false,
   locale: string,
+  https: boolean,
 ): Response {
-  const headers = withCookie(new Headers({ Location: location }), cookieCfg, locale);
+  const headers = withCookie(
+    new Headers({ Location: location }),
+    cookieCfg,
+    locale,
+    https,
+  );
   return new Response(null, { status, headers });
 }
 
@@ -249,11 +300,13 @@ function rewriteResponse(
   url: string,
   cookieCfg: LocaleCookieConfig | false,
   locale: string,
+  https: boolean,
 ): Response {
   const headers = withCookie(
     new Headers({ 'x-middleware-rewrite': url }),
     cookieCfg,
     locale,
+    https,
   );
   return new Response(null, { status: 200, headers });
 }

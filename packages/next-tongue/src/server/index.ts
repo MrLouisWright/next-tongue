@@ -117,6 +117,16 @@ export function withLocale<R, Args extends unknown[]>(
 
 export { getDir, getOgLocale };
 
+export {
+  formatMessage,
+  configureFormatMessage,
+} from '../runtime/format-message.js';
+export type {
+  FormatMessageValues,
+  FormatMessageRichOptions,
+  FormatMessageConfig,
+} from '../runtime/format-message.js';
+
 export type { TFunction, Format };
 
 function assertLocale(locale: string): void {
