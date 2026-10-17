@@ -34,6 +34,7 @@ jobs:
       - run: pnpm --filter next-tongue run check:deps
       - run: pnpm --filter next-tongue run check:size
       - run: pnpm --filter next-tongue run bench:matcher
+      - run: pnpm --filter next-tongue run bench:check
       - run: pnpm check:docs
       - run: pnpm benchmark
       - uses: actions/upload-artifact@v4

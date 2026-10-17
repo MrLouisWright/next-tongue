@@ -17,7 +17,7 @@
     "benchmark": "pnpm --filter @next-tongue/benchmarks run measure:all",
     "changeset": "changeset",
     "check:docs": "node ./scripts/check-docs-samples.mjs",
-    "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm --filter next-tongue run check:deps && pnpm --filter next-tongue run check:size && pnpm --filter next-tongue run build && pnpm --filter next-tongue run bench:matcher && pnpm check:docs"
+    "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm --filter next-tongue run check:deps && pnpm --filter next-tongue run check:size && pnpm --filter next-tongue run build && pnpm --filter next-tongue run bench:matcher && pnpm --filter next-tongue run bench:check && pnpm check:docs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",

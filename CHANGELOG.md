@@ -58,6 +58,7 @@ All notable changes to this project will be documented in this file. The format 
 - `tongue check`: missing / unused / undefined / mismatch / syntax / stale with `pretty|json|github` reporters and `--max-warnings` (exit 0/1/2).
 - `tongue extract`: scan `t`/`t.rich` under `useT`/`getT`, add missing default-locale keys, optional `--prune` / `--dry-run`, then rebuild.
 - `tongue init`: scaffold config, messages, proxy, `[locale]` layout (`generateStaticParams = localeParams`), `withTongue`, `#tongue` imports (`--yes` / `--force` / `--dry-run`).
+- CI gate `bench:check`: `tongue check` on 10k keys / 500 files under 5 s.
 
 
 

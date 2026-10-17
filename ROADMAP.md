@@ -86,7 +86,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 
 **Acceptance criteria**
 - [x] `tongue check` implements all six checks in [CLI](docs/cli.md) with `pretty|json|github` reporters and documented exit codes, reusing the codegen AST.
-- [ ] `tongue check` on a 10k-key, 500-file repo completes in < 5 s.
+- [x] `tongue check` on a 10k-key, 500-file repo completes in < 5 s.
 - [x] `tongue extract` finds keys in `.ts/.tsx/.js/.jsx/.mdx`, adds missing source keys, `--prune` removes unused.
 - [x] Dev overlay shows locale, missing keys and client-sent messages with click-to-key; no overlay code or key ids in production builds [#35](https://github.com/MrLouisWright/next-tongue/issues/35).
 - [x] `translateIssues` translates Standard Schema-shaped issues with typed keys and no validator dependency [#38](https://github.com/MrLouisWright/next-tongue/issues/38).
