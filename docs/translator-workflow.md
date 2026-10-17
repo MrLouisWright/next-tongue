@@ -1,6 +1,6 @@
 # Translator workflow: XLIFF and CSV (v0.4)
 
-> **Status: planned / pre-release.** This page documents the intended API of next-tongue. Nothing is published yet; names may change before v1.0. See [ROADMAP](../ROADMAP.md).
+> **Status: pre-release.** `tongue export` / `tongue import` ship in v0.4. See [ROADMAP](../ROADMAP.md).
 
 For teams that work with translators or a TMS, `tongue export` and `tongue import` round-trip messages through **XLIFF 2.0** or **CSV**. Both are implemented with Node built-ins only ([ADR 0012](adr/0012-zero-dependencies.md)).
 

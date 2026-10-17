@@ -5,6 +5,7 @@ import { TongueError } from '../errors.js';
 import { cmdCheck } from './check.js';
 import { cmdExtract } from './extract.js';
 import { cmdInit } from './init.js';
+import { cmdExport, cmdImport } from './export-import.js';
 
 export async function runCli(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -29,6 +30,9 @@ export async function runCli(argv: string[]): Promise<void> {
       prefix: { type: 'string' },
       export: { type: 'boolean', default: false },
       force: { type: 'boolean', default: false },
+      format: { type: 'string' },
+      out: { type: 'string' },
+      'missing-only': { type: 'boolean', default: false },
     },
     allowPositionals: true,
     strict: false,
@@ -144,9 +148,42 @@ export async function runCli(argv: string[]): Promise<void> {
           quiet: values.quiet === true,
         });
         break;
+      case 'export': {
+        const formatRaw =
+          typeof values.format === 'string' ? values.format : 'xliff';
+        if (formatRaw !== 'xliff' && formatRaw !== 'csv') {
+          console.error(`Invalid --format ${JSON.stringify(formatRaw)} (xliff|csv)`);
+          process.exitCode = 2;
+          break;
+        }
+        await cmdExport({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          ...(typeof values.config === 'string' ? { config: values.config } : {}),
+          format: formatRaw,
+          ...(typeof values.locale === 'string' ? { locale: values.locale } : {}),
+          ...(typeof values.out === 'string' ? { out: values.out } : {}),
+          missingOnly: values['missing-only'] === true,
+          quiet: values.quiet === true,
+        });
+        break;
+      }
+      case 'import': {
+        const file = positionals[1];
+        if (!file) {
+          console.error('Usage: tongue import <file.xlf|file.csv>');
+          process.exitCode = 2;
+          break;
+        }
+        await cmdImport({
+          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+          ...(typeof values.config === 'string' ? { config: values.config } : {}),
+          file,
+          dryRun: values['dry-run'] === true,
+          quiet: values.quiet === true,
+        });
+        break;
+      }
       case 'translate':
-      case 'export':
-      case 'import':
       case 'report':
         console.error(`\`tongue ${command}\` is not implemented yet (see ROADMAP).`);
         process.exitCode = 2;
@@ -194,7 +231,9 @@ Usage:
   tongue check [--cwd <dir>] [--config <path>] [--locale de] [--reporter pretty|json|github] [--max-warnings N]
   tongue extract [--include app,src] [--placeholder ''] [--prune] [--yes] [--dry-run]
   tongue init [--locales en,de] [--default en] [--prefix as-needed] [--export] [--yes] [--force] [--dry-run]
-  tongue translate   (later milestones)
+  tongue export --format xliff|csv [--locale de] [--out ./translations] [--missing-only]
+  tongue import <file.xlf|file.csv> [--dry-run]
+  tongue translate | report   (later milestones)
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);
