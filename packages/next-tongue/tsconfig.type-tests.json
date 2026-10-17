@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "rootDir": "src"
+  },
+  "include": [
+    "src/types/type-safety.test-d.ts",
+    "src/index.ts",
+    "src/runtime/create-t.ts",
+    "src/config/**/*.ts",
+    "src/errors.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "dist"]
+}

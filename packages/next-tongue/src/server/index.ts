@@ -49,11 +49,11 @@ export const defaultLocale = {
 
 export type LocaleProps = { locale: string };
 
-export async function getT<N extends Namespace = '_root'>(
+export async function getT<N extends Namespace>(
   locale: Locale | string,
   namespace?: N,
 ): Promise<TFunction<N>> {
-  const ns = (namespace ?? '_root') as N;
+  const ns = (namespace ?? ('_root' as unknown as N)) as N;
   assertLocale(locale);
   if (!namespaceLoader) {
     throw new TongueError(
@@ -96,7 +96,7 @@ export function localeParams(): { locale: string }[] {
 export function createTranslator(locale: string) {
   assertLocale(locale);
   return {
-    t: (ns: string) => getT(locale, ns),
+    t: <N extends Namespace>(ns: N) => getT(locale, ns),
     format: () => getFormat(locale),
   };
 }

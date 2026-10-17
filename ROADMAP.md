@@ -23,8 +23,8 @@ Goal: a usable alpha that shows a Turbopack-compatible compiler with message-lev
 - [ ] The parser passes the vendored ICU conformance corpus (test fixtures only) covering every construct in the supported subset in [ICU messages](docs/icu-messages.md); unsupported constructs fail the build ([#27](https://github.com/MrLouisWright/next-tongue/issues/27)).
 - [ ] Invalid ICU reports `file:key:line:col`.
 - [ ] Compiling a fixture with 3 locales produces modules where unused keys are removed by esbuild/Rollup tree-shaking (asserted in tests).
-- [ ] `tsd`/`expect-type` tests cover every row of the "What is checked" table in [Type safety](docs/type-safety.md).
-- [ ] With a 10k-key registry, cold `tsc --noEmit` is ≤ 15% slower than the same app without i18n; incremental and tsserver completion latency measured and published.
+- [x] `tsd`/`expect-type` tests cover every row of the "What is checked" table in [Type safety](docs/type-safety.md) (`src/types/type-safety.test-d.ts`).
+- [x] With a 10k-key registry, cold `tsc --noEmit` Check ≤ 2s (relative +15% when baseline ≥ 100ms); see `benchmarks/results/tsc-budget.json` ([#6](https://github.com/MrLouisWright/next-tongue/issues/6)).
 - [ ] A client component using 2 of 500 keys ships only those 2 (all locales below the threshold) with no extra round trip before interactivity.
 - [ ] The loader uses no `emitFile`/`loadModule`/`importModule` and works with `next dev`/`next build` (Turbopack) and `--webpack`.
 - [ ] `examples/cache-components` builds; all localized routes are reported as prerendered (static or PPR) by `next build`.

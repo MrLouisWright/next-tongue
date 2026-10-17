@@ -37,6 +37,7 @@ All notable changes to this project will be documented in this file. The format 
 - Real Paraglide JS compile fixture (`benchmarks/apps/paraglide`) with tree-shaken k0+k1 measure → `results/paraglide-real.json` (#25).
 - Lingui narrowed-catalog fixture (`benchmarks/apps/lingui`) → `results/lingui.json`; provisional #25 go/no-go in ROADMAP (#25).
 - Watcher soak script: 1,000 edits, heap growth &lt; 10%, lock cleanup (`pnpm --filter next-tongue run soak:watcher`) (#23).
+- Empty `TongueRegister` + conditional `Locale`/`Namespace`/`MessageKey` so codegen can narrow types; `expect-type` coverage for the type-safety table.
 - Project planning and documentation (three review passes): README, `docs/` (planned API), ROADMAP with acceptance criteria, ADRs 0001–0008, community health files, issue/PR templates, wiki pages in `/wiki`.
 - Critical technical review as [docs/review.md](docs/review.md) (and a wiki page).
 - ADR 0009 (client message delivery), ADR 0010 (own ICU parser with a documented subset), ADR 0011 (supported Next versions + nightly canary CI), ADR 0012 (zero dependencies beyond `next`/`react`, CI dependency budget), ADR 0013 (database and CMS messages).

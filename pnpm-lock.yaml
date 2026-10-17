@@ -32,6 +32,9 @@ importers:
       eslint:
         specifier: ^9.37.0
         version: 9.39.5(jiti@2.7.0)
+      expect-type:
+        specifier: ^1.4.0
+        version: 1.4.0
       globals:
         specifier: ^16.4.0
         version: 16.5.0

@@ -75,8 +75,8 @@ export function useFormat(): Format {
   return createFormat({ locale, timeZone });
 }
 
-export function useT<N extends Namespace = '_root'>(namespace?: N): TFunction<N> {
-  const ns = (namespace ?? '_root') as N;
+export function useT<N extends Namespace>(namespace?: N): TFunction<N> {
+  const ns = (namespace ?? ('_root' as unknown as N)) as N;
   const { locale, loadNamespace } = useTongue();
   if (!loadNamespace) {
     throw new TongueError(

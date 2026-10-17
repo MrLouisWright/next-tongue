@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { MessageKey, Namespace, TongueRegister } from '../index.js';
+import type { MessageArgs, MessageKey, Namespace } from '../index.js';
 
 export type MessageFn = ((
   locale: string,
@@ -8,20 +8,24 @@ export type MessageFn = ((
   rich?: (locale: string, values?: Record<string, unknown>) => ReactNode;
 };
 
-type ArgsFor<N extends Namespace, K extends MessageKey<N>> = TongueRegister['ns'][N][K];
+type ArgsFor<N extends Namespace, K extends MessageKey<N>> = MessageArgs<K, N>;
 
 export type TFunction<N extends Namespace = Namespace> = {
   <K extends MessageKey<N>>(
     key: K,
-    ...args: Record<string, never> extends ArgsFor<N, K>
-      ? [values?: ArgsFor<N, K>]
-      : [values: ArgsFor<N, K>]
+    ...args: [ArgsFor<N, K>] extends [never]
+      ? [values?: Record<string, never>]
+      : Record<string, never> extends ArgsFor<N, K>
+        ? [values?: ArgsFor<N, K>]
+        : [values: ArgsFor<N, K>]
   ): string;
   rich: <K extends MessageKey<N>>(
     key: K,
-    ...args: Record<string, never> extends ArgsFor<N, K>
-      ? [values?: ArgsFor<N, K>]
-      : [values: ArgsFor<N, K>]
+    ...args: [ArgsFor<N, K>] extends [never]
+      ? [values?: Record<string, never>]
+      : Record<string, never> extends ArgsFor<N, K>
+        ? [values?: ArgsFor<N, K>]
+        : [values: ArgsFor<N, K>]
   ) => ReactNode;
   has: (key: string) => boolean;
   dynamic: (
