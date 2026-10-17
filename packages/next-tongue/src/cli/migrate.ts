@@ -6,11 +6,22 @@ export type MigrateCliOptions = {
   from?: string;
   dryRun?: boolean;
   quiet?: boolean;
+  json?: boolean;
+  report?: string;
 };
 
-type Edit = {
+export type MigrateNote = {
   file: string;
   description: string;
+  kind: 'rewrite' | 'todo' | 'info';
+};
+
+export type MigrateReport = {
+  from: string;
+  dryRun: boolean;
+  changedFiles: number;
+  notes: MigrateNote[];
+  todos: number;
 };
 
 const SKIP_DIRS = new Set([
@@ -24,9 +35,9 @@ const SKIP_DIRS = new Set([
 ]);
 
 /**
- * Partial next-intl → next-tongue codemod (#31).
- * Client `useTranslations` → `useT` is rewritten; server `getTranslations`
- * gets `TODO(tongue)` comments when locale cannot be inferred.
+ * next-intl → next-tongue codemod (#31).
+ * Client `useTranslations` → `useT`; server `getTranslations` uses `locale`
+ * when in scope, otherwise `TODO(tongue)`.
  */
 export async function cmdMigrate(opts: MigrateCliOptions): Promise<void> {
   const cwd = resolve(opts.cwd ?? process.cwd());
@@ -38,140 +49,178 @@ export async function cmdMigrate(opts: MigrateCliOptions): Promise<void> {
   }
 
   const files = await walkSource(cwd);
-  const edits: Edit[] = [];
+  const notes: MigrateNote[] = [];
   let changedFiles = 0;
 
   for (const file of files) {
     const before = await readFile(file, 'utf8');
-    if (!before.includes('next-intl') && !/\buseTranslations\b|\bgetTranslations\b/.test(before)) {
+    if (
+      !before.includes('next-intl') &&
+      !/\buseTranslations\b|\bgetTranslations\b|\bsetRequestLocale\b|\bNextIntlClientProvider\b/.test(
+        before,
+      )
+    ) {
       continue;
     }
-    const { text, notes } = transformNextIntl(before, relative(cwd, file));
+    const rel = relative(cwd, file);
+    const { text, notes: fileNotes } = transformNextIntl(before, rel);
     if (text !== before) {
       changedFiles++;
       if (!opts.dryRun) {
         await writeFile(file, text, 'utf8');
       }
-      for (const n of notes) {
-        edits.push({ file: relative(cwd, file), description: n });
-      }
-      if (notes.length === 0) {
-        edits.push({
-          file: relative(cwd, file),
-          description: 'rewrote next-intl imports / useTranslations',
-        });
-      }
-    } else if (notes.length) {
-      for (const n of notes) {
-        edits.push({ file: relative(cwd, file), description: n });
-      }
     }
+    for (const n of fileNotes) {
+      notes.push({ file: rel, ...n });
+    }
+  }
+
+  const report: MigrateReport = {
+    from,
+    dryRun: opts.dryRun === true,
+    changedFiles,
+    notes,
+    todos: notes.filter((n) => n.kind === 'todo').length,
+  };
+
+  if (opts.report) {
+    const outPath = resolve(cwd, opts.report);
+    await writeFile(outPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+    if (!opts.quiet) console.log(`tongue migrate: wrote report ${opts.report}`);
+  }
+
+  if (opts.json) {
+    console.log(JSON.stringify(report));
+    return;
   }
 
   if (!opts.quiet) {
     const mode = opts.dryRun ? 'dry-run' : 'wrote';
     console.log(
-      `tongue migrate next-intl: ${mode} ${changedFiles} file(s), ${edits.length} note(s)`,
+      `tongue migrate next-intl: ${mode} ${changedFiles} file(s), ${notes.length} note(s), ${report.todos} TODO(tongue)`,
     );
-    for (const e of edits.slice(0, 50)) {
-      console.log(`  ${e.file}: ${e.description}`);
+    for (const e of notes.slice(0, 50)) {
+      console.log(`  [${e.kind}] ${e.file}: ${e.description}`);
     }
-    if (edits.length > 50) console.log(`  … +${edits.length - 50} more`);
-    console.log(
-      'Server getTranslations still needs locale from params — see docs/migration/next-intl.md',
-    );
+    if (notes.length > 50) console.log(`  … +${notes.length - 50} more`);
+    if (report.todos > 0) {
+      console.log(
+        'Search for TODO(tongue) — pass locale from params. See docs/migration/next-intl.md',
+      );
+    }
   }
 }
 
 export function transformNextIntl(
   source: string,
   _file: string,
-): { text: string; notes: string[] } {
-  const notes: string[] = [];
+): { text: string; notes: Array<{ description: string; kind: MigrateNote['kind'] }> } {
+  const notes: Array<{ description: string; kind: MigrateNote['kind'] }> = [];
   let text = source;
+  const localeInScope = hasLocaleInScope(source);
 
-  // Imports from next-intl → next-tongue surfaces
-  text = text.replace(
-    /from\s+['"]next-intl\/server['"]/g,
-    (m) => {
-      notes.push('import next-intl/server → next-tongue/server (review getT locale args)');
-      return m.replace('next-intl/server', 'next-tongue/server');
-    },
-  );
-  text = text.replace(
-    /from\s+['"]next-intl\/client['"]/g,
-    () => {
-      notes.push('import next-intl/client → next-tongue/client');
-      return `from 'next-tongue/client'`;
-    },
-  );
-  text = text.replace(
-    /from\s+['"]next-intl\/navigation['"]/g,
-    () => {
-      notes.push('import next-intl/navigation → next-tongue/navigation');
-      return `from 'next-tongue/navigation'`;
-    },
-  );
-  text = text.replace(
-    /from\s+['"]next-intl['"]/g,
-    () => {
-      notes.push("import 'next-intl' → 'next-tongue/client' (verify exports)");
-      return `from 'next-tongue/client'`;
-    },
-  );
+  const note = (description: string, kind: MigrateNote['kind'] = 'rewrite') => {
+    notes.push({ description, kind });
+  };
 
-  // useTranslations('ns') → useT('ns')
+  text = text.replace(/from\s+['"]next-intl\/server['"]/g, (m) => {
+    note('import next-intl/server → next-tongue/server');
+    return m.replace('next-intl/server', 'next-tongue/server');
+  });
+  text = text.replace(/from\s+['"]next-intl\/client['"]/g, () => {
+    note('import next-intl/client → next-tongue/client');
+    return `from 'next-tongue/client'`;
+  });
+  text = text.replace(/from\s+['"]next-intl\/navigation['"]/g, () => {
+    note('import next-intl/navigation → next-tongue/navigation');
+    return `from 'next-tongue/navigation'`;
+  });
+  text = text.replace(/from\s+['"]next-intl['"]/g, () => {
+    note("import 'next-intl' → 'next-tongue/client' (verify exports)", 'info');
+    return `from 'next-tongue/client'`;
+  });
+
   if (/\buseTranslations\b/.test(text)) {
     text = text.replace(/\buseTranslations\b/g, 'useT');
-    notes.push('useTranslations → useT');
+    note('useTranslations → useT');
   }
 
-  // useFormatter → useFormat
   if (/\buseFormatter\b/.test(text)) {
     text = text.replace(/\buseFormatter\b/g, 'useFormat');
-    notes.push('useFormatter → useFormat');
+    note('useFormatter → useFormat');
   }
 
-  // getFormatter → getFormat (still needs locale)
   if (/\bgetFormatter\b/.test(text)) {
     text = text.replace(/\bgetFormatter\b/g, 'getFormat');
-    notes.push('getFormatter → getFormat (pass locale)');
+    note(
+      localeInScope
+        ? 'getFormatter → getFormat (pass locale)'
+        : 'getFormatter → getFormat — add locale arg',
+      localeInScope ? 'rewrite' : 'todo',
+    );
+    if (localeInScope) {
+      text = text.replace(
+        /await\s+getFormat\(\s*\)/g,
+        'await getFormat(locale)',
+      );
+    }
   }
 
-  // NextIntlClientProvider → TongueProvider
   if (/\bNextIntlClientProvider\b/.test(text)) {
     text = text.replace(/\bNextIntlClientProvider\b/g, 'TongueProvider');
-    notes.push('NextIntlClientProvider → TongueProvider (pass locale=, drop messages=)');
+    note('NextIntlClientProvider → TongueProvider (pass locale=, drop messages=)', 'info');
   }
 
-  // getTranslations — annotate; rewrite only when locale is already explicit
   text = text.replace(
     /await\s+getTranslations\(\s*\{\s*locale\s*,\s*namespace\s*:\s*(['"])([^'"]+)\1\s*\}\s*\)/g,
     (_m, q: string, ns: string) => {
-      notes.push(`getTranslations({ locale, namespace }) → getT(locale, ${q}${ns}${q})`);
+      note(`getTranslations({ locale, namespace }) → getT(locale, ${q}${ns}${q})`);
       return `await getT(locale, ${q}${ns}${q})`;
     },
   );
+
   text = text.replace(
     /await\s+getTranslations\(\s*(['"])([^'"]+)\1\s*\)/g,
     (m, q: string, ns: string) => {
-      notes.push(
-        `getTranslations(${q}${ns}${q}) needs locale — left as TODO(tongue)`,
-      );
+      if (localeInScope) {
+        note(`getTranslations(${q}${ns}${q}) → getT(locale, ${q}${ns}${q}) (locale in scope)`);
+        return `await getT(locale, ${q}${ns}${q})`;
+      }
+      note(`getTranslations(${q}${ns}${q}) needs locale — TODO(tongue)`, 'todo');
       return `/* TODO(tongue): pass locale from params */ await getT(/* locale */, ${q}${ns}${q}) /* was: ${m} */`;
     },
   );
-  if (/\bgetTranslations\b/.test(text) && !notes.some((n) => n.includes('getTranslations'))) {
-    notes.push('remaining getTranslations() — add locale manually');
+
+  if (/\bgetTranslations\b/.test(text)) {
+    note('remaining getTranslations() — review manually', 'todo');
   }
 
-  // setRequestLocale — remove call lines (best-effort)
   if (/\bsetRequestLocale\b/.test(text)) {
     text = text.replace(/^[ \t]*setRequestLocale\([^)]*\);\s*\n/gm, '');
-    notes.push('removed setRequestLocale() calls');
+    note('removed setRequestLocale() calls');
+  }
+
+  // createNextIntlPlugin → withTongue (next.config)
+  if (/\bcreateNextIntlPlugin\b/.test(text)) {
+    text = text.replace(/\bcreateNextIntlPlugin\b/g, 'withTongue');
+    text = text.replace(
+      /from\s+['"]next-intl\/plugin['"]/g,
+      `from 'next-tongue/next'`,
+    );
+    note('createNextIntlPlugin → withTongue (from next-tongue/next)', 'info');
   }
 
   return { text, notes };
+}
+
+/** Heuristic: `locale` is a binding from params, props, or a nearby const. */
+export function hasLocaleInScope(source: string): boolean {
+  if (/\b(?:const|let|var)\s+locale\b/.test(source)) return true;
+  if (/\{\s*locale\s*[,}]/.test(source)) return true;
+  if (/\bparams\s*:\s*Promise\s*<\s*\{[^}]*locale/.test(source)) return true;
+  if (/\bfunction\s+\w+\s*\([^)]*\blocale\b/.test(source)) return true;
+  if (/\(\s*\{\s*[^}]*\blocale\b[^}]*\}\s*[=:]/.test(source)) return true;
+  return false;
 }
 
 async function walkSource(dir: string): Promise<string[]> {

@@ -56,4 +56,4 @@ XLIFF 2.0 and CSV round-trip for translators. See [Translator workflow](Translat
 Per-route keys and bytes sent to the client, from `next build` output. See [Dev tools](Dev-Tools).
 
 ## `tongue migrate next-intl`
-Partial codemod ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)): client `useTranslations` → `useT`, import rewrites, `TODO(tongue)` on bare `getTranslations`. Full server locale-threading remains post-1.0. Flags: `--dry-run`. See [Migration from next-intl](Migration-from-next-intl). The next-international codemod is dropped.
+Codemod ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)): client `useTranslations` → `useT`, threads `getT(locale, ns)` when `locale` is in scope, otherwise `TODO(tongue)`. Flags: `--dry-run`, `--json`, `--out report.json`. See [Migration from next-intl](Migration-from-next-intl). The next-international codemod is dropped.

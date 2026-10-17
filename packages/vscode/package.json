@@ -5,10 +5,20 @@
   "version": "0.0.0",
   "publisher": "next-tongue",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrLouisWright/next-tongue.git",
+    "directory": "packages/vscode"
+  },
+  "homepage": "https://github.com/MrLouisWright/next-tongue/blob/main/docs/vscode.md",
+  "bugs": {
+    "url": "https://github.com/MrLouisWright/next-tongue/issues"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
-  "categories": ["Other"],
+  "categories": ["Other", "Programming Languages"],
+  "keywords": ["i18n", "l10n", "next.js", "icu", "next-tongue"],
   "activationEvents": [
     "workspaceContains:**/.tongue/manifest.json",
     "workspaceContains:**/tongue.config.ts",
@@ -26,11 +36,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "watch": "tsc -p tsconfig.json --watch"
+    "watch": "tsc -p tsconfig.json --watch",
+    "package": "pnpm run build && vsce package --no-dependencies",
+    "publish:vsce": "pnpm run build && vsce publish --no-dependencies",
+    "publish:ovsx": "pnpm run build && ovsx publish --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^22.18.8",
     "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.3.2",
+    "ovsx": "^0.10.1",
     "typescript": "^5.9.3"
   }
 }

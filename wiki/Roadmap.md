@@ -110,13 +110,13 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 
 **Acceptance criteria**
 - [x] Decision recorded on an opt-in `getT(ns)` via `next/root-params` ([ADR 0007](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0007-root-params-not-default.md), [#24](https://github.com/MrLouisWright/next-tongue/issues/24)): `routing.rootParams: true` + unit tests. Two-root-layout typing still blocked on [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756); stale-cache fix requires Next ≥ 16.3.8.
-- [ ] No breaking changes for 4 weeks; 3+ external production-like apps report success.
-- [ ] All docs pages verified against real code (doc examples are type-checked in CI).
+- [ ] No breaking changes for 4 weeks; 3+ external production-like apps report success. *(timer starts at first 0.9 npm tag)*
+- [x] All docs pages verified against real code (doc examples are type-checked in CI via `pnpm check:docs` / #16).
 
 ## v1.0 — Stable
 **Acceptance criteria**
-- [ ] Semver guarantees documented; deprecation policy; support policy per [ADR 0011](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0011-supported-next-versions.md).
-- [ ] Zero open `priority: critical` bugs.
+- [x] Semver guarantees documented; deprecation policy; support policy per [ADR 0011](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adr/0011-supported-next-versions.md) — see [Versioning](Versioning).
+- [x] Zero open `priority: critical` bugs. *(none open as of 2026-10-17)*
 
 ## v1.1 — Editor & user preferences
 - [x] VS Code extension in `packages/vscode` (VS Code API only): inline previews, missing-key diagnostics, go-to-message, hover with all locales [#47](https://github.com/MrLouisWright/next-tongue/issues/47). *(Marketplace / Open VSX publish pending.)*

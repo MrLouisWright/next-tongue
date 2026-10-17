@@ -245,6 +245,8 @@ export async function runCli(argv: string[]): Promise<void> {
           from,
           dryRun: values['dry-run'] === true,
           quiet: values.quiet === true,
+          json: values.json === true,
+          ...(typeof values.out === 'string' ? { report: values.out } : {}),
         });
         break;
       }
@@ -295,7 +297,7 @@ Usage:
   tongue import <file.xlf|file.csv> [--dry-run]
   tongue report [--json] [--max-bytes 4kb]
   tongue translate [--locale de] [--keys 'home.*'] [--dry-run] [--review] [--accept] [--retranslate] [--max-cost N]
-  tongue migrate next-intl [--dry-run]
+  tongue migrate next-intl [--dry-run] [--json] [--out report.json]
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error
 `);

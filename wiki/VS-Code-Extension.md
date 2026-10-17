@@ -16,3 +16,11 @@ A separate package, `packages/vscode`, in this repo. It depends only on the VS C
 pnpm --filter next-tongue-vscode run build
 # Then in VS Code: "Developer: Install Extension from Location…" → packages/vscode
 ```
+
+### Package / publish
+```bash
+pnpm --filter next-tongue-vscode run package   # → .vsix
+# Maintainers (tokens required):
+pnpm --filter next-tongue-vscode run publish:vsce
+pnpm --filter next-tongue-vscode run publish:ovsx
+```

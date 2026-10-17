@@ -182,13 +182,15 @@ Also available as a [GitHub wiki](https://github.com/MrLouisWright/next-tongue/w
 | v0.4 | Localized pathnames, domains, `prefix: 'never'`, monorepo, build-time DB/CMS `sources`, XLIFF/CSV, translator context, stale detection, a11y/bidi checks, `tongue report` |
 | v0.5 | `tongue translate` (BYO LLM, glossary, lockfile) |
 | v0.9 | Beta: API freeze, root-params decision ([#24](https://github.com/MrLouisWright/next-tongue/issues/24)) |
-| v1.0 | Stable, semver guarantees |
+| v1.0 | Stable, [semver / deprecation / support policy](docs/versioning.md) |
 | v1.1 | VS Code extension, per-user preferred language helper |
 | post-1.0 | next-intl codemod (next-international codemod dropped) |
 
-**Scope freeze:** no new features before v0.1 ships.
-
 Full detail with acceptance criteria: [ROADMAP.md](ROADMAP.md) · [Milestones](https://github.com/MrLouisWright/next-tongue/milestones) · [Project board](https://github.com/users/MrLouisWright/projects/7).
+
+## Support policy
+
+From v1.0: [Semantic Versioning](https://semver.org/), documented deprecations before removal, and Next.js support as in [ADR 0011](docs/adr/0011-supported-next-versions.md) — **latest Next 16.x** + React ≥ 19.2 (App Router). Details: [Versioning](docs/versioning.md).
 
 ## Contributing
 

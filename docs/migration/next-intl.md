@@ -1,9 +1,10 @@
 # Migrating from next-intl
 
-> **Status: partial.** `tongue migrate next-intl` rewrites client `useTranslations` → `useT`, common imports, and annotates server `getTranslations` with `TODO(tongue)` when locale is missing ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)). Full locale-threading + report measured on 3 OSS apps remains post-1.0. Message files are reusable as-is. See [ROADMAP](../../ROADMAP.md).
+> **Status: implemented (pre-1.0).** `tongue migrate next-intl` rewrites client mappings, threads `getT(locale, ns)` when `locale` is in scope, and writes `TODO(tongue)` otherwise ([#31](https://github.com/MrLouisWright/next-tongue/issues/31)). Measuring the report on 3 OSS apps remains post-1.0. Message files are reusable as-is. See [ROADMAP](../../ROADMAP.md).
 
 ```bash
 npx tongue migrate next-intl --dry-run
+npx tongue migrate next-intl --out migrate-report.json
 npx tongue migrate next-intl
 ```
 

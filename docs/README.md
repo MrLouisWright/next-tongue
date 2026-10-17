@@ -23,6 +23,7 @@
 18. [Testing](testing.md)
 19. [VS Code extension (v1.1)](vscode.md)
 20. Migration: [from next-intl](migration/next-intl.md) · [from next-international](migration/next-international.md) (deferred)
+21. [Versioning, deprecation & support](versioning.md)
 
 ## Reference
 - [API reference](api-reference.md)
