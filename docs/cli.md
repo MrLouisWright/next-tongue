@@ -27,7 +27,7 @@ CI gate. Reads messages + source, reports:
 | Check | Meaning | Severity from |
 |---|---|---|
 | `missing` | Key in default locale but absent in another locale | `strict.missing` |
-| `unused` | Key in messages, never referenced in code | `strict.unused` |
+| `unused` | Key in messages, never referenced in code | `strict.unused` — skipped for `$meta.planned` / `@tongue-ignore` / `unusedIgnore` |
 | `undefined` | Key referenced in code, absent in default locale | always `error` |
 | `dynamic` | Client `useT` + `t(variable)` without a string literal | always `error` — use `t.dynamic(key, { from })` |
 | `icu` | Likely unescaped prose apostrophe (`l'été` → write `l''été`) | `warn` for fr/it/… only (not English `don't`) |

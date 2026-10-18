@@ -27,11 +27,21 @@ Give translators what they need next to each key with a sibling `$meta` (`$descr
     "description": "Button label in the editor toolbar",
     "screenshot": "https://example.com/shots/editor-toolbar.png",
     "maxLength": 12
+  },
+  "seeAll": "See all",
+  "seeAll$meta": {
+    "description": "List pages — not wired yet",
+    "planned": true
+  },
+  "drafts": {
+    "$meta": { "planned": true },
+    "title": "Drafts"
   }
 }
 ```
 - Fed into `tongue translate` prompts and `tongue export` (XLIFF `<note>`s and `size-restriction`; CSV `description`, `screenshot`, `maxLength` columns).
 - `tongue check` reports targets longer than `maxLength` (`length` check).
+- **Unused / planned:** set `planned: true`, `ignoreUnused: true`, or `"@tongue-ignore": true` on `key$meta` (or namespace `$meta`) so `tongue check` unused and `tongue extract --prune` skip those keys. Prefer this over blunt `strict.unusedIgnore` globs when the catalog owns the intent.
 - Stripped from compiled output ([#43](https://github.com/MrLouisWright/next-tongue/issues/43)).
 
 ---

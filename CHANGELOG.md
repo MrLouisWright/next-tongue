@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.13] — 2026-10-18
+
+### Added
+- Catalog `$meta` unused suppressors: `planned`, `ignoreUnused`, `@tongue-ignore` (per key or namespace `$meta`). Honored by `tongue check` unused and `tongue extract --prune`. Prefer these over blunt `strict.unusedIgnore` globs for reserved keys.
+
 ## [0.9.12] — 2026-10-18
 
 ### Fixed

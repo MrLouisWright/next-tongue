@@ -1,7 +1,17 @@
+import { readFile } from 'node:fs/promises';
 import type { ResolvedTongueConfig, StrictLevel } from '../../config/types.js';
 import type { CheckIssue, CheckSeverity } from '../../cli/check-types.js';
-import { loadLocaleMessages } from '../load-messages.js';
+import {
+  loadLocaleMessages,
+  resolveMessagePath,
+} from '../load-messages.js';
 import { DEFAULT_SCAN_ROOTS, scanKeys } from '../scan-keys.js';
+import {
+  collectUnusedIgnores,
+  isUnusedIgnored,
+  matchesUnusedIgnoreGlob,
+  type Nested,
+} from '../unused-meta.js';
 
 function severityFor(level: StrictLevel, alwaysError = false): CheckSeverity | null {
   if (alwaysError) return 'error';
@@ -12,24 +22,6 @@ function severityFor(level: StrictLevel, alwaysError = false): CheckSeverity | n
 function namespaceOf(fullKey: string): string {
   const i = fullKey.indexOf('.');
   return i === -1 ? '_root' : fullKey.slice(0, i);
-}
-
-/** Glob-lite: `*` matches any substring (e.g. `common.*`, `*.seeAll`). */
-function matchesIgnore(fullKey: string, patterns: readonly string[]): boolean {
-  for (const raw of patterns) {
-    const p = raw.trim();
-    if (!p) continue;
-    if (p === fullKey) return true;
-    if (!p.includes('*')) continue;
-    const re = new RegExp(
-      `^${p
-        .split('*')
-        .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .join('.*')}$`,
-    );
-    if (re.test(fullKey)) return true;
-  }
-  return false;
 }
 
 /** unused + undefined + undeclared client dynamic checks against scanned source. */
@@ -83,9 +75,11 @@ export async function validateUsage(
   const unusedSev = severityFor(config.strict.unused);
   if (unusedSev) {
     const ignore = config.strict.unusedIgnore;
+    const metaIgnores = await loadUnusedMetaIgnores(config, cwd);
     for (const fullKey of defined) {
       if (used.has(fullKey)) continue;
-      if (matchesIgnore(fullKey, ignore)) continue;
+      if (matchesUnusedIgnoreGlob(fullKey, ignore)) continue;
+      if (isUnusedIgnored(fullKey, metaIgnores)) continue;
       // Dynamic t(var) / t.ns / t.dynamic — do not false-flag catalog keys as unused
       if (dynamicNamespaces.has(namespaceOf(fullKey))) continue;
       issues.push({
@@ -99,4 +93,18 @@ export async function validateUsage(
   }
 
   return issues;
+}
+
+async function loadUnusedMetaIgnores(
+  config: ResolvedTongueConfig,
+  cwd: string,
+) {
+  const abs = resolveMessagePath(cwd, config.messages, config.defaultLocale);
+  try {
+    const raw = await readFile(abs, 'utf8');
+    const json = JSON.parse(raw) as Nested;
+    return collectUnusedIgnores(json);
+  } catch {
+    return collectUnusedIgnores({});
+  }
 }

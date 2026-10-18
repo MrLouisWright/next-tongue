@@ -94,7 +94,7 @@ export default defineConfig({
 | `outDir` | `string` | `'.tongue'` | Git-ignore it. |
 | `scan.include` | `string[]` | `[]` (→ app, src, components, lib, server, actions) | Roots for `tongue check` / `extract` key scanning. Set explicitly if messages are referenced from other dirs. |
 | `strict.*` | `'error' \| 'warn' \| 'off'` | see above | Used by both the build and `tongue check`. |
-| `strict.unusedIgnore` | `string[]` | `[]` | Full keys or globs (`common.*`) skipped by unused warnings. |
+| `strict.unusedIgnore` | `string[]` | `[]` | Full keys or globs (`common.*`) skipped by unused warnings. Prefer catalog `$meta.planned` / `@tongue-ignore` when the key is intentionally reserved — see [Translator workflow](translator-workflow.md#translator-context). |
 | `translate.*` | object | `undefined` | Only read by `tongue translate`. |
 
 ## `withTongue` and Turbopack / TypeScript

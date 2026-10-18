@@ -53,7 +53,8 @@
 | Next 500 / `"use client"` after loader | Fixed in `0.9.6`: loader re-hoists `"use client"` / `"use server"` before injected imports. Remove any `postinstall` patch that only re-hoisted the directive |
 | `t.dynamic` throws without `loadNamespace` | Fixed in `0.9.6` for inline `from: [...]`. `0.9.7` also resolves same-file `const FROM = [...]` and `Object.values(OBJ)`. Imported `from` still needs an inline/same-file list |
 | `t(variable)` blows up in prod / passes typecheck | Client `useT`: always use `t.dynamic(key, { from })`. `0.9.8` `tongue check` reports these as `dynamic` errors |
-| Unused keys that `getT` definitely uses | Scanner defaults now include `lib/`, `server/`, `actions/`; set `scan.include` if needed. Intentional leftovers: `strict.unusedIgnore` |
+| Unused keys that `getT` definitely uses | Scanner defaults include `lib/`/`server/`/`actions/`; set `scan.include` if needed. Intentional leftovers: `key$meta.planned` / `@tongue-ignore`, or `strict.unusedIgnore` |
+| ~100 unused warnings for soon-to-wire keys | Mark `$meta: { "planned": true }` (or namespace `"$meta": { "planned": true }`) instead of ignoring whole namespaces in config |
 | `.tongue/ns/*.js` syntax error (`continue: continue`) | Reserved message keys sanitized in `0.9.8` (`continue` → export `continue_`) |
 | `ENOTEMPTY` / locked `.tongue` during `tongue build` | `0.9.8` writes to a staging dir then renames; if it still fails, delete `.tongue` and `.tongue.tmp-*` and retry |
 | Nested `TongueProvider` / root chrome | Hybrid (root shell + `[locale]` provider) is OK — see [Routing](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale). Set `devOverlay={false}` on the inner tree |

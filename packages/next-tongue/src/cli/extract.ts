@@ -7,6 +7,11 @@ import {
   DEFAULT_SCAN_ROOTS,
   scanReferencedKeys,
 } from '../compiler/scan-keys.js';
+import {
+  collectUnusedIgnores,
+  isUnusedIgnored,
+  matchesUnusedIgnoreGlob,
+} from '../compiler/unused-meta.js';
 import { TongueError } from '../errors.js';
 
 export type ExtractCliOptions = {
@@ -54,9 +59,6 @@ export async function cmdExtract(opts: ExtractCliOptions): Promise<void> {
     }
   }
 
-  const missing = [...used].filter((k) => !defined.has(k)).sort();
-  const unused = [...defined].filter((k) => !used.has(k)).sort();
-
   const placeholder = opts.placeholder ?? null; // null → use key as value
   const abs = resolveMessagePath(cwd, config.messages, config.defaultLocale);
 
@@ -81,6 +83,15 @@ export async function cmdExtract(opts: ExtractCliOptions): Promise<void> {
       { file: abs },
     );
   }
+
+  const metaIgnores = collectUnusedIgnores(json);
+  const configIgnores = config.strict.unusedIgnore;
+  const missing = [...used].filter((k) => !defined.has(k)).sort();
+  const unused = [...defined]
+    .filter((k) => !used.has(k))
+    .filter((k) => !isUnusedIgnored(k, metaIgnores))
+    .filter((k) => !matchesUnusedIgnoreGlob(k, configIgnores))
+    .sort();
 
   let added = 0;
   let pruned = 0;
