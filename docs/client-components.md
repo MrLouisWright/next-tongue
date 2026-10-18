@@ -86,9 +86,14 @@ Both legs become per-key imports. A variable key still needs `t.dynamic`.
 
 Never `LINKS.map(({ key }) => t(key))` on the client — that typechecks and often “works” in a misconfigured local setup, then throws in production when the stub runs.
 
-### One `TongueProvider`
+### One `TongueProvider` (or two, deliberately)
 
-Nest a single provider under `[locale]` (or a shell that already has locale). Root Header/Footer outside `[locale]` should take translated strings from the server (or parse the path), not wrap the tree in another provider.
+- **Greenfield:** one provider under `[locale]` that owns locale from `params`.
+- **Existing root layout:** root `TongueShell` for Header/Footer + inner `[locale]` provider with `params.locale` and `devOverlay={false}` is the documented hybrid — see [Routing](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale).
+
+### `useLocale()` is not a loader ritual
+
+The call-site loader injects `const __tongue_locale = useLocale()` when it rewrites `t('…')` / `t.dynamic`. You do **not** need a bare `useLocale()` (or an unused `const _ = useLocale()`) in source for rewrites to work. Call it only when your component needs the locale string (HtmlLang, fetch headers, etc.).
 
 ## Other hooks
 

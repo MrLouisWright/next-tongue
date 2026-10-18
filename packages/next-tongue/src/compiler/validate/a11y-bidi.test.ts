@@ -63,6 +63,29 @@ describe('validateA11y', () => {
     const issues = await validateA11y(config, dir);
     expect(issues).toHaveLength(0);
   });
+
+  it('accepts HtmlLang client sync on root layout', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'tongue-a11y-html-lang-'));
+    await mkdir(join(dir, 'app/[locale]'), { recursive: true });
+    await writeFile(
+      join(dir, 'app/layout.tsx'),
+      `import { HtmlLang } from './html-lang';
+export default function Root({ children }) {
+  return <html><body><HtmlLang />{children}</body></html>;
+}\n`,
+    );
+    await writeFile(
+      join(dir, 'app/[locale]/layout.tsx'),
+      `export default function L({ children }) { return children; }\n`,
+    );
+    const config = resolveConfig({
+      locales: ['en', 'ar'],
+      defaultLocale: 'en',
+      strict: { a11y: 'error', unused: 'off' },
+    });
+    const issues = await validateA11y(config, dir);
+    expect(issues).toHaveLength(0);
+  });
 });
 
 describe('checkMessageBidi', () => {

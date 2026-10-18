@@ -30,7 +30,7 @@ CI gate. Reads messages + source, reports:
 | `unused` | Key in messages, never referenced in code | `strict.unused` |
 | `undefined` | Key referenced in code, absent in default locale | always `error` |
 | `dynamic` | Client `useT` + `t(variable)` without a string literal | always `error` — use `t.dynamic(key, { from })` |
-| `icu` | Likely unescaped prose apostrophe (`l'été` → write `l''été`) | always `warn` |
+| `icu` | Likely unescaped prose apostrophe (`l'été` → write `l''été`) | `warn` for fr/it/… only (not English `don't`) |
 | `mismatch` | ICU args, tags or plural categories differ from default locale | `strict.mismatch` |
 | `syntax` | ICU parse error | always `error` |
 | `stale` | Source text changed since the target was translated (source hashes in `tongue.lock`) | `strict.stale` (default `warn`) |

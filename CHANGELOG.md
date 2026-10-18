@@ -7,6 +7,19 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.9] — 2026-10-18
+
+### Fixed
+- ICU apostrophe warnings are locale-aware (fr/it/… only — no English `don't` flood).
+- `tongue check` a11y recognizes `HtmlLang` / `setAttribute('lang'|'dir')` on root layouts.
+
+### Added
+- `requestLocale` + `LOCALE_COOKIE_NAME` / `LOCALE_HEADER_NAME` for Route Handlers and actions.
+- `usePathnameWithoutLocale` (bound + unbound) for as-needed active states without hand-rolled regexes.
+
+### Docs
+- Hybrid routing allow-list + optional `beforeFiles` rewrite; root TongueShell + nested providers; nav style choice; Vercel `tongue build && next build`; cookie/`x-locale` convention.
+
 ## [0.9.8] — 2026-10-17
 
 ### Fixed

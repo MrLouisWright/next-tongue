@@ -83,11 +83,14 @@ export async function validateCatalog(
         });
         continue;
       }
-      if (likelyUnescapedApostrophe(source)) {
+      if (
+        shouldHintApostrophe(config.defaultLocale) &&
+        likelyUnescapedApostrophe(source)
+      ) {
         issues.push({
           check: 'icu',
           severity: 'warn',
-          message: `Key "${fullKey}" looks like a natural-language apostrophe (e.g. French). In ICU, double it: "l''été" → l'été`,
+          message: `Key "${fullKey}" looks like a natural-language apostrophe. In ICU, double it: "l''été" → l'été`,
           key: fullKey,
           locale: config.defaultLocale,
           file,
@@ -161,6 +164,20 @@ export async function validateCatalog(
             file: localeFile,
           });
           continue;
+        }
+
+        if (
+          shouldHintApostrophe(locale) &&
+          likelyUnescapedApostrophe(resolved)
+        ) {
+          issues.push({
+            check: 'icu',
+            severity: 'warn',
+            message: `Key "${fullKey}" looks like a natural-language apostrophe. In ICU, double it: "l''été" → l'été`,
+            key: fullKey,
+            locale,
+            file: localeFile,
+          });
         }
 
         const mismatchSev = severityFor(config.strict.mismatch);
@@ -293,4 +310,12 @@ export function likelyUnescapedApostrophe(icu: string): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Apostrophe-in-words is common in fr/it/…; English `don't` floods CI with noise.
+ * Only hint for locales that regularly need ICU `''` in prose.
+ */
+export function shouldHintApostrophe(locale: string): boolean {
+  return /^(fr|it|ca|oc|ht|lb|rm|ga|gd|mt)(-|$)/i.test(locale);
 }

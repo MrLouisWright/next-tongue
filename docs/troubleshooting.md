@@ -56,7 +56,11 @@
 | Unused keys that `getT` definitely uses | Scanner defaults now include `lib/`, `server/`, `actions/`; set `scan.include` if needed. Intentional leftovers: `strict.unusedIgnore` |
 | `.tongue/ns/*.js` syntax error (`continue: continue`) | Reserved message keys sanitized in `0.9.8` (`continue` → export `continue_`) |
 | `ENOTEMPTY` / locked `.tongue` during `tongue build` | `0.9.8` writes to a staging dir then renames; if it still fails, delete `.tongue` and `.tongue.tmp-*` and retry |
-| Nested `TongueProvider` / root chrome | One provider under `[locale]`; pass strings into Header/Footer outside the segment — see [Client components](client-components.md#one-tongueprovider) |
+| Nested `TongueProvider` / root chrome | Hybrid (root shell + `[locale]` provider) is OK — see [Routing](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale). Set `devOverlay={false}` on the inner tree |
+| Bare `useLocale()` “for the loader” | Unnecessary — loader injects `__tongue_locale`. Call `useLocale` only when you need the value |
+| API route has no locale | `requestLocale(req, { locales, defaultLocale })` — `x-locale` → `TONGUE_LOCALE` → default |
+| Stale `.tongue` / wrong codegen on Vercel | `"build": "tongue build && next build"` (and `vercel-build`) |
+| Partial i18n 404 / `[locale]` eats `/api` | Allow-list first segments; only call `createProxy` for localized paths — [partial localization](routing-and-proxy.md#partial-localization-hybrid-routing) |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.
 

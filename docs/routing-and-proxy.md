@@ -37,26 +37,66 @@ Localized app routes live under `app/[locale]/` (or `src/app/[locale]/`). The pr
 
 Next.js allows `<html>` **only** on the root layout. If you already have `app/layout.tsx` / `src/app/layout.tsx`, keep `lang` / `dir` there (or sync with a small client helper). The `[locale]` layout should wrap with `TongueProvider` only — `tongue init` detects this and scaffolds accordingly. `tongue check` a11y accepts lang/dir on the root layout, or set `strict.a11y: 'off'`.
 
-### Partial localization
+### Partial localization (hybrid routing)
 
-There is **no** first-class “only these pathnames are localized” option. Gate in your own `proxy` before calling tongue (allow-list marketing routes, skip `/api`, dashboards, etc.). A request like `/de/sites` will 404 unless that route exists under `[locale]` — keep the allow-list and `app/` tree aligned.
+Many production apps only localize marketing / app shells under `app/[locale]/…` and keep API, auth, media, badges, feeds at the **root**. next-tongue does **not** auto-detect that set — compose the proxy:
+
+```ts
+// lib/localized-segments.ts — shared with next.config rewrites
+export const LOCALIZED_FIRST_SEGMENTS = new Set([
+  'home', 'submit', 'dashboard', 'sites', // …your [locale] tree
+]);
+
+export function isLocalizedPath(pathname: string): boolean {
+  const first = pathname.split('/').filter(Boolean)[0];
+  if (!first) return true; // `/`
+  if (['en', 'de', 'fr', 'es'].includes(first)) return true; // already prefixed
+  return LOCALIZED_FIRST_SEGMENTS.has(first);
+}
+```
+
+```ts
+// proxy.ts
+import { NextResponse, type NextRequest } from 'next/server';
+import { createProxy } from 'next-tongue/proxy';
+import { isLocalizedPath } from './lib/localized-segments';
+
+const tongue = createProxy({
+  locales: ['en', 'de', 'fr', 'es'],
+  defaultLocale: 'en',
+  prefix: 'as-needed',
+});
+
+export function proxy(req: NextRequest) {
+  if (!isLocalizedPath(req.nextUrl.pathname)) {
+    return NextResponse.next(); // /api, /auth, /media, …
+  }
+  return tongue(req);
+}
+```
+
+**Optional safety net:** duplicate the same first-segment list into `next.config` `rewrites().beforeFiles` so a bare `/dashboard` is rewritten to `/en/dashboard` when the proxy is skipped — otherwise Next may treat `dashboard` as `[locale]` and `notFound()`. Keep the allow-list, the `app/[locale]` tree, and rewrites in sync.
 
 ### Root-layout chrome (Header / Footer outside `[locale]`)
 
-Shared chrome in `app/layout.tsx` has **no** `params.locale`. Patterns that work:
+Shared chrome in `app/layout.tsx` has **no** `params.locale`. Recommended for existing apps that **cannot** move `<html>` into `[locale]`:
 
-1. **Preferred — translate on the server and pass strings** into client chrome (no `useT` in the root layout).
-2. **Path-based shell** — a small server wrapper that reads the locale from the URL (or cookie) and wraps children in `TongueProvider`:
+1. Keep `<html>` on the root layout.
+2. Wrap Header/Footer in a `TongueShell` that supplies locale (cookie / pathname).
+3. Sync `document.documentElement.lang` / `dir` with a small client `HtmlLang` (tongue check a11y accepts that, or `HtmlLang` by name).
+4. Put a second `TongueProvider` under `[locale]/layout` with `params.locale` (accurate) and usually `devOverlay={false}` so only the root shell shows the overlay.
 
 ```tsx
 // app/layout.tsx (root)
 import { TongueShell } from './tongue-shell';
+import { HtmlLang } from './html-lang';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">{/* or sync via client HtmlLang */}
+    <html lang="en" suppressHydrationWarning>
       <body>
         <TongueShell>
+          <HtmlLang />
           <Header />
           {children}
           <Footer />
@@ -68,29 +108,35 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ```
 
 ```tsx
-// app/tongue-shell.tsx — Server Component
-import { cookies, headers } from 'next/headers';
+// app/tongue-shell.tsx — client or server; cookie / pathname both work
+'use client';
+import { usePathname } from 'next/navigation';
 import { TongueProvider } from 'next-tongue/client';
 import { defaultLocale, locales } from '#tongue/runtime';
 
-export async function TongueShell({ children }: { children: React.ReactNode }) {
-  // Prefer a signed preference cookie / Host; fall back to default.
-  // Do NOT call headers() inside a cached page — only in this dynamic shell.
-  const cookieStore = await cookies();
-  const raw = cookieStore.get('TONGUE_LOCALE')?.value;
+export function TongueShell({ children }: { children: React.ReactNode }) {
+  const path = usePathname() || '/';
+  const first = path.split('/').filter(Boolean)[0];
   const locale =
-    raw && (locales as readonly string[]).includes(raw) ? raw : defaultLocale;
-  return (
-    <TongueProvider locale={locale} /* loadNamespace only if bypassing the loader */>
-      {children}
-    </TongueProvider>
-  );
+    first && (locales as readonly string[]).includes(first) ? first : defaultLocale;
+  return <TongueProvider locale={locale}>{children}</TongueProvider>;
 }
 ```
 
-3. **Nested `[locale]` provider** — keep marketing chrome untranslated, and put `TongueProvider` only under `app/[locale]/layout.tsx` for localized trees.
+**Nested providers:** intentional when root chrome needs a locale *and* `[locale]` pages need `params`-accurate locale. Prefer one provider only if all chrome lives under `[locale]`. Do not nest three deep.
 
-Client `useT` in root chrome needs the call-site loader on the **SSR** graph (enabled from 0.9.5) or an explicit `loadNamespace`. Prefer pattern 1 when possible.
+**Alternatives:** translate on the server and pass strings into Header/Footer (no `useT` in root chrome). Client `useT` in root chrome needs the call-site loader on the SSR graph (0.9.5+) — do **not** add a bare `useLocale()` “for the loader”; `withTongue` injects `__tongue_locale` itself. Call `useLocale()` only when you need the string.
+
+### Navigation: `createNavigation` vs plain `next/link`
+
+With `prefix: 'as-needed'`, unprefixed paths (`/submit`, `/dashboard`) plus the proxy are valid. Pick **one** style:
+
+| Style | Use |
+|---|---|
+| `createNavigation` `Link` / `usePathname` | Localized pathnames, locale switching, prefix always |
+| Plain `next/link` + unprefixed hrefs | as-needed apps that rely on the proxy |
+
+`createNavigation().usePathname()` already strips the locale prefix (and maps pathnames). If you keep `next/navigation`'s `usePathname`, use `usePathnameWithoutLocale(locales)` or `stripLocalePrefix` for active-state matching — do not hand-roll regexes.
 
 ## What the proxy does
 
@@ -103,7 +149,7 @@ Client `useT` in root chrome needs the call-site loader on the **SSR** graph (en
 
 **Performance:** codegen precomputes locale lookup tables at build time: exact tags, language/script/region parents, and the `Accept-Language` best-fit map. The proxy constructs no `Intl.*` objects per request, and caches parsed `Accept-Language` strings in a bounded LRU. With many locales, per-request matching in other setups has been reported at 120–180 ms for about 140 locales ([r/nextjs](https://www.reddit.com/r/nextjs/comments/1ozfz0q/nextintl_middleware_becomes_extremely_slow_with/)). next-tongue's target is p50 < 1 ms with 150 locales (ROADMAP v0.2).
 
-**Cookie:** `TONGUE_LOCALE` is set with `SameSite=Lax` by default so it survives cross-site navigation; see [Configuration](configuration.md).
+**Cookie:** `TONGUE_LOCALE` (`LOCALE_COOKIE_NAME` from `next-tongue/proxy` or `next-tongue/server`) is set with `SameSite=Lax` by default so it survives cross-site navigation. Route Handlers have no `params.locale` — resolve with `requestLocale(req, { locales, defaultLocale })` (header `x-locale` → cookie → default). See [Configuration](configuration.md) and [API routes](#api-routes--request-locale).
 
 ## Prefix strategies
 
@@ -195,6 +241,40 @@ getPathname({ href: '/about', locale: 'de' });  // '/de/ueber-uns' — for sitem
 ```
 
 Server-side `redirect` requires an explicit `locale` because reading it implicitly would need request headers — see [Cache Components](cache-components.md).
+
+## API routes / request locale
+
+```ts
+import { requestLocale, getT, LOCALE_COOKIE_NAME } from 'next-tongue/server';
+import { cookies } from 'next/headers';
+import { defaultLocale, locales } from '#tongue/runtime';
+
+export async function POST(req: Request) {
+  const locale = requestLocale(
+    { headers: req.headers, cookies: await cookies() },
+    { locales, defaultLocale },
+  );
+  const t = await getT(locale, 'checks');
+  // …
+}
+```
+
+Clients (wizard, fetch) should send `x-locale: de` when the cookie may be missing. Cookie name is always `TONGUE_LOCALE` unless you override `localeCookie.name` in `createProxy`.
+
+## Build order (Vercel / CI)
+
+Always compile messages before Next:
+
+```json
+{
+  "scripts": {
+    "build": "tongue build && next build",
+    "vercel-build": "tongue build && next build"
+  }
+}
+```
+
+`withTongue` also runs codegen when Next loads config, but an explicit `tongue build` first avoids stale `.tongue` when install/build order skips config evaluation. Reserved message keys (`continue`, `default`, …) are sanitized to valid JS idents since 0.9.8 (`continue_`).
 
 ## Not found
 

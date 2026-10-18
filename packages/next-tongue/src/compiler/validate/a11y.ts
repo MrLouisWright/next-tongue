@@ -90,6 +90,8 @@ function hasLangHint(src: string): boolean {
     /<html[^>]*\blang=["']/.test(src) ||
     /\blang=\{locale\}/.test(src) ||
     /document\.documentElement\.lang/.test(src) ||
+    /setAttribute\(\s*['"]lang['"]/.test(src) ||
+    /\bHtmlLang\b/.test(src) ||
     /\.lang\s*=/.test(src)
   );
 }
@@ -100,7 +102,9 @@ function hasDirHint(src: string): boolean {
     /<html[^>]*\bdir=["']/.test(src) ||
     /\bdir=\{getDir\(/.test(src) ||
     /\bdir=\{.*getDir/.test(src) ||
-    /document\.documentElement\.dir/.test(src)
+    /document\.documentElement\.dir/.test(src) ||
+    /setAttribute\(\s*['"]dir['"]/.test(src) ||
+    /\bHtmlLang\b/.test(src)
   );
 }
 

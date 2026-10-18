@@ -117,6 +117,11 @@ export function createNavigation(config: NavigationConfig) {
     return toInternalPathname(stripped, locale, bound.pathnames);
   }
 
+  /** Same as `usePathname` when pathnames are unset — locale prefix stripped. */
+  function usePathnameWithoutLocale(): string {
+    return stripLocalePrefix(useNextPathname(), bound.locales);
+  }
+
   const { useLocaleSwitcher, LocaleSwitcher } = createLocaleSwitcher(config);
 
   return {
@@ -125,9 +130,20 @@ export function createNavigation(config: NavigationConfig) {
     permanentRedirect,
     useRouter,
     usePathname,
+    usePathnameWithoutLocale,
     getPathname: (args: { href: Href; locale: Locale }) =>
       resolve(args.href, args.locale),
     useLocaleSwitcher,
     LocaleSwitcher,
   };
+}
+
+/**
+ * Strip a leading locale segment from `next/navigation`'s pathname.
+ * Prefer `createNavigation(…).usePathname` / `usePathnameWithoutLocale` when
+ * you already use tongue navigation; this unbound helper is for apps that keep
+ * plain `next/link` + proxy for as-needed paths.
+ */
+export function usePathnameWithoutLocale(locales: readonly string[]): string {
+  return stripLocalePrefix(useNextPathname(), locales);
 }

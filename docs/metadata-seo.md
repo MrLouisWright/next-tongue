@@ -17,7 +17,11 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
-  const { locale } = await params;
+  const { locale: raw } = await params;
+  if (!locales.includes(raw as (typeof locales)[number])) {
+    return {}; // or notFound() — pair with isLocale(raw)
+  }
+  const locale = raw;
   const t = await getT(locale, 'about');
   return {
     title: t('meta.title'),
@@ -32,6 +36,8 @@ export async function generateMetadata({
   };
 }
 ```
+
+Repeated trio: `isLocale` / allow-list guard → `getT(locale, ns)` → `generateAlternates`. Keep it in a small `metadataFor(locale, ns, fn)` helper in your app if the copy-paste hurts.
 
 `generateAlternates({ href, locale })` returns:
 ```ts

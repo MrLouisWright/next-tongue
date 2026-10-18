@@ -98,7 +98,7 @@ async function getTWithLocale<N extends Namespace>(
   if (!namespaceLoader) {
     throw new TongueError(
       'TONGUE_E_TYPES_MISSING',
-      'Message modules not loaded. Call ensureTongue() from `#tongue/runtime` (or wrap next.config with withTongue()).',
+      'Message modules not loaded. Import ensureTongue from `#tongue/runtime` and call it once (layout/page), or wrap next.config with withTongue() and run `tongue build && next build` so `.tongue/` is fresh.',
     );
   }
   const messages = await namespaceLoader(ns);
@@ -254,6 +254,16 @@ export type {
   SetLocalePreferenceOptions,
   CookieStoreLike,
 } from './locale-preference.js';
+
+export {
+  requestLocale,
+  LOCALE_COOKIE_NAME,
+  LOCALE_HEADER_NAME,
+} from './request-locale.js';
+export type {
+  RequestLocaleOptions,
+  RequestLocaleSource,
+} from './request-locale.js';
 
 function assertLocale(locale: string): void {
   if (runtimeLocales.length && !runtimeLocales.includes(locale)) {

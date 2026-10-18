@@ -17,7 +17,8 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/proxy`
 | Export | Signature |
 |---|---|
-| `createProxy` | `(options: { locales: readonly string[]; defaultLocale: string; prefix?; pathnames?; domains?; localeDetection?; localeCookie?; excludeFromDetection?; resolveLocale?; onLocale? }) => (req) => Response \| Promise<Response>` — **`locales` + `defaultLocale` required** |
+| `createProxy` | `(options: { locales: readonly string[]; defaultLocale: string; prefix?; pathnames?; domains?; localeDetection?; localeCookie?; excludeFromDetection?; resolveLocale?; onLocale? }) => (req) => Response \| Promise<Response>` — **`locales` + `defaultLocale` required** (zero-arg is invalid) |
+| `LOCALE_COOKIE_NAME` | `'TONGUE_LOCALE'` — default cookie set by the proxy |
 | `verifyLocalePreference` | `(value: string \| undefined, secret: string, opts?: { locales }) => Promise<Locale \| undefined>` — see [User preferences](user-preferences.md) |
 
 ## `next-tongue/server`
@@ -29,6 +30,8 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 | `localeParams` | `() => { locale: Locale }[]` — export as `generateStaticParams` from `app/[locale]/layout.tsx` (required for a static shell under `cacheComponents`) |
 | `formatMessage` | `(locale: Locale, message: string, values?: Record<string, unknown>) => string` — server-only, untyped, request-time ICU formatting with a bounded LRU; tags stripped unless allow-listed via `formatMessage.rich(locale, message, values, { tags })`. See [Database messages](database-messages.md) |
 | `withLocale` | `(action: (locale: Locale, ...args) => R) => (locale: string, ...args) => R` — validates a bound locale, throws `TONGUE_E_LOCALE` |
+| `requestLocale` | `(req, { locales, defaultLocale, cookieName?, headerName? }) => Locale` — Route Handlers / actions: `x-locale` → cookie → default |
+| `LOCALE_COOKIE_NAME` / `LOCALE_HEADER_NAME` | `'TONGUE_LOCALE'` / `'x-locale'` |
 | `translateIssues` | `<N>(t: T<N>, issues: readonly { message: string; path?: readonly (PropertyKey \| { key: PropertyKey })[]; params?: Record<string, unknown> }[], opts?: { fallback?: MessageKey<N>; formatPath?: (path) => string }) => Record<string, string[]>` — schema-agnostic (Standard Schema-shaped issues) |
 | `setLocalePreference` | `(locale: unknown, opts: { secret: string; save?: (l: Locale) => Promise<unknown> }) => Promise<Locale>` — server action helper, v1.1, see [User preferences](user-preferences.md) |
 | `createTranslator` | `(locale: Locale) => { t: <N>(ns: N) => Promise<T<N>>; format: () => Promise<Format> }` — binds a locale once per page |
@@ -51,7 +54,9 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/navigation`
 | Export | Signature |
 |---|---|
-| `createNavigation` | `(config: { locales; defaultLocale; prefix?; pathnames? }) => { Link, redirect, permanentRedirect, useRouter, usePathname, getPathname, LocaleSwitcher, useLocaleSwitcher }` — **call once** and export the helpers; there are no unbound `Link` / `useRouter` exports |
+| `createNavigation` | `(config: { locales; defaultLocale; prefix?; pathnames? }) => { Link, redirect, permanentRedirect, useRouter, usePathname, usePathnameWithoutLocale, getPathname, LocaleSwitcher, useLocaleSwitcher }` — **call once** and export the helpers; there are no unbound `Link` / `useRouter` exports |
+| `usePathnameWithoutLocale` | `(locales) => string` — unbound helper when you keep plain `next/link` |
+| `stripLocalePrefix` | `(pathname, locales) => string` |
 | `Link` (from factory) | `next/link` props with `href: Href \| { pathname: Href; params?; query? }` and optional `locale?: Locale` |
 | `redirect`, `permanentRedirect` | `(args: { href: Href \| {...}; locale: Locale }) => never` |
 | `LocaleSwitcher` / `useLocaleSwitcher` | headless switcher — see [#44](https://github.com/MrLouisWright/next-tongue/issues/44) |

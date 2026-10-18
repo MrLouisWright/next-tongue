@@ -70,8 +70,11 @@ export type CreateProxyOptions = {
   onLocale?: (locale: string, req: TongueProxyRequest) => void;
 };
 
+/** Default locale cookie name (`SameSite=Lax`). Use with `requestLocale` in API routes. */
+export const LOCALE_COOKIE_NAME = 'TONGUE_LOCALE';
+
 const DEFAULT_COOKIE: LocaleCookieConfig = {
-  name: 'TONGUE_LOCALE',
+  name: LOCALE_COOKIE_NAME,
   maxAge: 60 * 60 * 24 * 365,
   sameSite: 'lax',
   path: '/',
