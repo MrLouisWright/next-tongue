@@ -253,6 +253,7 @@ export default withTongue(nextConfig);
       ts.compilerOptions = ts.compilerOptions ?? {};
       const paths = { ...(ts.compilerOptions.paths ?? {}) };
       if (!paths['#tongue/*']) {
+        // TypeScript accepts extensionless; Node package imports need *.js (below).
         paths['#tongue/*'] = ['./.tongue/*'];
       }
       ts.compilerOptions.paths = paths;
@@ -295,7 +296,8 @@ export default withTongue(nextConfig);
         imports?: Record<string, string>;
         scripts?: Record<string, string>;
       };
-      pkg.imports = { ...(pkg.imports ?? {}), '#tongue/*': './.tongue/*' };
+      // Node ESM requires the .js suffix in the mapping target.
+      pkg.imports = { ...(pkg.imports ?? {}), '#tongue/*': './.tongue/*.js' };
       const next = `${JSON.stringify(pkg, null, 2)}\n`;
       if (next !== raw) {
         plans.push({ path: 'package.json', kind: 'merge', content: next });
@@ -373,7 +375,7 @@ import { TongueProvider } from 'next-tongue/client';
 import { getDir, isLocale } from 'next-tongue/server';
 import { localeParams } from '#tongue/runtime';
 
-// Importing #tongue/runtime auto-runs ensureTongue() (withTongue apps).
+// Required: static #tongue/runtime import wires ensureTongue for getT.
 export const generateStaticParams = localeParams;
 
 export default async function LocaleLayout({
@@ -406,7 +408,7 @@ import { TongueProvider } from 'next-tongue/client';
 import { isLocale } from 'next-tongue/server';
 import { localeParams } from '#tongue/runtime';
 
-// Importing #tongue/runtime auto-runs ensureTongue() (withTongue apps).
+// Required: static #tongue/runtime import wires ensureTongue for getT.
 export const generateStaticParams = localeParams;
 
 export default async function LocaleLayout({

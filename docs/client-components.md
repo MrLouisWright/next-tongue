@@ -142,7 +142,7 @@ export function LanguageMenu() {
   );
 }
 ```
-It renders plain links, so it works without JavaScript. `useLocaleSwitcher()` returns the same options for custom UIs (e.g. a `<select>`).
+It renders plain links, so it works without JavaScript. `useLocaleSwitcher()` returns the same options for custom UIs (e.g. a `<select>`). Each option’s flag is **`current`** (not `active`) — `aria-current={current ? 'page' : undefined}`.
 
 (`locales` is the configured tuple, inlined at build time; it is also exported from `next-tongue/server`. `next-tongue/config` is build-time only and must not be imported from app code.)
 

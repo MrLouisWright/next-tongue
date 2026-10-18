@@ -10,6 +10,7 @@ import {
 import type { ComponentProps, ReactNode } from 'react';
 import { useLocale } from '../client/index.js';
 import type { Locale, Pathname } from '../index.js';
+import type { NavigationConfig } from './config.js';
 import {
   getPathname as getPathnameImpl,
   stripLocalePrefix,
@@ -19,6 +20,7 @@ import {
 import { createLocaleSwitcher } from './locale-switcher.js';
 
 export type { PathnameInput };
+export type { NavigationConfig } from './config.js';
 export { getPathnameImpl as getPathname, stripLocalePrefix, toInternalPathname };
 export {
   buildLocaleSwitcherOptions,
@@ -28,13 +30,6 @@ export type {
   LocaleSwitcherOption,
   UseLocaleSwitcherResult,
 } from './locale-switcher.js';
-
-export type NavigationConfig = {
-  locales: readonly string[];
-  defaultLocale: string;
-  prefix?: 'always' | 'as-needed' | 'never';
-  pathnames?: Record<string, Partial<Record<string, string>>>;
-};
 
 type Href = Pathname | PathnameInput;
 

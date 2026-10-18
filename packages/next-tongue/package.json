@@ -1,6 +1,6 @@
 {
   "name": "next-tongue",
-  "version": "0.9.15",
+  "version": "0.9.16",
   "description": "Compiler-first, type-safe i18n for the Next.js 16 App Router",
   "license": "MIT",
   "type": "module",
@@ -75,6 +75,11 @@
       "types": "./dist/navigation/index.d.ts",
       "import": "./dist/navigation/index.js",
       "default": "./dist/navigation/index.js"
+    },
+    "./navigation/server": {
+      "types": "./dist/navigation/server.d.ts",
+      "import": "./dist/navigation/server.js",
+      "default": "./dist/navigation/server.js"
     },
     "./testing": {
       "types": "./dist/testing/index.d.ts",

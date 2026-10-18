@@ -11,6 +11,17 @@ npm install next-tongue
 npx tongue init
 ```
 
+Add to `package.json` (init may already set this):
+
+```json
+{
+  "scripts": { "build": "tongue build && next build" },
+  "imports": { "#tongue/*": "./.tongue/*.js" }
+}
+```
+
+Node resolves `#tongue/runtime` only when the mapping ends in `*.js`. TypeScript still uses `paths: { "#tongue/*": ["./.tongue/*"] }` plus `include: [".tongue/types.d.ts"]`.
+
 `tongue init` asks for your locales and default locale, then creates/edits:
 
 | File | What it does |
@@ -95,6 +106,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
 `TongueProvider` passes **only the locale string** to client components. It never serialises messages — client components import compiled message modules directly (see [Architecture](architecture.md)).
 
 ## 5. Write messages and use them
+
+ICU treats `'` as an escape. Literal apostrophes must be doubled: `Let's` → `Let''s`, French `l'été` → `l''été`. `tongue check` warns on likely mistakes for fr/it/… (not English `don't`).
 
 ```json
 // messages/en.json

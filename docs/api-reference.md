@@ -52,16 +52,21 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 | `translateIssues` | same as the server export |
 | `locales`, `defaultLocale` | configured values, inlined at build time |
 
-## `next-tongue/navigation`
+## `next-tongue/navigation` (Client Module)
 | Export | Signature |
 |---|---|
-| `createNavigation` | `(config: { locales; defaultLocale; prefix?; pathnames? }) => { Link, redirect, permanentRedirect, useRouter, usePathname, usePathnameWithoutLocale, getPathname, LocaleSwitcher, useLocaleSwitcher }` — **call once** and export the helpers; there are no unbound `Link` / `useRouter` exports |
+| `createNavigation` | `(config: { locales; defaultLocale; prefix?; pathnames? }) => { Link, redirect, permanentRedirect, useRouter, usePathname, usePathnameWithoutLocale, getPathname, LocaleSwitcher, useLocaleSwitcher }` — **client only**; do not import into Server Components |
 | `usePathnameWithoutLocale` | `(locales) => string` — unbound helper when you keep plain `next/link` |
 | `stripLocalePrefix` | `(pathname, locales) => string` |
-| `Link` (from factory) | `next/link` props with `href: Href \| { pathname: Href; params?; query? }` and optional `locale?: Locale` |
+| `Link` (from factory) | `next/link` props with `href: Href \| { pathname: Href; params?; query?; hash? }` and optional `locale?: Locale` |
 | `redirect`, `permanentRedirect` | `(args: { href: Href \| {...}; locale: Locale }) => never` |
-| `LocaleSwitcher` / `useLocaleSwitcher` | headless switcher — see [#44](https://github.com/MrLouisWright/next-tongue/issues/44) |
+| `LocaleSwitcher` / `useLocaleSwitcher` | headless switcher; options use **`current`** (not `active`) — see [#44](https://github.com/MrLouisWright/next-tongue/issues/44) |
 | `useRouter` / `usePathname` / `getPathname` | from factory; pathname helpers strip locale prefix / apply `pathnames`; `href` may be a string with `?`/`#` or `{ pathname, params?, query?, hash? }` |
+
+## `next-tongue/navigation/server`
+| Export | Signature |
+|---|---|
+| `createNavigation` | Server-safe factory: `Link` **requires** `locale`; plus `redirect`, `permanentRedirect`, `getPathname`. Use for Footer / layout / not-found. Under `as-needed`, plain `next/link` is also fine. |
 
 ## The translator `T<N>`
 | Member | Signature |

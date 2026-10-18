@@ -7,7 +7,9 @@ export type TongueErrorCode =
   | 'TONGUE_E_LOCALE'
   | 'TONGUE_E_IO'
   | 'TONGUE_E_BUILD'
-  | 'TONGUE_E_NO_PROVIDER';
+  | 'TONGUE_E_NO_PROVIDER'
+  /** Call-site loader did not rewrite `t()` / `t.dynamic()` (not a missing TongueProvider). */
+  | 'TONGUE_E_NOT_REWRITTEN';
 
 export class TongueError extends Error {
   readonly code: TongueErrorCode;

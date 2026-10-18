@@ -104,7 +104,7 @@ export default defineConfig({
 - Runs `tongue build` when Next loads config.
 - Sets `turbopack.resolveAlias['#tongue']` and **appends** a call-site loader to `turbopack.rules['*.tsx']` / `['*.jsx']` (and a webpack pre-loader). Existing rules for those globs are kept (merged into an array).
 - The same loader rules apply to **production** client (and SSR) bundles — “works in `next dev`” without `withTongue()` does **not** mean Vercel/`next build` rewrote `useT` / `t.dynamic`. Always wrap `next.config` with `withTongue`.
-- Expects `#tongue/*` resolution via package.json `imports` **and** `tsconfig` `paths` (`tongue init` writes both). TypeScript does not use `imports` alone.
+- Expects `#tongue/*` resolution via package.json `imports` (`"./.tongue/*.js"` — Node needs the suffix) **and** `tsconfig` `paths` (`"./.tongue/*"`). TypeScript does not use `imports` alone.
 
 ## Environment variables
 

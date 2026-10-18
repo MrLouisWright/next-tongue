@@ -35,11 +35,25 @@ Same `routing` object feeds `createNavigation(routing)` and client shells (pathn
 
 Localized app routes live under `app/[locale]/` (or `src/app/[locale]/`). The proxy guarantees that by the time a request reaches those routes, the `[locale]` segment is a valid locale.
 
+### Existing-site checklist
+
+Wire next-tongue into an app that already owns root layout + proxy:
+
+1. **package.json** `"imports": { "#tongue/*": "./.tongue/*.js" }` (Node needs the `.js` suffix) and **tsconfig** `paths` + `include: [".tongue/types.d.ts"]`.
+2. **`"build": "tongue build && next build"`** (and the same for Vercel).
+3. Keep **`<html>` on the root layout**; `[locale]/layout` only wraps `TongueProvider` (+ `import { localeParams } from '#tongue/runtime'` — required side-effect for `ensureTongue` / `getT`).
+4. **HtmlLang** client sync for `lang`/`dir` (a11y accepts the name).
+5. Proxy: **`mergeProxyResponse` / `wrapResponse`** for CSP/nonce; allow-list `/api` + feeds before tongue ([partial localization](#partial-localization-hybrid-routing)).
+6. Server chrome (Footer): **`getT`** or `next-tongue/navigation/server` — do not import client `createNavigation` into Server Components.
+7. Under `as-needed`, plain **`next/link`** with unprefixed hrefs is fine for root chrome.
+
 ### Existing root layout (`app/layout.tsx`)
 
 Next.js allows `<html>` **only** on the root layout. If you already have `app/layout.tsx` / `src/app/layout.tsx` (theme boot, CSP nonce, providers), **do not** put `<html>` under `[locale]` — scaffolding a nested `<html>` fails. Keep the root document; nest `TongueProvider` only under `[locale]`. `tongue init` detects a root layout and scaffolds the nested layout without `<html>`.
 
 `tongue check` a11y looks at the **root** layout when it sits beside `[locale]`, and accepts `HtmlLang` by name (or `document.documentElement.lang` / `dir` sync). You do not need `strict.a11y: 'off'` for that pattern. Full recipe: [Root-layout chrome](#root-layout-chrome-header--footer-outside-locale).
+
+**Static import of `#tongue/runtime`:** put `import { localeParams } from '#tongue/runtime'` (and `export const generateStaticParams = localeParams`) on the `[locale]` layout. Relying only on getT’s dynamic import can wire a *different* `next-tongue/server` instance in some Turbopack graphs (`TONGUE_E_TYPES_MISSING`). 0.9.16 stores runtime state on `globalThis` so lazy load works, but the static import remains the recommended production pattern. The build table may show `ƒ` instead of `●` after that import — with Proxy / hybrid layouts Next often labels routes dynamic even when `generateStaticParams` still emits pages; confirm with the actual HTML, not only the legend.
 
 ### Partial localization (hybrid routing)
 
@@ -199,12 +213,15 @@ Client `useT` in root chrome needs the call-site loader on the SSR graph (0.9.5+
 
 ### Navigation: `createNavigation` vs plain `next/link`
 
-With `prefix: 'as-needed'`, unprefixed paths (`/submit`, `/dashboard`) plus the proxy are valid. Pick **one** style:
+`next-tongue/navigation` is a **Client Module** (`'use client'`). Importing `createNavigation` / `Link` from a shared `lib/i18n/navigation.ts` into a **Server Component** (Footer, Button, not-found) throws *Attempted to call createNavigation() from the server*.
 
 | Style | Use |
 |---|---|
-| `createNavigation` `Link` / `usePathname` | Localized pathnames, locale switching, prefix always |
-| Plain `next/link` + unprefixed hrefs | as-needed apps that rely on the proxy |
+| `next-tongue/navigation` `createNavigation` | Client components — Link, useRouter, usePathname, LocaleSwitcher |
+| `next-tongue/navigation/server` `createNavigation` | Server Components — `Link` requires explicit `locale` prop; redirect / getPathname |
+| Plain `next/link` + unprefixed hrefs | as-needed apps that rely on the proxy (often simplest for root chrome) |
+
+With `prefix: 'as-needed'`, unprefixed paths (`/submit`, `/dashboard`) plus the proxy are valid.
 
 **Query strings and hashes:** tongue `Link` / `getPathname` preserve `?` and `#`. Prefer the object form with typed pathnames:
 

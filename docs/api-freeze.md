@@ -12,7 +12,8 @@ These entry points and shapes are treated as stable for beta adopters. Breaking 
 | `next-tongue/server` — `getT`, `getFormat`, `getDir`, `localeParams`, `withLocale`, `isLocale`, `setLocalePreference`, … | Explicit `getT(locale, ns)` remains canonical; `getT(ns)` only with `routing.rootParams` |
 | `next-tongue/client` — `TongueProvider`, `useT`, `useFormat`, `useLocale` | |
 | `next-tongue/proxy` — `createProxy`, `verifyLocalePreference` | |
-| `next-tongue/navigation` — `createNavigation` | |
+| `next-tongue/navigation` — `createNavigation` | Client Module |
+| `next-tongue/navigation/server` — `createNavigation` | Server Components; `Link` requires `locale` |
 | `next-tongue/next` — `withTongue` | |
 | CLI: `tongue build \| check \| extract \| init \| export \| import \| report \| translate \| migrate` | Flags documented in [CLI](cli.md) |
 

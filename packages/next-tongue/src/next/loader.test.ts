@@ -83,6 +83,21 @@ export function Auth({ mode }) {
     expect(code).not.toMatch(/t\.dynamic\s*\(/);
   });
 
+  it('rewrites from: [...same-file const]', () => {
+    const src = `
+import { useT } from 'next-tongue/client';
+const NAV_KEYS = ['research', 'about'] as const;
+export function Nav({ key }) {
+  const t = useT('nav');
+  return t.dynamic(key, { from: [...NAV_KEYS] });
+}
+`;
+    const { code } = transformCallSites(src, 'auth-spread.tsx');
+    expect(code).toContain('#tongue/msg/nav/research.js');
+    expect(code).toContain('#tongue/msg/nav/about.js');
+    expect(code).not.toMatch(/t\.dynamic\s*\(/);
+  });
+
   it('rewrites from: Object.values(same-file const object)', () => {
     const src = `
 import { useT } from 'next-tongue/client';

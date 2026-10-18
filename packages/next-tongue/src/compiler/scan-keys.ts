@@ -186,13 +186,17 @@ export function extractFromSource(
   const undeclaredDynamics: UndeclaredDynamic[] = [];
   const translators = new Map<string, { ns: string; kind: 'useT' | 'getT' }>();
 
-  // useT('ns') | getT('ns') | getT(locale, 'ns')
+  // useT('ns') | getT('ns') | getT(locale, 'ns') — tolerate type annotations,
+  // multiline args, and trailing `as const` on the namespace literal.
   const declRe =
-    /(?:const|let|var)\s+(\w+)\s*=\s*(?:await\s+)?(useT|getT)\s*\(\s*(?:[^'"\n,]+,\s*)?(['"])([^'"]*)\3\s*\)/g;
+    /(?:const|let|var)\s+(\w+)\s*(?::[^=;]+)?=\s*(?:await\s+)?(useT|getT)\s*\(/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(code)) !== null) {
+    const open = m.index + m[0].length - 1;
+    const ns = namespaceFromCallArgs(code, open);
+    if (ns == null) continue;
     translators.set(m[1]!, {
-      ns: m[4] || '_root',
+      ns: ns || '_root',
       kind: m[2] as 'useT' | 'getT',
     });
   }
@@ -265,6 +269,53 @@ export function extractFromSource(
   }
 
   return { refs: out, dynamicNamespaces, undeclaredDynamics };
+}
+
+/**
+ * Last string-literal argument to getT/useT is the namespace
+ * (`getT(locale, 'home')` → home, `useT('nav')` → nav).
+ */
+function namespaceFromCallArgs(source: string, openParen: number): string | null {
+  let i = openParen + 1;
+  let depth = 1;
+  let inStr: '"' | "'" | null = null;
+  let escape = false;
+  let lastString: string | null = null;
+  let buf = '';
+  for (; i < source.length; i++) {
+    const c = source[i]!;
+    if (inStr) {
+      if (escape) {
+        escape = false;
+        buf += c;
+        continue;
+      }
+      if (c === '\\') {
+        escape = true;
+        buf += c;
+        continue;
+      }
+      if (c === inStr) {
+        lastString = buf;
+        inStr = null;
+        buf = '';
+        continue;
+      }
+      buf += c;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      inStr = c;
+      buf = '';
+      continue;
+    }
+    if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') {
+      depth--;
+      if (depth === 0) break;
+    }
+  }
+  return lastString;
 }
 
 function lineAt(source: string, index: number): number {

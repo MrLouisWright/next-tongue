@@ -13,6 +13,20 @@ describe('extractFromSource', () => {
     expect(refs.map((r) => r.fullKey)).toContain('home.title');
   });
 
+  it('finds getT with type annotation and multiline args', () => {
+    const { refs } = extractFromSource(
+      `
+      const t: Awaited<ReturnType<typeof getT<'home'>>> = await getT(
+        locale ?? 'en',
+        'home' as const,
+      );
+      return t('title');
+      `,
+      'page.tsx',
+    );
+    expect(refs.map((r) => r.fullKey)).toContain('home.title');
+  });
+
   it('ignores t(key) inside comments', () => {
     const { refs } = extractFromSource(
       `

@@ -4,14 +4,40 @@ import { getDir, getOgLocale, isLocale as isLocaleValue } from '../runtime/local
 import { TongueError } from '../errors.js';
 import type { Locale, Namespace } from '../index.js';
 
-let runtimeLocales: readonly string[] = [];
-let runtimeDefaultLocale = 'en';
-let runtimeTimeZone = 'UTC';
-let runtimeRootParams = false;
-let rootLocaleReader: (() => Promise<string>) | undefined;
-let namespaceLoader:
-  | ((namespace: string) => Promise<Record<string, MessageFn>>)
-  | undefined;
+/**
+ * Shared across duplicated `next-tongue/server` module instances (Turbopack/webpack
+ * can load the package once via the app graph and again via `#tongue/runtime`'s
+ * dynamic import). Module-local `let` would leave getT seeing an unwired copy.
+ */
+type ServerRuntimeState = {
+  locales: readonly string[];
+  defaultLocale: string;
+  timeZone: string;
+  rootParams: boolean;
+  rootLocaleReader: (() => Promise<string>) | undefined;
+  namespaceLoader:
+    | ((namespace: string) => Promise<Record<string, MessageFn>>)
+    | undefined;
+};
+
+const SERVER_STATE_KEY = '__nextTongueServerRuntime';
+
+function serverState(): ServerRuntimeState {
+  const g = globalThis as unknown as Record<string, ServerRuntimeState | undefined>;
+  let s = g[SERVER_STATE_KEY];
+  if (!s) {
+    s = {
+      locales: [],
+      defaultLocale: 'en',
+      timeZone: 'UTC',
+      rootParams: false,
+      rootLocaleReader: undefined,
+      namespaceLoader: undefined,
+    };
+    g[SERVER_STATE_KEY] = s;
+  }
+  return s;
+}
 
 /** @internal Used by generated `.tongue/runtime.js` / tests. */
 export function __setServerRuntime(opts: {
@@ -21,41 +47,42 @@ export function __setServerRuntime(opts: {
   rootParams?: boolean;
   /** Injected in tests instead of `next/root-params`. */
   readRootLocale?: () => Promise<string>;
-  loadNamespace?: typeof namespaceLoader;
+  loadNamespace?: ServerRuntimeState['namespaceLoader'];
 }): void {
-  runtimeLocales = opts.locales;
-  runtimeDefaultLocale = opts.defaultLocale;
-  runtimeTimeZone = opts.timeZone ?? 'UTC';
-  runtimeRootParams = opts.rootParams === true;
-  rootLocaleReader = opts.readRootLocale;
-  namespaceLoader = opts.loadNamespace;
+  const s = serverState();
+  s.locales = opts.locales;
+  s.defaultLocale = opts.defaultLocale;
+  s.timeZone = opts.timeZone ?? 'UTC';
+  s.rootParams = opts.rootParams === true;
+  s.rootLocaleReader = opts.readRootLocale;
+  s.namespaceLoader = opts.loadNamespace;
 }
 
 /** Whether `routing.rootParams` is enabled after `ensureTongue()`. */
 export function isRootParamsEnabled(): boolean {
-  return runtimeRootParams;
+  return serverState().rootParams;
 }
 
 /** Configured locales after `ensureTongue()` / `__setServerRuntime`. */
 export function getLocales(): readonly string[] {
-  return runtimeLocales;
+  return serverState().locales;
 }
 
 export function getDefaultLocale(): string {
-  return runtimeDefaultLocale;
+  return serverState().defaultLocale;
 }
 
 /** @deprecated Prefer `getLocales()`; kept for docs that reference `.value`. */
 export const locales = {
   get value() {
-    return runtimeLocales;
+    return serverState().locales;
   },
 };
 
 /** @deprecated Prefer `getDefaultLocale()`. */
 export const defaultLocale = {
   get value() {
-    return runtimeDefaultLocale;
+    return serverState().defaultLocale;
   },
 };
 
@@ -72,8 +99,9 @@ export type MultiT<Ns extends readonly Namespace[]> = {
  * With `routing.rootParams: true`, `getT(ns)` resolves locale from `next/root-params`
  * when the single argument is a configured namespace (not a locale tag).
  *
- * `withTongue()` + generated `#tongue/runtime` auto-wires messages; an explicit
- * `ensureTongue()` call is optional.
+ * Prefer a static `import { localeParams } from '#tongue/runtime'` in the
+ * `[locale]` layout so codegen and getT share one module graph. Lazy load via
+ * getT still works (runtime state lives on `globalThis`).
  */
 export async function getT<const Ns extends readonly [Namespace, ...Namespace[]]>(
   locale: Locale | string,
@@ -109,7 +137,8 @@ export async function getT<N extends Namespace>(
     return getTWithLocale(String(localeOrNs), namespace as N);
   }
   const single = String(localeOrNs);
-  if (runtimeRootParams && runtimeLocales.length && !runtimeLocales.includes(single)) {
+  const s = serverState();
+  if (s.rootParams && s.locales.length && !s.locales.includes(single)) {
     // Treat as namespace when it is not a configured locale tag.
     const locale = await resolveRootLocale();
     return getTWithLocale(locale, single as N);
@@ -124,13 +153,14 @@ async function getTWithLocale<N extends Namespace>(
 ): Promise<TFunction<N>> {
   await ensureRuntime();
   assertLocale(locale);
-  if (!namespaceLoader) {
+  const loader = serverState().namespaceLoader;
+  if (!loader) {
     throw new TongueError(
       'TONGUE_E_TYPES_MISSING',
-      'Message modules not loaded. Wrap next.config with withTongue() and run `tongue build && next build` so `#tongue/runtime` exists. (ensureTongue() is optional — getT loads it automatically.)',
+      'Message modules not loaded. Wrap next.config with withTongue(), run `tongue build && next build`, and statically import `#tongue/runtime` in app/[locale]/layout (e.g. `import { localeParams } from \'#tongue/runtime\'`). package.json must map `"#tongue/*": "./.tongue/*.js"`.',
     );
   }
-  const messages = await namespaceLoader(ns);
+  const messages = await loader(ns);
   return createT({
     locale,
     messages,
@@ -144,10 +174,11 @@ async function getTWithLocale<N extends Namespace>(
 
 /**
  * Load `#tongue/runtime` and call `ensureTongue()` once when the server runtime
- * is not yet wired (withTongue apps — no per-page ensureTongue boilerplate).
+ * is not yet wired. Prefer a static import in the [locale] layout; this lazy
+ * path uses globalThis so it shares state with that import.
  */
 async function ensureRuntime(): Promise<void> {
-  if (namespaceLoader) return;
+  if (serverState().namespaceLoader) return;
   try {
     const importer = new Function('s', 'return import(s)') as (
       s: string,
@@ -164,8 +195,9 @@ export async function getFormat(
   options?: { timeZone?: string },
 ): Promise<Format> {
   await ensureRuntime();
+  const s = serverState();
   const resolved =
-    locale ?? (runtimeRootParams ? await resolveRootLocale() : undefined);
+    locale ?? (s.rootParams ? await resolveRootLocale() : undefined);
   if (resolved == null) {
     throw new TongueError(
       'TONGUE_E_LOCALE',
@@ -175,7 +207,7 @@ export async function getFormat(
   assertLocale(resolved);
   return createFormat({
     locale: resolved,
-    timeZone: options?.timeZone ?? runtimeTimeZone,
+    timeZone: options?.timeZone ?? s.timeZone,
   });
 }
 
@@ -193,7 +225,8 @@ async function importRootParams(): Promise<{
 }
 
 async function resolveRootLocale(): Promise<string> {
-  if (rootLocaleReader) return rootLocaleReader();
+  const reader = serverState().rootLocaleReader;
+  if (reader) return reader();
   try {
     const mod = await importRootParams();
     if (typeof mod.locale !== 'function') {
@@ -219,16 +252,17 @@ async function resolveRootLocale(): Promise<string> {
 
 export function isLocale(value: unknown): value is string {
   if (typeof value !== 'string' || value === '') return false;
+  const configured = serverState().locales;
   // Match assertLocale: empty allow-list means runtime not wired yet.
-  if (!runtimeLocales.length) {
+  if (!configured.length) {
     return !/[\0\r\n\\/]/.test(value) && !value.includes('..');
   }
-  return isLocaleValue(value, runtimeLocales);
+  return isLocaleValue(value, configured);
 }
 
 /** Use as `export const generateStaticParams = localeParams` on `app/[locale]/layout`. */
 export function localeParams(): { locale: string }[] {
-  return runtimeLocales.map((locale) => ({ locale }));
+  return serverState().locales.map((locale) => ({ locale }));
 }
 
 export function createTranslator(locale: string) {
@@ -313,10 +347,11 @@ export type {
 } from './request-locale.js';
 
 function assertLocale(locale: string): void {
-  if (runtimeLocales.length && !runtimeLocales.includes(locale)) {
+  const configured = serverState().locales;
+  if (configured.length && !configured.includes(locale)) {
     throw new TongueError(
       'TONGUE_E_LOCALE',
-      `Locale "${locale}" is not in configured locales [${runtimeLocales.join(', ')}]`,
+      `Locale "${locale}" is not in configured locales [${configured.join(', ')}]`,
     );
   }
 }

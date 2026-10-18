@@ -9,7 +9,7 @@ import {
   toInternalPathname,
   type PathnameInput,
 } from './pathname.js';
-import type { NavigationConfig } from './index.js';
+import type { NavigationConfig } from './config.js';
 
 export type LocaleSwitcherOption = {
   locale: string;

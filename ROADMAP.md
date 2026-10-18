@@ -125,7 +125,7 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 
 **Acceptance criteria**
 - [x] Decision recorded on an opt-in `getT(ns)` via `next/root-params` ([ADR 0007](docs/adr/0007-root-params-not-default.md), [#24](https://github.com/MrLouisWright/next-tongue/issues/24)): `routing.rootParams: true` + unit tests. Two-root-layout typing still blocked on [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756); stale-cache fix requires Next ≥ 16.3.8 ([#98493](https://github.com/vercel/next.js/issues/98493)).
-- [ ] No breaking changes for 4 weeks; 3+ external production-like apps report success. *(freeze start 2026-10-17; 2/3 external — Noticed Sites, Hallume; see [docs/adopters.md](docs/adopters.md))*
+- [ ] No breaking changes for 4 weeks; 3+ external production-like apps report success. *(freeze start 2026-10-17; **3/3 external** — Noticed Sites, Hallume, louiswright.co.uk; quiet window until ~2026-11-14; see [docs/adopters.md](docs/adopters.md))*
 - [x] All docs pages verified against real code (doc examples are type-checked in CI via `pnpm check:docs` / #16).
 
 ## v1.0 — Stable

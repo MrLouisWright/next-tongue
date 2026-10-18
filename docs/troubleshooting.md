@@ -42,7 +42,14 @@
 | `next/root-params` types missing with two root layouts | [vercel/next.js#96756](https://github.com/vercel/next.js/issues/96756) — keep explicit `getT(locale, ns)`; only enable `routing.rootParams` with a single `[locale]` root layout ([ADR 0007](adr/0007-root-params-not-default.md)) |
 | Turbopack: `next/root-params` can only be used inside the App Directory (from `proxy.ts` / middleware) | Fixed in `0.9.1`: server code loads `next/root-params` only via a non-static import when `routing.rootParams` is on. Upgrade, or avoid importing `next-tongue/server` from middleware (prefer `#tongue/runtime` + `next-tongue/proxy` only). |
 | `createProxy()` type/runtime error | Pass `{ locales, defaultLocale, prefix? }` — zero-arg form is invalid |
-| `#tongue/*` not found in `tsc` | Add `compilerOptions.paths["#tongue/*"] = ["./.tongue/*"]` (`tongue init` does this); `package.json` `imports` alone is not enough for TypeScript |
+| `#tongue/*` not found in `tsc` | Add `compilerOptions.paths["#tongue/*"] = ["./.tongue/*"]` + `include` `.tongue/types.d.ts` (`tongue init` does this) |
+| `Cannot find module …/.tongue/runtime` (Node) | package.json `"#tongue/*": "./.tongue/*.js"` — extensionless `./.tongue/*` fails in Node ESM |
+| `TONGUE_E_TYPES_MISSING` after withTongue | Statically import `#tongue/runtime` in `[locale]/layout`; run `tongue build && next build` |
+| `createNavigation()` from the server | Use `next-tongue/navigation/server` (Link needs `locale`) or plain `next/link` under as-needed |
+| `TONGUE_E_NOT_REWRITTEN` / confusing NO_PROVIDER on `t.dynamic` | Loader did not rewrite — use `{ from: KEYS }` or `{ from: [...KEYS] }` with a **same-file** const; imported arrays are not resolved |
+| `LocaleSwitcher` option “active” | Field is **`current`**, not `active` |
+| Build table `●` → `ƒ` after `#tongue/runtime` | Often expected with Proxy / hybrid layouts; `generateStaticParams` can still emit pages — verify HTML output |
+| Unused warnings for every `getT` key | Ensure files are under `scan.include` (default `app,src,components,lib,…`); 0.9.16 hardens multiline / typed `getT` bindings |
 | `<html>` in `app/[locale]/layout` with existing root layout | Invalid in Next — keep `<html>` on root layout; nest `TongueProvider` only under `[locale]` ([hybrid recipe](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)) |
 | `/de/…` 404 on non-localized routes | No partial-localization config — gate in your proxy allow-list and only put localized pages under `[locale]` |
 | Existing `turbopack.rules` for `*.tsx` | `withTongue` **appends** the tongue loader to that glob (array merge); it does not remove your rules |

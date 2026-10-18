@@ -148,8 +148,8 @@ export function useT<N extends Namespace>(namespace?: N): TFunction<N> {
 function createLoaderStubT(locale: string, ns: string): TFunction {
   const fail = (kind: string): never => {
     throw new TongueError(
-      'TONGUE_E_NO_PROVIDER',
-      `useT('${ns}') ${kind} was not rewritten to a per-key import. Ensure withTongue() is applied (loader on SSR + client). Prefer getT on the server for static copy; for dynamic keys use t.dynamic(key, { from: [...] }) with an inline array or a same-file const (imported from arrays are not rewritten).`,
+      'TONGUE_E_NOT_REWRITTEN',
+      `[next-tongue] useT('${ns}') ${kind} was not rewritten to a per-key import (this is not a missing TongueProvider). Ensure withTongue() applies the loader on SSR + client. For t.dynamic use { from: ['a','b'] }, { from: KEYS }, or { from: [...KEYS] } with a same-file const array — imported from-arrays are not resolved.`,
     );
   };
   const t = Object.assign((..._args: unknown[]) => fail('t()'), {

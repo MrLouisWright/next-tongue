@@ -100,7 +100,23 @@ export function resolveFromKeys(
   if (trimmed.startsWith('[')) {
     const arr = takeBalanced(trimmed, 0, '[', ']');
     if (!arr) return null;
-    return extractStringLiterals(arr.slice(1, -1));
+    const inner = arr.slice(1, -1);
+    const literals = extractStringLiterals(inner);
+    // `{ from: [...NAV_KEYS] }` or `{ from: ['a', ...REST] }`
+    const spreadIds = [
+      ...inner.matchAll(/\.\.\.\s*([A-Za-z_$][\w$]*)/g),
+    ].map((m) => m[1]!);
+    if (spreadIds.length > 0) {
+      const fromSpreads: string[] = [];
+      for (const id of spreadIds) {
+        const keys = resolveConstArrayKeys(fileSource, id);
+        if (!keys?.length) return null;
+        fromSpreads.push(...keys);
+      }
+      const merged = [...literals, ...fromSpreads];
+      return merged.length > 0 ? merged : null;
+    }
+    return literals.length > 0 ? literals : null;
   }
 
   const ov = /^Object\.values\(\s*([A-Za-z_$][\w$]*)\s*\)$/.exec(trimmed);

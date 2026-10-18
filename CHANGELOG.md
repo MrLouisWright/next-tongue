@@ -7,6 +7,18 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.16] — 2026-10-18
+
+### Fixed
+- Server runtime state lives on `globalThis` so `#tongue/runtime` + `getT` share one wiring even when Turbopack duplicates `next-tongue/server`.
+- `t.dynamic({ from: [...KEYS] })` resolves same-file const spreads; rewrite misses throw `TONGUE_E_NOT_REWRITTEN` (clearer than `TONGUE_E_NO_PROVIDER`).
+- `tongue check` getT/useT binding scan tolerates type annotations, multiline args, and `as const` on the namespace.
+
+### Added
+- `next-tongue/navigation/server` — server-safe `createNavigation` (`Link` requires `locale`).
+- `tongue init` writes package.json `"#tongue/*": "./.tongue/*.js"`.
+- Existing-site checklist in routing docs; adopter **louiswright.co.uk** (freeze external apps **3/3**).
+
 ## [0.9.15] — 2026-10-18
 
 ### Added

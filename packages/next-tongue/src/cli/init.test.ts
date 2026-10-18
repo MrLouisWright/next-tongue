@@ -40,7 +40,7 @@ describe('cmdInit', () => {
     const pkg = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as {
       imports: Record<string, string>;
     };
-    expect(pkg.imports['#tongue/*']).toBe('./.tongue/*');
+    expect(pkg.imports['#tongue/*']).toBe('./.tongue/*.js');
 
     const ts = JSON.parse(await readFile(join(dir, 'tsconfig.json'), 'utf8')) as {
       include: string[];
