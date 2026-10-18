@@ -175,9 +175,9 @@ export function transformCallSites(
   if (loadedCalls.length > 0) {
     preamble += loadedCalls.join('\n') + '\n';
   }
-  if (!/useLocale/.test(preamble + code) || !/from\s+['"]next-tongue\/client['"]/.test(code)) {
-    preamble += `import { useLocale } from 'next-tongue/client';\n`;
-  }
+  // Injected `useLocale()` calls do NOT count as an import — merge into the
+  // existing next-tongue/client import or add one (Safari ReferenceError otherwise).
+  ({ code, preamble } = ensureUseLocaleImport(code, preamble));
 
   for (const [varName, ns] of translators) {
     if (!escapes(withoutDirs, varName)) continue;
@@ -246,6 +246,55 @@ function escapeRegExp(s: string): string {
 /** Per-useT locale binding so each component function has its own in-scope var. */
 function localeVarFor(varName: string): string {
   return varName === 't' ? '__tongue_locale' : `__tongue_locale_${varName}`;
+}
+
+const USE_LOCALE_IMPORT =
+  /import\s*\{([^}]*)\}\s*from\s*['"]next-tongue\/client['"]/;
+
+/**
+ * Ensure `useLocale` is a real import. Looking for the identifier in the body is
+ * not enough — the loader injects `useLocale()` calls before this runs.
+ */
+export function ensureUseLocaleImport(
+  code: string,
+  preamble: string,
+): { code: string; preamble: string } {
+  const combined = preamble + code;
+  if (USE_LOCALE_IMPORT.test(combined) && /\buseLocale\b/.test(combined.match(USE_LOCALE_IMPORT)?.[1] ?? '')) {
+    return { code, preamble };
+  }
+  if (USE_LOCALE_IMPORT.test(code)) {
+    return {
+      code: code.replace(USE_LOCALE_IMPORT, (full, specs: string) => {
+        if (/\buseLocale\b/.test(specs)) return full;
+        const parts = specs
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        parts.push('useLocale');
+        return full.replace(specs, ` ${parts.join(', ')} `);
+      }),
+      preamble,
+    };
+  }
+  if (USE_LOCALE_IMPORT.test(preamble)) {
+    return {
+      code,
+      preamble: preamble.replace(USE_LOCALE_IMPORT, (full, specs: string) => {
+        if (/\buseLocale\b/.test(specs)) return full;
+        const parts = specs
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        parts.push('useLocale');
+        return full.replace(specs, ` ${parts.join(', ')} `);
+      }),
+    };
+  }
+  return {
+    code,
+    preamble: preamble + `import { useLocale } from 'next-tongue/client';\n`,
+  };
 }
 
 function safeImportIdent(ns: string, key: string): string {

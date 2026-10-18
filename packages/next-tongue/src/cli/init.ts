@@ -60,6 +60,9 @@ export async function cmdInit(opts: InitCliOptions): Promise<void> {
   }
 
   const appRoot = await detectAppRoot(cwd);
+  if (!opts.quiet) {
+    console.log(`tongue init: using ${appRoot}/ for App Router files`);
+  }
   const hasRootLayout = await hasFile(
     cwd,
     `${appRoot}/layout.tsx`,
@@ -108,7 +111,9 @@ export default defineConfig({
     });
   } else if (!opts.quiet) {
     console.log(
-      'tongue init: existing proxy/middleware detected — compose createProxy({ locales, defaultLocale, … }) yourself (see docs/routing-and-proxy.md).',
+      'tongue init: existing proxy/middleware detected — do not overwrite. Compose like:\n\n' +
+        proxyScaffold(locales, defaultLocale, prefix) +
+        '\nSee docs/routing-and-proxy.md#composing-with-your-own-proxy-logic / hybrid routing.',
     );
   }
 

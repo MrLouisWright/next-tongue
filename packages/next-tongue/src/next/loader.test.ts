@@ -136,6 +136,22 @@ return t;
     expect(warnings.some((w) => w.includes('escapes'))).toBe(true);
   });
 
+  it('adds useLocale to the next-tongue/client import (not just the call)', () => {
+    const src = `"use client";
+import { useT } from 'next-tongue/client';
+export function Footer() {
+  const t = useT('nav');
+  return t('home');
+}
+`;
+    const { code } = transformCallSites(src, 'footer.tsx');
+    // Merged into the existing useT import (Safari ReferenceError if call-only)
+    expect(code).toMatch(
+      /import\s*\{\s*useT\s*,\s*useLocale\s*\}\s*from\s*['"]next-tongue\/client['"]/,
+    );
+    expect(code).toContain('const __tongue_locale = useLocale()');
+  });
+
   it('injects __tongue_locale after every useT (multi-component file)', () => {
     const src = `"use client";
 import { useT } from 'next-tongue/client';

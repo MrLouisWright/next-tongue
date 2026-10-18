@@ -7,6 +7,16 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.12] — 2026-10-18
+
+### Fixed
+- Call-site loader **imports** `useLocale` (merges into the existing `next-tongue/client` import). Injecting only the call left Safari with `Can't find variable: useLocale`.
+
+### Added
+- `tongue check` `client-loader` error when a `"use client"` + `useT` rewrite would call `useLocale` without importing it.
+- `#tongue/runtime` exports `prefix` and `routing` (`{ locales, defaultLocale, prefix }`) for createProxy / createNavigation / shells.
+- `withTongue` warns when `.tongue/runtime.js` is missing; `tongue init` logs `src/app` choice and prints a compose snippet when proxy already exists.
+
 ## [0.9.11] — 2026-10-18
 
 ### Fixed

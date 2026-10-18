@@ -57,7 +57,9 @@
 | `.tongue/ns/*.js` syntax error (`continue: continue`) | Reserved message keys sanitized in `0.9.8` (`continue` → export `continue_`) |
 | `ENOTEMPTY` / locked `.tongue` during `tongue build` | `0.9.8` writes to a staging dir then renames; if it still fails, delete `.tongue` and `.tongue.tmp-*` and retry |
 | Nested `TongueProvider` / root chrome | Hybrid (root shell + `[locale]` provider) is OK — see [Routing](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale). Set `devOverlay={false}` on the inner tree |
-| Bare `useLocale()` “for the loader” | Unnecessary — loader injects `__tongue_locale`. Call `useLocale` only when you need the value |
+| Bare `useLocale()` “for the loader” | Unnecessary — loader injects `__tongue_locale` **and** merges `useLocale` into the `next-tongue/client` import (0.9.12). Call `useLocale` only when you need the value |
+| Safari `Can't find variable: useLocale` | Fixed in **0.9.12** — older loaders injected the call without the import. Upgrade; `tongue check` now errors on `client-loader` |
+| `tongue init` wrote root `app/` instead of `src/app` | Init detects `src/app` (logs `using src/app/`). Existing proxy is not overwritten — a compose snippet is printed |
 | API route has no locale | `requestLocale(req, { locales, defaultLocale })` — `x-locale` → `TONGUE_LOCALE` → default |
 | Stale `.tongue` / wrong codegen on Vercel | `"build": "tongue build && next build"` (and `vercel-build`) |
 | Forgot `ensureTongue()` | Optional since 0.9.10 — `withTongue` + `#tongue/runtime` / `getT` auto-wire. Still run `tongue build` |

@@ -45,6 +45,7 @@ export function withTongue<T extends object>(
 
   if (!options.skipBuild) {
     runCodegenSync(cwd, options.config);
+    warnMissingTongueRuntime(cwd);
     void loadConfig({
       cwd,
       ...(options.config != null ? { configPath: options.config } : {}),
@@ -62,6 +63,8 @@ export function withTongue<T extends object>(
           err instanceof Error ? err.message : err,
         );
       });
+  } else {
+    warnMissingTongueRuntime(cwd);
   }
 
   // Next 16: content must be RegExp; omit `as` when returning the same module type
@@ -219,6 +222,15 @@ function warnMissingLocaleParams(cwd: string): void {
 function resolveLoaderPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   return resolve(here, 'loader.js');
+}
+
+function warnMissingTongueRuntime(cwd: string): void {
+  const runtime = join(cwd, '.tongue', 'runtime.js');
+  if (!existsSync(runtime)) {
+    console.warn(
+      '[next-tongue] `.tongue/runtime.js` is missing. Run `npx tongue build` (or use `"build": "tongue build && next build"`). `next dev` without a recent build leaves getT/useT unwired.',
+    );
+  }
 }
 
 function runCodegenSync(cwd: string, configPath?: string): void {

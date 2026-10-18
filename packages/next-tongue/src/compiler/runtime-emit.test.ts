@@ -31,6 +31,8 @@ describe('generated runtime.js', () => {
     const src = await readFile(runtimePath, 'utf8');
     expect(src).toContain('ensureTongue');
     expect(src).toMatch(/ensureTongue\(\);\s*$/m);
+    expect(src).toContain('export const prefix');
+    expect(src).toContain('export const routing');
     expect(src).toContain("from './ns/home.js'");
 
     // Load generated runtime in Node (rewrite next-tongue/server import to our package)

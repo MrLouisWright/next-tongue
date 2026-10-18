@@ -20,7 +20,7 @@ These are first-party, not external. They prove the surfaces an adopter hits; th
 
 | App / org | Contact | Version | Notes |
 |---|---|---|---|
-| Noticed Sites | (beta feedback 2026-10-17 / 10-18) | 0.9.7–0.9.9 | Next 16, ~960 keys, 4 locales; hybrid `[locale]` + root API/auth; root TongueShell; wizard `x-locale`. Drove 0.9.8–0.9.9 (reserved keys, `dynamic` check, `requestLocale`, ICU locale-aware apostrophe, hybrid routing docs). |
+| Noticed Sites | (beta feedback through 2026-10-18) | 0.9.7–0.9.12 | Next 16, ~960 keys, 4 locales; hybrid `[locale]` + root API/auth; root TongueShell. Drove loader/`useLocale` import fix (0.9.12), `t.dynamic`, reserved keys, `requestLocale`, hybrid docs, auto `ensureTongue`. |
 
 File an issue with label `adopter` or a PR updating this table.
 

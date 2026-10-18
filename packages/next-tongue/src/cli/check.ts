@@ -1,8 +1,10 @@
 import { loadConfig } from '../config/load-config.js';
 import { validateCatalog, validateStale } from '../compiler/validate/catalog.js';
 import { validateUsage } from '../compiler/validate/usage.js';
+import { validateClientLoader } from '../compiler/validate/client-loader.js';
 import { validateA11y } from '../compiler/validate/a11y.js';
 import { validateBidi } from '../compiler/validate/bidi.js';
+import { DEFAULT_SCAN_ROOTS } from '../compiler/scan-keys.js';
 import { loadLocaleMessages } from '../compiler/load-messages.js';
 import {
   duplicateSourceKeys,
@@ -43,6 +45,9 @@ export async function cmdCheck(opts: CheckCliOptions): Promise<void> {
     })),
   );
   issues.push(...(await validateUsage(config, cwd)));
+  const scanRoots =
+    config.scan.include.length > 0 ? config.scan.include : DEFAULT_SCAN_ROOTS;
+  issues.push(...(await validateClientLoader(cwd, scanRoots)));
   issues.push(
     ...(await validateStale(config, cwd, {
       ...(localeFilter ? { locales: localeFilter } : {}),

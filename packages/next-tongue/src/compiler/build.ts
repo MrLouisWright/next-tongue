@@ -172,8 +172,8 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
   const emitLocales = localesForEmit(config);
 
   // Content hash for idempotency (bump CODEGEN_VERSION when emit format changes)
-  // Bump when emit shape changes (reserved idents, auto ensureTongue side-effect).
-  const CODEGEN_VERSION = 9;
+  // Bump when emit shape changes (reserved idents, auto ensureTongue, routing export).
+  const CODEGEN_VERSION = 10;
   const hash = createHash('sha256')
     .update(
       JSON.stringify({
@@ -434,10 +434,13 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
       ? `export const locales = process.env.NODE_ENV === 'production' ? productionLocales : allLocales;`
       : `export const locales = allLocales;`,
     `export const defaultLocale = ${JSON.stringify(config.defaultLocale)};`,
+    `export const prefix = ${JSON.stringify(config.routing.prefix)};`,
     `export const timeZone = ${JSON.stringify(config.timeZone)};`,
     config.pseudo && config.pseudo.enabled !== false
       ? `export const pseudoLocale = ${JSON.stringify(config.pseudo.locale)};`
       : `export const pseudoLocale = undefined;`,
+    `/** Single source of truth for createProxy / createNavigation / TongueShell. */`,
+    `export const routing = { locales, defaultLocale, prefix };`,
     `export function localeParams() {`,
     `  return locales.map((locale) => ({ locale }));`,
     `}`,
@@ -473,8 +476,10 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
       `export declare const allLocales: readonly string[];`,
       `export declare const locales: readonly string[];`,
       `export declare const defaultLocale: string;`,
+      `export declare const prefix: 'always' | 'as-needed' | 'never';`,
       `export declare const timeZone: string;`,
       `export declare const pseudoLocale: string | undefined;`,
+      `export declare const routing: { locales: readonly string[]; defaultLocale: string; prefix: 'always' | 'as-needed' | 'never' };`,
       `export declare function localeParams(): { locale: string }[];`,
       `export declare function ensureTongue(): void;`,
       ``,

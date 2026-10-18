@@ -10,7 +10,8 @@ export type CheckKind =
   | 'bidi'
   | 'length'
   | 'duplicate'
-  | 'icu';
+  | 'icu'
+  | 'client-loader';
 
 export type CheckSeverity = 'error' | 'warn';
 

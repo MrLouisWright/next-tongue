@@ -22,14 +22,16 @@ export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
 ```
 
 ```ts
-// after tongue build — keep proxy in sync with config
+// after tongue build — single source of truth (no hardcoding locales/prefix)
 import { createProxy } from 'next-tongue/proxy';
-import { defaultLocale, locales } from '#tongue/runtime';
+import { routing } from '#tongue/runtime'; // { locales, defaultLocale, prefix }
 
-export const proxy = createProxy({ locales, defaultLocale, prefix: 'as-needed' });
+export const proxy = createProxy(routing);
 ```
 
-> **Matcher caveat:** `.*\\..*` skips every path containing a dot, so `/de/blog/v1.2` bypasses the proxy (no locale redirect). If you have dotted routes, exclude only real file extensions, e.g. `'/((?!api|_next|.*\\.(?:ico|png|jpg|svg|txt|xml|webmanifest)$).*)'`.
+Same `routing` object feeds `createNavigation(routing)` and client shells (pathname locale allow-list) so tongue.config is the only place that lists locales.
+
+> **Matcher caveat (common gotcha):** a catch-all `.*\\..*` skips **every** path with a dot — including content slugs like `/legal/foo.bar` or `/blog/v1.2`. Prefer excluding only static file extensions, e.g. `'/((?!api|_next|.*\\.(?:ico|png|jpg|jpeg|gif|svg|txt|xml|webmanifest|css|js|map|woff2?)$).*)'`, or drop the dot rule entirely if you do not serve extensioned static files through the proxy.
 
 Localized app routes live under `app/[locale]/` (or `src/app/[locale]/`). The proxy guarantees that by the time a request reaches those routes, the `[locale]` segment is a valid locale.
 
