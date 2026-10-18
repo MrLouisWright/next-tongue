@@ -31,6 +31,21 @@ describe('getT rootParams opt-in (#24)', () => {
     expect(t('root')).toBe('Root');
   });
 
+  it('getT(locale, [ns, …]) returns a map of translators', async () => {
+    __setServerRuntime({
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      loadNamespace: async (ns) => {
+        if (ns === 'home') return { title: () => 'Home' };
+        if (ns === 'common') return { seeAll: () => 'See all' };
+        return {};
+      },
+    });
+    const { home, common } = await getT('en', ['home', 'common']);
+    expect(home('title')).toBe('Home');
+    expect(common('seeAll')).toBe('See all');
+  });
+
   it('getT(ns) reads locale from root-params when enabled', async () => {
     __setServerRuntime({
       locales: ['en', 'de'],

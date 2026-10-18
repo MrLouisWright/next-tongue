@@ -19,6 +19,9 @@ type WebpackConfigLike = {
 /**
  * Config wrapper (not a bundler plugin): runs codegen when Next loads config,
  * maps `#tongue/*` → outDir, registers the call-site loader for Turbopack + webpack.
+ *
+ * Codegen emits `#tongue/runtime` that auto-calls `ensureTongue()` on import;
+ * `getT` / `getFormat` also lazy-import that module — no per-page ensureTongue().
  */
 export function withTongue<T extends object>(
   nextConfig: T = {} as T,

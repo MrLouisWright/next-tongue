@@ -29,6 +29,7 @@ The **default locale's** messages define the types. Other locales are validated 
 | `t('home.inbox', { count: '3' })` | TS error: `string` not assignable to `number` |
 | `t.rich('terms', {})` (namespace `legal`) | TS error: `link` missing |
 | `t.dynamic(k, { from: ['status.typo'] })` | TS error: unknown key in `from` |
+| `t.dynamic('missing', { from: ['ok', 'pending'] as const })` | TS error: key not in `from` |
 | `getT('fr')` when `fr` is not configured | TS error |
 | `<Link href="/abuot">` with `pathnames` set | TS error |
 | `de.json` lacks `home.inbox` | build error/warning per `strict.missing` |

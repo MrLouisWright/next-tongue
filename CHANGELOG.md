@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.10] — 2026-10-18
+
+### Added
+- `getT(locale, ['home', 'common'])` returns `{ home, common }` translators (one await).
+- `t.dynamic` first argument narrowed to `from[number]` when `from` is a const tuple.
+- Auto `ensureTongue`: generated `#tongue/runtime` runs it on import; `getT`/`getFormat` lazy-load that module when using `withTongue` (no per-page boilerplate).
+
 ## [0.9.9] — 2026-10-18
 
 ### Fixed

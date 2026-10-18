@@ -61,11 +61,24 @@ export const defaultLocale = {
 
 export type LocaleProps = { locale: string };
 
+/** Map of translators when loading several namespaces in one call. */
+export type MultiT<Ns extends readonly Namespace[]> = {
+  [K in Ns[number]]: TFunction<K>;
+};
+
 /**
  * Explicit locale (always available): `getT(locale, ns)` or `getT(locale)` for `_root`.
+ * Multi-ns: `getT(locale, ['home', 'common'])` → `{ home, common }` translators.
  * With `routing.rootParams: true`, `getT(ns)` resolves locale from `next/root-params`
  * when the single argument is a configured namespace (not a locale tag).
+ *
+ * `withTongue()` + generated `#tongue/runtime` auto-wires messages; an explicit
+ * `ensureTongue()` call is optional.
  */
+export async function getT<const Ns extends readonly [Namespace, ...Namespace[]]>(
+  locale: Locale | string,
+  namespaces: Ns,
+): Promise<MultiT<Ns>>;
 export async function getT<N extends Namespace>(
   locale: Locale | string,
   namespace: N,
@@ -75,10 +88,25 @@ export async function getT(
 ): Promise<TFunction<'_root'>>;
 export async function getT<N extends Namespace>(
   localeOrNs: Locale | string | N,
-  namespace?: N,
-): Promise<TFunction<N> | TFunction<'_root'>> {
+  namespace?: N | readonly Namespace[],
+): Promise<TFunction<N> | TFunction<'_root'> | MultiT<readonly Namespace[]>> {
   if (namespace !== undefined) {
-    return getTWithLocale(String(localeOrNs), namespace);
+    if (Array.isArray(namespace)) {
+      if (namespace.length === 0) {
+        throw new TongueError(
+          'TONGUE_E_CONFIG',
+          'getT(locale, namespaces) requires a non-empty namespace array',
+        );
+      }
+      const locale = String(localeOrNs);
+      const out = {} as Record<string, TFunction>;
+      // Load sequentially so a single ensureRuntime runs first; namespaces share locale.
+      for (const ns of namespace) {
+        out[ns] = await getTWithLocale(locale, ns as N);
+      }
+      return out as MultiT<readonly Namespace[]>;
+    }
+    return getTWithLocale(String(localeOrNs), namespace as N);
   }
   const single = String(localeOrNs);
   if (runtimeRootParams && runtimeLocales.length && !runtimeLocales.includes(single)) {
@@ -94,11 +122,12 @@ async function getTWithLocale<N extends Namespace>(
   locale: string,
   ns: N,
 ): Promise<TFunction<N>> {
+  await ensureRuntime();
   assertLocale(locale);
   if (!namespaceLoader) {
     throw new TongueError(
       'TONGUE_E_TYPES_MISSING',
-      'Message modules not loaded. Import ensureTongue from `#tongue/runtime` and call it once (layout/page), or wrap next.config with withTongue() and run `tongue build && next build` so `.tongue/` is fresh.',
+      'Message modules not loaded. Wrap next.config with withTongue() and run `tongue build && next build` so `#tongue/runtime` exists. (ensureTongue() is optional — getT loads it automatically.)',
     );
   }
   const messages = await namespaceLoader(ns);
@@ -113,10 +142,28 @@ async function getTWithLocale<N extends Namespace>(
   }) as TFunction<N>;
 }
 
+/**
+ * Load `#tongue/runtime` and call `ensureTongue()` once when the server runtime
+ * is not yet wired (withTongue apps — no per-page ensureTongue boilerplate).
+ */
+async function ensureRuntime(): Promise<void> {
+  if (namespaceLoader) return;
+  try {
+    const importer = new Function('s', 'return import(s)') as (
+      s: string,
+    ) => Promise<{ ensureTongue?: () => void }>;
+    const mod = await importer('#tongue/runtime');
+    mod.ensureTongue?.();
+  } catch {
+    /* fall through — getTWithLocale throws a clear error */
+  }
+}
+
 export async function getFormat(
   locale?: string,
   options?: { timeZone?: string },
 ): Promise<Format> {
+  await ensureRuntime();
   const resolved =
     locale ?? (runtimeRootParams ? await resolveRootLocale() : undefined);
   if (resolved == null) {

@@ -60,6 +60,7 @@
 | Bare `useLocale()` “for the loader” | Unnecessary — loader injects `__tongue_locale`. Call `useLocale` only when you need the value |
 | API route has no locale | `requestLocale(req, { locales, defaultLocale })` — `x-locale` → `TONGUE_LOCALE` → default |
 | Stale `.tongue` / wrong codegen on Vercel | `"build": "tongue build && next build"` (and `vercel-build`) |
+| Forgot `ensureTongue()` | Optional since 0.9.10 — `withTongue` + `#tongue/runtime` / `getT` auto-wire. Still run `tongue build` |
 | Partial i18n 404 / `[locale]` eats `/api` | Allow-list first segments; only call `createProxy` for localized paths — [partial localization](routing-and-proxy.md#partial-localization-hybrid-routing) |
 
 Still stuck? Open an issue with the output of `npx tongue check --json` and your `tongue.config.ts`.

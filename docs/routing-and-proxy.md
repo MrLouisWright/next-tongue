@@ -276,6 +276,8 @@ Always compile messages before Next:
 
 `withTongue` also runs codegen when Next loads config, but an explicit `tongue build` first avoids stale `.tongue` when install/build order skips config evaluation. Reserved message keys (`continue`, `default`, …) are sanitized to valid JS idents since 0.9.8 (`continue_`).
 
+**`ensureTongue()`:** generated `#tongue/runtime` calls it on import, and `getT` / `getFormat` lazy-import that module if needed. Per-page `ensureTongue()` is optional when using `withTongue`.
+
 ## Not found
 
 Add `app/[locale]/not-found.tsx` for localized 404s. Unknown locales should call `notFound()` in the root layout (`isLocale` helper). A global `app/not-found.tsx` handles requests the proxy did not match.

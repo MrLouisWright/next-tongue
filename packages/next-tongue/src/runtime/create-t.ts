@@ -34,9 +34,13 @@ export type TFunction<N extends Namespace = Namespace> = {
         : [values: ArgsFor<N, K>]
   ) => ReactNode;
   has: (key: string) => boolean;
-  dynamic: (
-    key: string,
-    opts: { from: readonly MessageKey<N>[] },
+  /**
+   * Non-literal key from a declared set. `key` is narrowed to `From[number]`
+   * when `from` is a `as const` / readonly tuple of known keys.
+   */
+  dynamic: <const From extends readonly MessageKey<N>[]>(
+    key: From[number],
+    opts: { from: From },
     values?: Record<string, unknown>,
   ) => string;
   ns: <N2 extends Namespace>(namespace: N2) => TFunction<N2>;

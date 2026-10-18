@@ -110,10 +110,13 @@ import { getT } from 'next-tongue/server';
 
 export default async function Page({ params }: PageProps<'/[locale]'>) {
   const { locale } = await params;
+  // Single namespace — or getT(locale, ['home', 'common']) → { home, common }
   const t = await getT(locale, 'home');
   return <h1>{t('title', { name: 'Ada' })}</h1>;
 }
 ```
+
+With `withTongue()`, importing `#tongue/runtime` (or calling `getT`) auto-runs `ensureTongue()` — no per-page boilerplate.
 
 ```tsx
 'use client';

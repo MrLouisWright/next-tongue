@@ -57,7 +57,7 @@ Non-literal keys must **declare their possible keys**; the loader has no type in
 ```tsx
 t.dynamic(status, { from: ['open', 'closed'] }); // loader imports only these two keys
 const FROM = ['open', 'closed'] as const;
-t.dynamic(status, { from: FROM });               // same-file const array also works
+t.dynamic(status, { from: FROM });               // key narrowed to 'open' | 'closed'
 t.dynamic(BTN_KEYS[mode], { from: Object.values(BTN_KEYS) }); // same-file object values
 const s = t.ns('status'); s(status);              // needs loadNamespace / escape path
 ```

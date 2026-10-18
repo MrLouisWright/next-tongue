@@ -62,6 +62,12 @@ tLegal.rich('terms', {});
 // @ts-expect-error — typo in from
 tStatus.dynamic('ok', { from: ['typo'] });
 
+// t.dynamic key narrowed to from members
+const statusFrom = ['ok', 'pending'] as const;
+expectTypeOf(tStatus.dynamic('pending', { from: statusFrom })).toEqualTypeOf<string>();
+// @ts-expect-error — key not in from
+tStatus.dynamic('missing', { from: statusFrom });
+
 // Locale / namespace indexing
 expectTypeOf<Locale>().toEqualTypeOf<'en' | 'de'>();
 expectTypeOf<Namespace>().toEqualTypeOf<'home' | 'legal' | 'status'>();

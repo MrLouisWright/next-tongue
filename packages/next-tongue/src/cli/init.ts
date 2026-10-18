@@ -125,14 +125,12 @@ export default defineConfig({
     path: `${appRoot}/[locale]/page.tsx`,
     kind: 'create',
     content: `import { getT } from 'next-tongue/server';
-import { ensureTongue } from '#tongue/runtime';
 
 export default async function Page({
   params,
 }: {
   params: Promise<{ locale: string }>;
 }) {
-  ensureTongue();
   const { locale } = await params;
   const t = await getT(locale, 'home');
   return (
@@ -314,10 +312,10 @@ export const config = {
 function rootLocaleLayout(): string {
   return `import { notFound } from 'next/navigation';
 import { TongueProvider } from 'next-tongue/client';
-import { getDir, isLocale, localeParams } from 'next-tongue/server';
-import { ensureTongue } from '#tongue/runtime';
+import { getDir, isLocale } from 'next-tongue/server';
+import { localeParams } from '#tongue/runtime';
 
-ensureTongue();
+// Importing #tongue/runtime auto-runs ensureTongue() (withTongue apps).
 export const generateStaticParams = localeParams;
 
 export default async function LocaleLayout({
@@ -347,10 +345,10 @@ export default async function LocaleLayout({
 function nestedLocaleLayout(): string {
   return `import { notFound } from 'next/navigation';
 import { TongueProvider } from 'next-tongue/client';
-import { isLocale, localeParams } from 'next-tongue/server';
-import { ensureTongue } from '#tongue/runtime';
+import { isLocale } from 'next-tongue/server';
+import { localeParams } from '#tongue/runtime';
 
-ensureTongue();
+// Importing #tongue/runtime auto-runs ensureTongue() (withTongue apps).
 export const generateStaticParams = localeParams;
 
 export default async function LocaleLayout({

@@ -30,6 +30,7 @@ describe('generated runtime.js', () => {
     const runtimePath = join(dir, '.tongue', 'runtime.js');
     const src = await readFile(runtimePath, 'utf8');
     expect(src).toContain('ensureTongue');
+    expect(src).toMatch(/ensureTongue\(\);\s*$/m);
     expect(src).toContain("from './ns/home.js'");
 
     // Load generated runtime in Node (rewrite next-tongue/server import to our package)

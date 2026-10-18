@@ -24,7 +24,7 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/server`
 | Export | Signature |
 |---|---|
-| `getT` | `<N extends Namespace>(locale: Locale, namespace?: N) => Promise<T<N>>` |
+| `getT` | `(locale, ns) => Promise<T>` · `(locale, ['home','common']) => Promise<{ home: T; common: T }>` · `(locale) => Promise<T<'_root'>>` — auto-loads `#tongue/runtime` when using `withTongue` |
 | `getFormat` | `(locale: Locale, options?: { timeZone?: string }) => Promise<Format>` — zone defaults to config `timeZone` |
 | `isLocale` | `(value: unknown) => value is Locale` |
 | `localeParams` | `() => { locale: Locale }[]` — export as `generateStaticParams` from `app/[locale]/layout.tsx` (required for a static shell under `cacheComponents`) |
@@ -68,7 +68,7 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 | `t(key, args?)` | `string` — `args` required iff the message has arguments |
 | `t.rich(key, args)` | `ReactNode` — tag args are `(chunks: ReactNode) => ReactNode` |
 | `t.has(key)` | `boolean` |
-| `t.dynamic(key, { from: Key[] }, args?)` | `string` — non-literal key from a declared key set; only those keys ship |
+| `t.dynamic(key, { from: Key[] }, args?)` | `string` — `key` is narrowed to `from[number]` when `from` is a const tuple; only those keys ship |
 | `t.ns(namespace)` | `T<N>` — translator for a whole namespace, for keys only known at runtime; the namespace module ships |
 
 ## `Format`
