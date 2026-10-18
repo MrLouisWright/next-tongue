@@ -93,7 +93,7 @@ Never `LINKS.map(({ key }) => t(key))` on the client — that typechecks and oft
 
 ### `useLocale()` is not a loader ritual
 
-The call-site loader injects `const __tongue_locale = useLocale()` when it rewrites `t('…')` / `t.dynamic`. You do **not** need a bare `useLocale()` (or an unused `const _ = useLocale()`) in source for rewrites to work. Call it only when your component needs the locale string (HtmlLang, fetch headers, etc.).
+The call-site loader injects `const __tongue_locale = useLocale()` (or `__tongue_locale_<var>` for non-`t` bindings) **after every `useT()`**, so each component function in a multi-component file has the locale in scope. You do **not** need a bare `useLocale()` in source for rewrites to work. Call it only when your component needs the locale string (HtmlLang, fetch headers, etc.).
 
 ## Other hooks
 

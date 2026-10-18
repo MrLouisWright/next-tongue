@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.11] — 2026-10-18
+
+### Fixed
+- Call-site loader injects `__tongue_locale` after **every** `useT()` (per component / binding), not only the first in the file — multi-component client modules no longer reference an out-of-scope locale.
+
 ## [0.9.10] — 2026-10-18
 
 ### Added

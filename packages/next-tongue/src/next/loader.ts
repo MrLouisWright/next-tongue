@@ -101,16 +101,26 @@ export function transformCallSites(
     );
   }
 
-  const localeVar = '__tongue_locale';
-  // Inject locale once after the first useT declaration
-  code = code.replace(
-    /((?:const|let|var)\s+\w+\s*=\s*useT\s*\([^)]*\))/,
-    `$1\n  const ${localeVar} = useLocale();`,
-  );
+  // Inject locale after every useT — one binding per translator var so each
+  // component (and multi-useT in one function) has __tongue_locale_* in scope.
+  for (const varName of translators.keys()) {
+    if (escapes(withoutDirs, varName)) continue;
+    const localeVar = localeVarFor(varName);
+    const declRe = new RegExp(
+      `((?:const|let|var)\\s+${escapeRegExp(varName)}\\s*=\\s*useT\\s*\\([^)]*\\))`,
+      'g',
+    );
+    code = code.replace(declRe, (full) => {
+      // Idempotent if a prior pass already injected.
+      if (full.includes(localeVar)) return full;
+      return `${full}\n  const ${localeVar} = useLocale();`;
+    });
+  }
 
   // Replace t.dynamic(expr, { from }, values?) — rewrite from the end so indices stay valid
   for (const [varName, ns] of translators) {
     if (escapes(withoutDirs, varName)) continue;
+    const localeVar = localeVarFor(varName);
     const calls = findDynamicCalls(code, varName).filter((c) => c.keys && c.keys.length > 0);
     for (let ci = calls.length - 1; ci >= 0; ci--) {
       const call = calls[ci]!;
@@ -134,6 +144,7 @@ export function transformCallSites(
   // Replace t('key', values) / t.rich('key', values) with per-key calls
   for (const [varName, ns] of translators) {
     if (escapes(withoutDirs, varName)) continue;
+    const localeVar = localeVarFor(varName);
     for (const { key, ident } of [...imports.values()].filter((i) => i.ns === ns)) {
       const richRe = new RegExp(
         `\\b${escapeRegExp(varName)}\\.rich\\s*\\(\\s*(['"])${escapeRegExp(key)}\\1\\s*(,\\s*([^)]*))?\\)`,
@@ -230,6 +241,11 @@ function escapes(source: string, varName: string): boolean {
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Per-useT locale binding so each component function has its own in-scope var. */
+function localeVarFor(varName: string): string {
+  return varName === 't' ? '__tongue_locale' : `__tongue_locale_${varName}`;
 }
 
 function safeImportIdent(ns: string, key: string): string {

@@ -135,6 +135,44 @@ return t;
     expect(warnings.some((w) => w.includes('TONGUE_W_ESCAPE'))).toBe(true);
     expect(warnings.some((w) => w.includes('escapes'))).toBe(true);
   });
+
+  it('injects __tongue_locale after every useT (multi-component file)', () => {
+    const src = `"use client";
+import { useT } from 'next-tongue/client';
+export function Header() {
+  const t = useT('nav');
+  return t('home');
+}
+export function Footer() {
+  const t = useT('nav');
+  return t('about');
+}
+`;
+    const { code } = transformCallSites(src, 'chrome.tsx');
+    const localeInjects = code.match(/const __tongue_locale = useLocale\(\)/g) ?? [];
+    expect(localeInjects.length).toBe(2);
+    expect(code).toContain('#tongue/msg/nav/home.js');
+    expect(code).toContain('#tongue/msg/nav/about.js');
+    // Each component's rewritten call uses the in-scope locale binding
+    expect(code).toMatch(/__tongue_nav_home\(__tongue_locale\)/);
+    expect(code).toMatch(/__tongue_nav_about\(__tongue_locale\)/);
+  });
+
+  it('uses distinct locale bindings for multiple useT vars in one function', () => {
+    const src = `
+import { useT } from 'next-tongue/client';
+export function Page() {
+  const t = useT('home');
+  const tCommon = useT('common');
+  return t('title') + tCommon('seeAll');
+}
+`;
+    const { code } = transformCallSites(src, 'page.tsx');
+    expect(code).toContain('const __tongue_locale = useLocale()');
+    expect(code).toContain('const __tongue_locale_tCommon = useLocale()');
+    expect(code).toMatch(/__tongue_home_title\(__tongue_locale\)/);
+    expect(code).toMatch(/__tongue_common_seeAll\(__tongue_locale_tCommon\)/);
+  });
 });
 
 describe('splitLeadingDirectives', () => {
