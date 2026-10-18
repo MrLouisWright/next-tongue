@@ -54,7 +54,8 @@ export async function proxy(req: NextRequest) {
     expect(r.code).toContain('function __tongue_user_proxy');
     expect(r.code).toContain('export async function proxy');
     expect(r.code).toContain("x-middleware-next') !== '1'");
-    expect(r.code).toContain('return tongue(req)');
+    expect(r.code).toContain('mergeProxyResponse');
+    expect(r.code).toContain('await tongue(req)');
   });
 
   it('uses __tongueProxy when tongue is already bound', () => {

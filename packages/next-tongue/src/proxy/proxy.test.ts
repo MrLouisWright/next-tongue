@@ -3,6 +3,7 @@ import {
   createProxy,
   isUnsafePath,
   matchLocalePrefix,
+  mergeProxyResponse,
   parseAcceptLanguage,
   sanitizeLocale,
   signLocalePreference,
@@ -315,5 +316,55 @@ describe('sanitizeLocale', () => {
     expect(sanitizeLocale('en%2e%2e', ['en'])).toBeUndefined();
     expect(sanitizeLocale('en\0', ['en'])).toBeUndefined();
     expect(sanitizeLocale('fr', ['en', 'de'])).toBeUndefined();
+  });
+});
+
+describe('mergeProxyResponse', () => {
+  it('keeps CSP from prior next() while preserving tongue rewrite', () => {
+    const prior = new Response(null, {
+      status: 200,
+      headers: {
+        'x-middleware-next': '1',
+        'content-security-policy': "script-src 'nonce-abc'",
+        'x-nonce': 'abc',
+      },
+    });
+    const tongue = new Response(null, {
+      status: 200,
+      headers: {
+        'x-middleware-rewrite': 'http://localhost/en/about',
+        'set-cookie': 'TONGUE_LOCALE=en; Path=/',
+      },
+    });
+    const merged = mergeProxyResponse(prior, tongue);
+    expect(merged.headers.get('x-middleware-rewrite')).toBe(
+      'http://localhost/en/about',
+    );
+    expect(merged.headers.get('x-middleware-next')).toBeNull();
+    expect(merged.headers.get('content-security-policy')).toBe(
+      "script-src 'nonce-abc'",
+    );
+    expect(merged.headers.get('x-nonce')).toBe('abc');
+    expect(merged.headers.get('set-cookie')).toContain('TONGUE_LOCALE');
+  });
+});
+
+describe('createProxy wrapResponse', () => {
+  it('runs wrapResponse on the final response', async () => {
+    const proxy = createProxy({
+      locales: ['en', 'de'],
+      defaultLocale: 'en',
+      prefix: 'always',
+      wrapResponse(res) {
+        const headers = new Headers(res.headers);
+        headers.set('content-security-policy', "default-src 'self'");
+        return new Response(res.body, { status: res.status, headers });
+      },
+    });
+    const res = await proxy(req('/about'));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('content-security-policy')).toBe(
+      "default-src 'self'",
+    );
   });
 });

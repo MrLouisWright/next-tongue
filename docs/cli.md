@@ -12,8 +12,8 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 ## `tongue init`
 Scaffolds config, messages, `proxy.ts`, `[locale]` layout and `withTongue` (see [Getting started](getting-started.md)).
 Writes `export const generateStaticParams = localeParams` in the root `[locale]` layout.
-Flags: `--locales en,de`, `--default en`, `--prefix always|as-needed|never`, `--proxy merge|skip|overwrite` (existing proxy/middleware: merge wires `createProxy`, skip leaves it, overwrite replaces with the scaffold; default `skip`), `--export` (static-export setup, `prefix: 'always'`), `--yes` (non-interactive), `--dry-run`.
-Refuses to overwrite existing files unless `--force` (or `--proxy overwrite` for the proxy file); prints a plan in `--dry-run`.
+Flags: `--locales en,de`, `--default en`, `--prefix always|as-needed|never`, `--proxy merge|skip|overwrite` (existing proxy/middleware: merge wires `createProxy` + `mergeProxyResponse` wrap, skip leaves it, overwrite replaces with the scaffold; default `skip`), `--export` (static-export setup, `prefix: 'always'`), `--yes` (non-interactive), `--dry-run`, `--force` (overwrite existing scaffold files such as the sample `home` page / messages).
+Refuses to overwrite existing files unless `--force` (or `--proxy overwrite` for the proxy file); prints a plan in `--dry-run`. After init, replace or delete the sample `home.*` keys so they are not left in production catalogs.
 
 ## `tongue extract`
 Scans source (`app/`, `src/`, `components/`, `lib/`, `server/`, `actions/` by default; `--include` or `scan.include` in config) for `t()`, `t.rich()`, `useT()` and `getT()` calls and:

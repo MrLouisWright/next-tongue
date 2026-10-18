@@ -4,6 +4,8 @@ export type PathnameInput =
       pathname: string;
       params?: Record<string, string | number>;
       query?: Record<string, string | number | undefined>;
+      /** Fragment without requiring `#` (e.g. `'preferences'` or `'#preferences'`). */
+      hash?: string;
     };
 
 export type GetPathnameArgs = {
@@ -19,6 +21,9 @@ export type GetPathnameArgs = {
 
 /**
  * Build a localized public pathname for links, redirects, and sitemaps.
+ * Query strings and hashes are preserved (stripped before pathnames/prefix,
+ * reattached after). Prefer the object form for typed `pathnames` unions:
+ * `{ pathname: '/dashboard', query: { demo: 1 }, hash: 'prefs' }`.
  */
 export function getPathname(args: GetPathnameArgs): string {
   const {
@@ -29,22 +34,29 @@ export function getPathname(args: GetPathnameArgs): string {
     pathnames,
   } = args;
 
-  let path = resolveHref(href);
+  const { pathname: rawPath, search, hash } = resolveHref(href);
+  let path = rawPath;
 
   if (pathnames) {
     const localized = pathnames[path]?.[locale];
     if (localized) path = localized;
   }
 
-  if (prefix === 'never') return path;
+  if (prefix === 'never') {
+    return path + search + hash;
+  }
 
   if (prefix === 'as-needed' && locale === defaultLocale) {
-    return path;
+    return path + search + hash;
   }
 
   // always, or as-needed for non-default
-  if (path === '/') return `/${locale}`;
-  return `/${locale}${path.startsWith('/') ? path : `/${path}`}`;
+  if (path === '/') {
+    return `/${locale}` + search + hash;
+  }
+  return (
+    `/${locale}${path.startsWith('/') ? path : `/${path}`}` + search + hash
+  );
 }
 
 /** Strip a leading locale segment from a pathname. */
@@ -77,21 +89,64 @@ export function toInternalPathname(
   return pathname;
 }
 
-function resolveHref(href: PathnameInput): string {
-  if (typeof href === 'string') return href.startsWith('/') ? href : `/${href}`;
-  let path = href.pathname.startsWith('/') ? href.pathname : `/${href.pathname}`;
+function resolveHref(href: PathnameInput): {
+  pathname: string;
+  search: string;
+  hash: string;
+} {
+  if (typeof href === 'string') {
+    return splitPathSearchHash(href.startsWith('/') ? href : `/${href}`);
+  }
+
+  let path = href.pathname.startsWith('/')
+    ? href.pathname
+    : `/${href.pathname}`;
+  // Object pathname should be path-only; tolerate accidental ?/#.
+  const split = splitPathSearchHash(path);
+  path = split.pathname;
+
   if (href.params) {
     for (const [key, value] of Object.entries(href.params)) {
       path = path.replace(`[${key}]`, encodeURIComponent(String(value)));
     }
   }
+
+  let search = split.search;
   if (href.query) {
     const qs = new URLSearchParams();
     for (const [key, value] of Object.entries(href.query)) {
       if (value != null) qs.set(key, String(value));
     }
     const s = qs.toString();
-    if (s) path += `?${s}`;
+    search = s ? `?${s}` : '';
   }
-  return path;
+
+  let hash = split.hash;
+  if (href.hash != null && href.hash !== '') {
+    hash = href.hash.startsWith('#') ? href.hash : `#${href.hash}`;
+  }
+
+  return { pathname: path, search, hash };
+}
+
+/** Split `/path?q=1#hash` into parts (pathnames lookup needs the path alone). */
+export function splitPathSearchHash(full: string): {
+  pathname: string;
+  search: string;
+  hash: string;
+} {
+  let path = full;
+  let hash = '';
+  let search = '';
+  const hashIdx = path.indexOf('#');
+  if (hashIdx >= 0) {
+    hash = path.slice(hashIdx);
+    path = path.slice(0, hashIdx);
+  }
+  const qIdx = path.indexOf('?');
+  if (qIdx >= 0) {
+    search = path.slice(qIdx);
+    path = path.slice(0, qIdx);
+  }
+  return { pathname: path || '/', search, hash };
 }

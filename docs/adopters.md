@@ -20,7 +20,7 @@ These are first-party, not external. They prove the surfaces an adopter hits; th
 
 | App / org | Contact | Version | Notes |
 |---|---|---|---|
-| Noticed Sites | (beta feedback through 2026-10-18) | 0.9.7–0.9.12 | Next 16, ~960 keys, 4 locales; hybrid `[locale]` + root API/auth; root TongueShell. Drove loader/`useLocale` import fix (0.9.12), `t.dynamic`, reserved keys, `requestLocale`, hybrid docs, auto `ensureTongue`. |
+| Noticed Sites / Hallume | (beta feedback through 2026-10-18) | 0.9.7–0.9.15 | Next 16, ~960 keys, 4 locales; hybrid `[locale]` + root API/auth; root TongueShell. Drove loader/`useLocale` import fix (0.9.12), `t.dynamic`, reserved keys, `requestLocale`, hybrid docs, auto `ensureTongue`, `--proxy merge` + CSP/`mergeProxyResponse` (0.9.14–0.9.15), `t.rich` ReactNode types, Href query/hash. |
 
 File an issue with label `adopter` or a PR updating this table.
 

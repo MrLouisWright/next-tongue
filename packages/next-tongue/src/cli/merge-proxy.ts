@@ -45,7 +45,10 @@ export function mergeProxySource(
     return {
       status: 'merged',
       code: ensureTrailingNewline(replaced),
-      note: `Replaced final NextResponse.next() with ${tongueIdent}(${reqIdent}). Early next() returns (allow-lists) are kept.`,
+      note:
+        `Replaced final NextResponse.next() with ${tongueIdent}(${reqIdent}). ` +
+        `Early next() returns (allow-lists) are kept. ` +
+        `If you stamp CSP/nonce on next(), use createProxy({ wrapResponse }) or mergeProxyResponse — see routing docs.`,
     };
   }
 
@@ -55,7 +58,10 @@ export function mergeProxySource(
     return {
       status: 'merged',
       code: ensureTrailingNewline(wrapped),
-      note: `Wrapped existing handler: user Response wins unless it is a passthrough next; otherwise ${tongueIdent} runs.`,
+      note:
+        `Wrapped existing handler: non-passthrough user Response wins (auth/maintenance); ` +
+        `passthrough next() → ${tongueIdent} with mergeProxyResponse (keeps CSP/nonce). ` +
+        `Rewrites to paths under [locale] must include the locale segment.`,
     };
   }
 
@@ -164,14 +170,48 @@ function wrapExportedHandler(
   const inner = `__tongue_user_${name}`;
   let out = code.slice(0, m.index) + `${asyncKw}function ${inner}(` + code.slice(m.index + m[0].length);
 
+  // Prefer non-passthrough user Response (auth redirect, maintenance rewrite).
+  // Passthrough next() → tongue, then mergeProxyResponse so CSP/nonce on the
+  // user next() are not dropped.
+  out = ensureMergeProxyResponseImport(out);
+  // Outer wrapper is always async — createProxy returns a Promise.
   out +=
-    `\n\nexport ${asyncKw}function ${name}(${reqIdent}: Parameters<typeof ${inner}>[0]) {\n` +
+    `\n\nexport async function ${name}(${reqIdent}: Parameters<typeof ${inner}>[0]) {\n` +
     `  const __user = ${asyncKw ? 'await ' : ''}${inner}(${reqIdent});\n` +
     `  if (__user && __user.headers?.get?.('x-middleware-next') !== '1') return __user;\n` +
-    `  return ${tongueIdent}(${reqIdent});\n` +
+    `  const __tongue = await ${tongueIdent}(${reqIdent});\n` +
+    `  return __user ? mergeProxyResponse(__user, __tongue) : __tongue;\n` +
     `}\n`;
 
   return out;
+}
+
+function ensureMergeProxyResponseImport(code: string): string {
+  if (/\bmergeProxyResponse\b/.test(code) && CREATE_PROXY_IMPORT.test(code)) {
+    return code.replace(CREATE_PROXY_IMPORT, (full, specs: string) => {
+      if (/\bmergeProxyResponse\b/.test(specs)) return full;
+      const parts = specs
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      parts.push('mergeProxyResponse');
+      return full.replace(specs, ` ${parts.join(', ')} `);
+    });
+  }
+  // ensureCreateProxyImport already ran — add mergeProxyResponse to that import
+  if (CREATE_PROXY_IMPORT.test(code)) {
+    return code.replace(CREATE_PROXY_IMPORT, (full, specs: string) => {
+      if (/\bmergeProxyResponse\b/.test(specs)) return full;
+      const parts = specs
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (!parts.includes('createProxy')) parts.unshift('createProxy');
+      parts.push('mergeProxyResponse');
+      return full.replace(specs, ` ${parts.join(', ')} `);
+    });
+  }
+  return code;
 }
 
 export const PROXY_CANDIDATES = [

@@ -7,6 +7,20 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.15] — 2026-10-18
+
+### Added
+- `mergeProxyResponse(prior, tongue)` and `createProxy({ wrapResponse })` so CSP/nonce on a prior `NextResponse.next()` survive locale rewrite/redirect.
+- `--proxy merge` wrap now merges passthrough `next()` headers via `mergeProxyResponse`.
+- `PathnameInput.hash` and string hrefs with `?` / `#` preserved through `getPathname` / `Link` (pathnames lookup uses the path alone).
+- `getDir` re-exported from `next-tongue/client` for HtmlLang helpers.
+
+### Fixed
+- Generated `t.rich` tag args are `(chunks: ReactNode) => ReactNode` (was `unknown`).
+
+### Docs
+- First-class hybrid root `<html>` + HtmlLang + nested `TongueProvider` recipe; server `getT` footer; maintenance/auth rewrite trap next to compose; init sample `home` cleanup / `--force`.
+
 ## [0.9.14] — 2026-10-18
 
 ### Added

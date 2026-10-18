@@ -37,7 +37,9 @@ Localized app routes live under `app/[locale]/` (or `src/app/[locale]/`). The pr
 
 ### Existing root layout (`app/layout.tsx`)
 
-Next.js allows `<html>` **only** on the root layout. If you already have `app/layout.tsx` / `src/app/layout.tsx`, keep `lang` / `dir` there (or sync with a small client helper). The `[locale]` layout should wrap with `TongueProvider` only — `tongue init` detects this and scaffolds accordingly. `tongue check` a11y accepts lang/dir on the root layout, or set `strict.a11y: 'off'`.
+Next.js allows `<html>` **only** on the root layout. If you already have `app/layout.tsx` / `src/app/layout.tsx` (theme boot, CSP nonce, providers), **do not** put `<html>` under `[locale]` — scaffolding a nested `<html>` fails. Keep the root document; nest `TongueProvider` only under `[locale]`. `tongue init` detects a root layout and scaffolds the nested layout without `<html>`.
+
+`tongue check` a11y looks at the **root** layout when it sits beside `[locale]`, and accepts `HtmlLang` by name (or `document.documentElement.lang` / `dir` sync). You do not need `strict.a11y: 'off'` for that pattern. Full recipe: [Root-layout chrome](#root-layout-chrome-header--footer-outside-locale).
 
 ### Partial localization (hybrid routing)
 
@@ -81,17 +83,18 @@ export function proxy(req: NextRequest) {
 
 ### Root-layout chrome (Header / Footer outside `[locale]`)
 
-Shared chrome in `app/layout.tsx` has **no** `params.locale`. Recommended for existing apps that **cannot** move `<html>` into `[locale]`:
+**First-class hybrid recipe** for apps that already own `app/layout.tsx` (theme, CSP, global providers) and cannot move `<html>` into `[locale]`:
 
-1. Keep `<html>` on the root layout.
-2. Wrap Header/Footer in a `TongueShell` that supplies locale (cookie / pathname).
-3. Sync `document.documentElement.lang` / `dir` with a small client `HtmlLang` (tongue check a11y accepts that, or `HtmlLang` by name).
-4. Put a second `TongueProvider` under `[locale]/layout` with `params.locale` (accurate) and usually `devOverlay={false}` so only the root shell shows the overlay.
+1. Keep `<html>` on the root layout (`suppressHydrationWarning` if a client syncs `lang`/`dir`).
+2. Optional root `TongueShell` only if Header/Footer need `useT` / `useLocale` outside `[locale]`.
+3. Sync `document.documentElement.lang` / `dir` with `HtmlLang` (below). `tongue check` a11y accepts a component named `HtmlLang`.
+4. Under `app/[locale]/layout.tsx`: `TongueProvider` with `params.locale` only — **no** nested `<html>`. Prefer `devOverlay={false}` if the root shell already shows the overlay.
 
 ```tsx
-// app/layout.tsx (root)
+// app/layout.tsx (root) — you keep theme / CSP here
 import { TongueShell } from './tongue-shell';
 import { HtmlLang } from './html-lang';
+import { SiteFooter } from './site-footer'; // prefer server getT — see below
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -101,7 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <HtmlLang />
           <Header />
           {children}
-          <Footer />
+          <SiteFooter />
         </TongueShell>
       </body>
     </html>
@@ -110,7 +113,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 ```
 
 ```tsx
-// app/tongue-shell.tsx — client or server; cookie / pathname both work
+// app/html-lang.tsx
+'use client';
+import { useEffect } from 'react';
+import { useLocale, getDir } from 'next-tongue/client';
+
+/** tongue check a11y accepts this name on the root layout tree. */
+export function HtmlLang() {
+  const locale = useLocale();
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = getDir(locale);
+  }, [locale]);
+  return null;
+}
+```
+
+```tsx
+// app/tongue-shell.tsx — only if root chrome uses useT / useLocale
 'use client';
 import { usePathname } from 'next/navigation';
 import { TongueProvider } from 'next-tongue/client';
@@ -125,9 +145,57 @@ export function TongueShell({ children }: { children: React.ReactNode }) {
 }
 ```
 
+```tsx
+// app/[locale]/layout.tsx — nested provider only
+import { notFound } from 'next/navigation';
+import { TongueProvider } from 'next-tongue/client';
+import { isLocale } from 'next-tongue/server';
+import { localeParams } from '#tongue/runtime';
+
+export const generateStaticParams = localeParams;
+
+export default async function LocaleLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
+  return (
+    <TongueProvider locale={locale} devOverlay={false}>
+      {children}
+    </TongueProvider>
+  );
+}
+```
+
+**Server footer (prefer this over `useT` in root chrome):** moving a footer to `useT` pulls `"use cache"` / server-only children into the client graph. Keep year, copyright, and static chrome on the server:
+
+```tsx
+// app/site-footer.tsx — Server Component
+import { cookies } from 'next/headers';
+import { getT } from 'next-tongue/server';
+import { defaultLocale, locales } from '#tongue/runtime';
+
+export async function SiteFooter() {
+  const jar = await cookies();
+  const raw = jar.get('TONGUE_LOCALE')?.value;
+  const locale =
+    raw && (locales as readonly string[]).includes(raw) ? raw : defaultLocale;
+  const t = await getT(locale, 'footer');
+  return (
+    <footer>
+      <p>{t('copyright', { year: new Date().getFullYear() })}</p>
+    </footer>
+  );
+}
+```
+
 **Nested providers:** intentional when root chrome needs a locale *and* `[locale]` pages need `params`-accurate locale. Prefer one provider only if all chrome lives under `[locale]`. Do not nest three deep.
 
-**Alternatives:** translate on the server and pass strings into Header/Footer (no `useT` in root chrome). Client `useT` in root chrome needs the call-site loader on the SSR graph (0.9.5+) — do **not** add a bare `useLocale()` “for the loader”; `withTongue` injects `__tongue_locale` itself. Call `useLocale()` only when you need the string.
+Client `useT` in root chrome needs the call-site loader on the SSR graph (0.9.5+) — do **not** add a bare `useLocale()` “for the loader”; the loader injects `__tongue_locale` and imports `useLocale`. Call `useLocale()` only when you need the string (HtmlLang, fetch headers).
 
 ### Navigation: `createNavigation` vs plain `next/link`
 
@@ -137,6 +205,16 @@ With `prefix: 'as-needed'`, unprefixed paths (`/submit`, `/dashboard`) plus the 
 |---|---|
 | `createNavigation` `Link` / `usePathname` | Localized pathnames, locale switching, prefix always |
 | Plain `next/link` + unprefixed hrefs | as-needed apps that rely on the proxy |
+
+**Query strings and hashes:** tongue `Link` / `getPathname` preserve `?` and `#`. Prefer the object form with typed pathnames:
+
+```tsx
+<Link href={{ pathname: '/dashboard', query: { demo: '1' } }} />
+<Link href={{ pathname: '/cookies', hash: 'preferences' }} />
+// also fine: href="/dashboard?demo=1" or href="/cookies#preferences"
+```
+
+Use plain `next/link` when the href is intentionally outside locale routing (external, hash-only, or a root path the proxy allow-lists). Mixing both is OK if you are deliberate — do not expect tongue `Link` to accept Next’s `{ pathname, query }` object shape; use tongue’s `PathnameInput`.
 
 `createNavigation().usePathname()` already strips the locale prefix (and maps pathnames). If you keep `next/navigation`'s `usePathname`, use `usePathnameWithoutLocale(locales)` or `stripLocalePrefix` for active-state matching — do not hand-roll regexes.
 
@@ -198,32 +276,65 @@ The proxy rewrites `/de/ueber-uns` → `/de/about` (App Router file path) and na
 
 `tongue init` leaves an existing `proxy.ts` / `middleware.ts` alone by default (`--proxy skip`). Pass **`--proxy merge`** to wire `createProxy` into the file without wiping your logic:
 
-- Adds `import { createProxy } from 'next-tongue/proxy'` and `const tongue = createProxy({…})`.
+- Adds `import { createProxy, mergeProxyResponse } from 'next-tongue/proxy'` and `const tongue = createProxy({…})`.
 - Replaces the **final** `return NextResponse.next()` with `return tongue(req)` (early allow-list `next()` returns stay).
-- If there is no `next()` return, wraps the exported `proxy` / `middleware` so a non-passthrough user `Response` wins, then falls back to tongue.
+- If there is no `next()` return, wraps the exported handler: **non-passthrough** user `Response` wins; passthrough `next()` → tongue, then `mergeProxyResponse` so CSP/nonce on the user `next()` are kept.
 
 Use `--proxy overwrite` only when you want the greenfield scaffold instead. Or compose by hand:
 
 ```ts
 import { NextResponse, type NextRequest } from 'next/server';
-import { createProxy } from 'next-tongue/proxy';
+import { createProxy, mergeProxyResponse } from 'next-tongue/proxy';
 
 const tongue = createProxy({
   locales: ['en', 'de'],
   defaultLocale: 'en',
   prefix: 'as-needed',
+  // Re-stamp CSP after tongue when you build the policy in one place:
+  // wrapResponse(res) { … copy nonce onto res …; return res; },
 });
 
 export async function proxy(req: NextRequest) {
-  // your auth / marketing allow-list first
+  // Auth / marketing allow-list first — these return real Responses (not next()).
   if (req.nextUrl.pathname.startsWith('/admin') && !req.cookies.get('session')) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
-  return tongue(req);
+
+  // CSP on next() is lost if you only `return tongue(req)`. Merge or wrapResponse:
+  const prior = NextResponse.next();
+  prior.headers.set('Content-Security-Policy', "script-src 'nonce-…'");
+  return mergeProxyResponse(prior, await tongue(req));
 }
 ```
 
-Optional: `localeDetection`, `resolveLocale`, `onLocale`, `pathnames`, `domains`, `excludeFromDetection`.
+### Maintenance / auth rewrites vs `[locale]`
+
+`--proxy merge` **skips tongue** when your handler returns a non-passthrough response (redirect, rewrite, JSON). That is correct for `/api` allow-lists — and a trap after you move pages under `app/[locale]/`:
+
+```ts
+// After the move, this 404s: there is no app/maintenance — only app/[locale]/maintenance
+if (isDown) return NextResponse.rewrite(new URL('/maintenance', req.url));
+```
+
+Pick one:
+
+| Approach | When |
+|---|---|
+| Keep `/maintenance` (and login) **outside** `[locale]` and return rewrite/redirect **before** tongue | Status / auth pages that must not be locale-prefixed |
+| Rewrite to `/${locale}/maintenance` (or call tongue first, then rewrite) | Localized maintenance UX |
+| Let tongue run, then rewrite in `wrapResponse` | You need locale detection *and* a custom target |
+
+Same idea for auth: `/login` under `[locale]` needs a locale segment (or an allow-listed root route). Document allow-lists next to compose examples so merge mode does not silently bypass locale routing for paths that now live under `[locale]`.
+
+### CSP / response headers
+
+Tongue builds its own `Response` (rewrite / redirect / `x-middleware-next`). Headers you set on a prior `NextResponse.next()` are **not** visible to `createProxy` unless you:
+
+1. **`mergeProxyResponse(prior, await tongue(req))`** — copy CSP, nonce, custom headers onto tongue’s response (used by `--proxy merge` wrap), or
+2. **`createProxy({ wrapResponse })`** — stamp headers on every tongue result (run tongue first/last in one place), or
+3. Stamp CSP **after** tongue in your own compose function.
+
+Optional: `localeDetection`, `resolveLocale`, `onLocale`, `pathnames`, `domains`, `excludeFromDetection`, `wrapResponse`.
 
 ## Locale-aware navigation
 

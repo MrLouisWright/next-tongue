@@ -63,6 +63,8 @@ export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
 
 `tongue init` writes `src/proxy.ts` + `src/app/[locale]/…` when `src/` is present, skips an existing proxy by default (`--proxy merge` wires `createProxy` in place — see [Routing & proxy](routing-and-proxy.md#composing-with-your-own-proxy-logic)), and adds `tsconfig` `paths` for `#tongue/*` (tsc does not honor `package.json` `imports` alone).
 
+**Sample `home` page:** init scaffolds `messages/*/home` (`Welcome, {name}!`) and `app/[locale]/page.tsx`. Replace or delete those keys when you wire real copy — leftover sample strings are easy to ship. Re-run with `--force` to overwrite scaffold files you still have; it will not invent a cleanup of keys you already edited. Prefer deleting unused `home.*` keys (or `tongue extract --prune` after removing the page).
+
 ## 4. Locale layout
 
 **Greenfield** — `[locale]` is the root layout and owns `<html>`:
@@ -88,7 +90,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
 }
 ```
 
-**Existing `app/layout.tsx`** — keep `<html>` on the root layout; `[locale]` only wraps `TongueProvider` (Next forbids nested `<html>`). Sync `lang`/`dir` on the root or via a client helper; or set `strict.a11y: 'off'`.
+**Existing `app/layout.tsx`** — keep `<html>` on the root layout; `[locale]` only wraps `TongueProvider` (Next forbids nested `<html>`). Sync `lang`/`dir` with a client `HtmlLang` — `tongue check` a11y accepts that pattern (see [Routing — root-layout chrome](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)).
 
 `TongueProvider` passes **only the locale string** to client components. It never serialises messages — client components import compiled message modules directly (see [Architecture](architecture.md)).
 

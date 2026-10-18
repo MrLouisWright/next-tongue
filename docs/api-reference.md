@@ -17,7 +17,8 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 ## `next-tongue/proxy`
 | Export | Signature |
 |---|---|
-| `createProxy` | `(options: { locales: readonly string[]; defaultLocale: string; prefix?; pathnames?; domains?; localeDetection?; localeCookie?; excludeFromDetection?; resolveLocale?; onLocale? }) => (req) => Response \| Promise<Response>` — **`locales` + `defaultLocale` required** (zero-arg is invalid) |
+| `createProxy` | `(options: { locales: readonly string[]; defaultLocale: string; prefix?; pathnames?; domains?; localeDetection?; localeCookie?; excludeFromDetection?; resolveLocale?; onLocale?; wrapResponse? }) => (req) => Response \| Promise<Response>` — **`locales` + `defaultLocale` required** (zero-arg is invalid). `wrapResponse` re-stamps headers (CSP/nonce) after routing |
+| `mergeProxyResponse` | `(prior: Response, tongue: Response) => Response` — copy CSP/custom headers from a prior `NextResponse.next()` onto tongue’s rewrite/redirect |
 | `LOCALE_COOKIE_NAME` | `'TONGUE_LOCALE'` — default cookie set by the proxy |
 | `verifyLocalePreference` | `(value: string \| undefined, secret: string, opts?: { locales }) => Promise<Locale \| undefined>` — see [User preferences](user-preferences.md) |
 
@@ -60,13 +61,13 @@ Types used below: `Locale` (union of configured locales), `Namespace`, `MessageK
 | `Link` (from factory) | `next/link` props with `href: Href \| { pathname: Href; params?; query? }` and optional `locale?: Locale` |
 | `redirect`, `permanentRedirect` | `(args: { href: Href \| {...}; locale: Locale }) => never` |
 | `LocaleSwitcher` / `useLocaleSwitcher` | headless switcher — see [#44](https://github.com/MrLouisWright/next-tongue/issues/44) |
-| `useRouter` / `usePathname` / `getPathname` | from factory; pathname helpers strip locale prefix / apply `pathnames` |
+| `useRouter` / `usePathname` / `getPathname` | from factory; pathname helpers strip locale prefix / apply `pathnames`; `href` may be a string with `?`/`#` or `{ pathname, params?, query?, hash? }` |
 
 ## The translator `T<N>`
 | Member | Signature |
 |---|---|
 | `t(key, args?)` | `string` — `args` required iff the message has arguments |
-| `t.rich(key, args)` | `ReactNode` — tag args are `(chunks: ReactNode) => ReactNode` |
+| `t.rich(key, args)` | `ReactNode` — tag args are `(chunks: ReactNode) => ReactNode` (codegen; not `unknown`) |
 | `t.has(key)` | `boolean` |
 | `t.dynamic(key, { from: Key[] }, args?)` | `string` — `key` is narrowed to `from[number]` when `from` is a const tuple; only those keys ship |
 | `t.ns(namespace)` | `T<N>` — translator for a whole namespace, for keys only known at runtime; the namespace module ships |

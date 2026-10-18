@@ -68,6 +68,15 @@ export type CreateProxyOptions = {
     req: TongueProxyRequest,
   ) => string | undefined | Promise<string | undefined>;
   onLocale?: (locale: string, req: TongueProxyRequest) => void;
+  /**
+   * Post-process every tongue response (redirect / rewrite / next).
+   * Use to re-stamp CSP / nonce headers after locale routing — tongue does
+   * not preserve headers from a prior `NextResponse.next()`.
+   */
+  wrapResponse?: (
+    res: Response,
+    req: TongueProxyRequest,
+  ) => Response | Promise<Response>;
 };
 
 /** Default locale cookie name (`SameSite=Lax`). Use with `requestLocale` in API routes. */
@@ -115,38 +124,144 @@ export function createProxy(options: CreateProxyOptions): (
     );
   }
 
-  return async (req: TongueProxyRequest) => {
-    const { pathname } = req.nextUrl;
-    const https = isHttpsRequest(req);
+  const wrap = options.wrapResponse;
 
-    if (isUnsafePath(pathname)) {
-      return passthrough(cookieCfg, null, https);
+  return async (req: TongueProxyRequest) => {
+    const res = await handleProxyRequest(req, {
+      locales,
+      defaultLocale,
+      prefix,
+      localeDetection,
+      pathnames,
+      domains,
+      cookieCfg,
+      excludeDetection,
+      localeSet,
+      detectionMatcher,
+      options,
+    });
+    return wrap ? await wrap(res, req) : res;
+  };
+}
+
+type ProxyHandleCtx = {
+  locales: string[];
+  defaultLocale: string;
+  prefix: 'always' | 'as-needed' | 'never';
+  localeDetection: boolean;
+  pathnames: CreateProxyOptions['pathnames'];
+  domains: CreateProxyOptions['domains'];
+  cookieCfg: LocaleCookieConfig | false;
+  excludeDetection: Set<string>;
+  localeSet: Set<string>;
+  detectionMatcher: LocaleMatcher;
+  options: CreateProxyOptions;
+};
+
+async function handleProxyRequest(
+  req: TongueProxyRequest,
+  ctx: ProxyHandleCtx,
+): Promise<Response> {
+  const {
+    locales,
+    defaultLocale,
+    prefix,
+    localeDetection,
+    pathnames,
+    domains,
+    cookieCfg,
+    excludeDetection,
+    localeSet,
+    detectionMatcher,
+    options,
+  } = ctx;
+  const { pathname } = req.nextUrl;
+  const https = isHttpsRequest(req);
+
+  if (isUnsafePath(pathname)) {
+    return passthrough(cookieCfg, null, https);
+  }
+
+  const domain = matchDomain(req, domains);
+  const activeLocales = domain?.locales ? [...domain.locales] : locales;
+  const activeDefault = domain?.defaultLocale ?? defaultLocale;
+  const activeSet = new Set(activeLocales);
+  const activeMatcher =
+    activeLocales.length === locales.length
+      ? detectionMatcher
+      : createLocaleMatcher(
+          activeLocales.filter((l) => !excludeDetection.has(l)),
+        );
+
+  const matched = matchLocalePrefix(pathname, localeSet);
+
+  if (matched && (!domain || activeSet.has(matched.locale))) {
+    const { locale, rest } = matched;
+    const publicRest = rest === '' ? '/' : rest;
+    const internal = toInternalPathname(publicRest, locale, pathnames);
+
+    if (prefix === 'as-needed' && locale === activeDefault) {
+      // Canonicalize default-locale URLs without the prefix.
+      const dest = publicPathForLocale(internal, locale, pathnames);
+      const redirectUrl = req.nextUrl.clone();
+      redirectUrl.pathname = dest;
+      options.onLocale?.(locale, req);
+      return redirectResponse(
+        redirectUrl.toString(),
+        308,
+        cookieCfg,
+        locale,
+        https,
+      );
     }
 
-    const domain = matchDomain(req, domains);
-    const activeLocales = domain?.locales ? [...domain.locales] : locales;
-    const activeDefault = domain?.defaultLocale ?? defaultLocale;
-    const activeSet = new Set(activeLocales);
-    const activeMatcher =
-      activeLocales.length === locales.length
-        ? detectionMatcher
-        : createLocaleMatcher(
-            activeLocales.filter((l) => !excludeDetection.has(l)),
-          );
+    options.onLocale?.(locale, req);
+    if (internal !== publicRest) {
+      const url = req.nextUrl.clone();
+      url.pathname = joinLocalePath(locale, internal);
+      return rewriteResponse(url.toString(), cookieCfg, locale, https);
+    }
+    return passthrough(cookieCfg, locale, https);
+  }
 
-    const matched = matchLocalePrefix(pathname, localeSet);
+  const resolved = options.resolveLocale
+    ? await options.resolveLocale(req)
+    : undefined;
+  let locale =
+    sanitizeLocale(resolved, activeLocales) ??
+    (localeDetection
+      ? detectLocale(
+          req,
+          activeLocales,
+          activeDefault,
+          cookieCfg,
+          excludeDetection,
+          activeMatcher,
+          domain,
+        )
+      : activeDefault);
 
-    if (matched && (!domain || activeSet.has(matched.locale))) {
-      const { locale, rest } = matched;
-      const publicRest = rest === '' ? '/' : rest;
-      const internal = toInternalPathname(publicRest, locale, pathnames);
+  locale = sanitizeLocale(locale, activeLocales) ?? activeDefault;
+  options.onLocale?.(locale, req);
 
-      if (prefix === 'as-needed' && locale === activeDefault) {
-        // Canonicalize default-locale URLs without the prefix.
-        const dest = publicPathForLocale(internal, locale, pathnames);
+  const internal = toInternalPathname(pathname, locale, pathnames);
+  // Prefer localized public path when the user hit the internal key.
+  const publicPath = publicPathForLocale(internal, locale, pathnames);
+
+  if (prefix === 'never') {
+    const url = req.nextUrl.clone();
+    url.pathname = joinLocalePath(locale, internal);
+    return rewriteResponse(url.toString(), cookieCfg, locale, https);
+  }
+
+  if (prefix === 'as-needed' && locale === activeDefault) {
+    // Serve default locale without prefix; rewrite to internal app path.
+    if (pathname !== publicPath && pathnames) {
+      // User visited internal `/about` but public is also `/about` — fine.
+      // If they somehow differ for default locale, redirect to public.
+      if (publicPath !== internal && pathname === internal) {
         const redirectUrl = req.nextUrl.clone();
-        redirectUrl.pathname = dest;
-        options.onLocale?.(locale, req);
+        redirectUrl.pathname = publicPath;
         return redirectResponse(
           redirectUrl.toString(),
           308,
@@ -155,74 +270,44 @@ export function createProxy(options: CreateProxyOptions): (
           https,
         );
       }
-
-      options.onLocale?.(locale, req);
-      if (internal !== publicRest) {
-        const url = req.nextUrl.clone();
-        url.pathname = joinLocalePath(locale, internal);
-        return rewriteResponse(url.toString(), cookieCfg, locale, https);
-      }
-      return passthrough(cookieCfg, locale, https);
     }
-
-    const resolved = options.resolveLocale
-      ? await options.resolveLocale(req)
-      : undefined;
-    let locale =
-      sanitizeLocale(resolved, activeLocales) ??
-      (localeDetection
-        ? detectLocale(
-            req,
-            activeLocales,
-            activeDefault,
-            cookieCfg,
-            excludeDetection,
-            activeMatcher,
-            domain,
-          )
-        : activeDefault);
-
-    locale = sanitizeLocale(locale, activeLocales) ?? activeDefault;
-    options.onLocale?.(locale, req);
-
-    const internal = toInternalPathname(pathname, locale, pathnames);
-    // Prefer localized public path when the user hit the internal key.
-    const publicPath = publicPathForLocale(internal, locale, pathnames);
-
-    if (prefix === 'never') {
-      const url = req.nextUrl.clone();
-      url.pathname = joinLocalePath(locale, internal);
-      return rewriteResponse(url.toString(), cookieCfg, locale, https);
-    }
-
-    if (prefix === 'as-needed' && locale === activeDefault) {
-      // Serve default locale without prefix; rewrite to internal app path.
-      if (pathname !== publicPath && pathnames) {
-        // User visited internal `/about` but public is also `/about` — fine.
-        // If they somehow differ for default locale, redirect to public.
-        if (publicPath !== internal && pathname === internal) {
-          const redirectUrl = req.nextUrl.clone();
-          redirectUrl.pathname = publicPath;
-          return redirectResponse(
-            redirectUrl.toString(),
-            308,
-            cookieCfg,
-            locale,
-            https,
-          );
-        }
-      }
-      const url = req.nextUrl.clone();
-      url.pathname = joinLocalePath(activeDefault, internal);
-      return rewriteResponse(url.toString(), cookieCfg, locale, https);
-    }
-
-    // Non-default (or always): redirect to prefixed localized public URL.
-    const destPublic = publicPathForLocale(internal, locale, pathnames);
     const url = req.nextUrl.clone();
-    url.pathname = joinLocalePath(locale, destPublic);
-    return redirectResponse(url.toString(), 307, cookieCfg, locale, https);
-  };
+    url.pathname = joinLocalePath(activeDefault, internal);
+    return rewriteResponse(url.toString(), cookieCfg, locale, https);
+  }
+
+  // Non-default (or always): redirect to prefixed localized public URL.
+  const destPublic = publicPathForLocale(internal, locale, pathnames);
+  const url = req.nextUrl.clone();
+  url.pathname = joinLocalePath(locale, destPublic);
+  return redirectResponse(url.toString(), 307, cookieCfg, locale, https);
+}
+
+/**
+ * Copy response headers from a prior `NextResponse.next()` (CSP, nonce, …)
+ * onto a tongue rewrite/redirect/next response. Skips middleware control
+ * headers (`x-middleware-*`, `Location` when tongue already set one).
+ *
+ * Use when you stamp headers on `next()` then call tongue — tongue alone
+ * cannot see those headers.
+ */
+export function mergeProxyResponse(prior: Response, tongue: Response): Response {
+  const headers = new Headers(tongue.headers);
+  prior.headers.forEach((value, key) => {
+    const k = key.toLowerCase();
+    if (k.startsWith('x-middleware-')) return;
+    if (k === 'location' && headers.has('location')) return;
+    if (k === 'set-cookie') {
+      headers.append(key, value);
+      return;
+    }
+    if (!headers.has(key)) headers.set(key, value);
+  });
+  return new Response(tongue.body, {
+    status: tongue.status,
+    statusText: tongue.statusText,
+    headers,
+  });
 }
 
 /** Map internal path → localized public path for a locale. */

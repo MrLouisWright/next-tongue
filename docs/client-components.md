@@ -6,7 +6,9 @@
 
 `TongueProvider` (in your `[locale]` layout, see [Getting started](getting-started.md)) provides the **locale** (and optionally a `timeZone` for `useFormat`, see [ADR 0008](adr/0008-explicit-time-zone.md)). It does not take a `messages` prop.
 
-Outside `[locale]` (global `app/not-found.tsx`, root `app/layout.tsx` chrome, static-export root) there is no locale param. Wrap those trees in `<TongueProvider locale={…}>` (see [Routing — root-layout chrome](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)). Prefer passing server-translated strings into Header/Footer instead of `useT` in the root layout.
+Outside `[locale]` (global `app/not-found.tsx`, root `app/layout.tsx` chrome, static-export root) there is no locale param. Wrap those trees in `<TongueProvider locale={…}>` only when they need `useT` / `useLocale` (see [Routing — root-layout chrome](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)).
+
+**Prefer a server footer / header:** `useT` in root chrome pulls the module into the client graph and can break `"use cache"` / server-only children (copyright year, CMS snippets). Use `getT(locale, 'footer')` in a Server Component and pass strings down — full recipe in the routing doc.
 
 ## Preferred: translate on the server, pass strings
 

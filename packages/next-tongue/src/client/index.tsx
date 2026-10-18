@@ -189,6 +189,8 @@ export type {
   DisplayNameType,
 } from '../runtime/format.js';
 export { isSanctionedUnit, SIMPLE_UNITS } from '../runtime/format.js';
+/** Isomorphic — safe in client HtmlLang helpers. */
+export { getDir } from '../runtime/locale.js';
 
 export {
   translateIssues,

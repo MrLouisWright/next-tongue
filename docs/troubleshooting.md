@@ -43,7 +43,7 @@
 | Turbopack: `next/root-params` can only be used inside the App Directory (from `proxy.ts` / middleware) | Fixed in `0.9.1`: server code loads `next/root-params` only via a non-static import when `routing.rootParams` is on. Upgrade, or avoid importing `next-tongue/server` from middleware (prefer `#tongue/runtime` + `next-tongue/proxy` only). |
 | `createProxy()` type/runtime error | Pass `{ locales, defaultLocale, prefix? }` — zero-arg form is invalid |
 | `#tongue/*` not found in `tsc` | Add `compilerOptions.paths["#tongue/*"] = ["./.tongue/*"]` (`tongue init` does this); `package.json` `imports` alone is not enough for TypeScript |
-| `<html>` in `app/[locale]/layout` with existing root layout | Invalid in Next — keep `<html>` on root layout; nest `TongueProvider` only under `[locale]` |
+| `<html>` in `app/[locale]/layout` with existing root layout | Invalid in Next — keep `<html>` on root layout; nest `TongueProvider` only under `[locale]` ([hybrid recipe](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)) |
 | `/de/…` 404 on non-localized routes | No partial-localization config — gate in your proxy allow-list and only put localized pages under `[locale]` |
 | Existing `turbopack.rules` for `*.tsx` | `withTongue` **appends** the tongue loader to that glob (array merge); it does not remove your rules |
 | `getServerSnapshot` infinite loop / overlay | Fixed in `0.9.4` (cached snapshot). `0.9.5` also defers `notify()` via `queueMicrotask` so `t()` during render does not update DevOverlay mid-render. Or `devOverlay={false}` |
@@ -61,6 +61,12 @@
 | Bare `useLocale()` “for the loader” | Unnecessary — loader injects `__tongue_locale` **and** merges `useLocale` into the `next-tongue/client` import (0.9.12). Call `useLocale` only when you need the value |
 | Safari `Can't find variable: useLocale` | Fixed in **0.9.12** — older loaders injected the call without the import. Upgrade; `tongue check` now errors on `client-loader` |
 | `tongue init` wrote root `app/` instead of `src/app` | Init detects `src/app` (logs `using src/app/`). Existing proxy: default skip; use `--proxy merge` or `--proxy overwrite` |
+| Nested `<html>` under `[locale]` with existing root layout | Invalid in Next — keep root `<html>`; use HtmlLang + nested `TongueProvider` ([hybrid recipe](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)) |
+| CSP / nonce missing after `--proxy merge` | Tongue returns its own Response — use `mergeProxyResponse` or `createProxy({ wrapResponse })` ([compose](routing-and-proxy.md#composing-with-your-own-proxy-logic)) |
+| `/maintenance` (or `/login`) 404 after move under `[locale]` | Early non-passthrough rewrite skips tongue — keep those routes outside `[locale]`, or rewrite to `/${locale}/…` |
+| Sample `home.title` Welcome left in prod | Init scaffold — replace/delete keys; `--force` rewrites scaffold files you still have |
+| `t.rich` tag handlers need `as ReactNode` | Fixed in **0.9.15** — generated args use `ReactNode` |
+| `Link` drops `?demo=1` / `#hash` | Object `{ pathname, query, hash }` or string with `?`/`#` (0.9.15+); or plain `next/link` for non-locale hrefs |
 | API route has no locale | `requestLocale(req, { locales, defaultLocale })` — `x-locale` → `TONGUE_LOCALE` → default |
 | Stale `.tongue` / wrong codegen on Vercel | `"build": "tongue build && next build"` (and `vercel-build`) |
 | Forgot `ensureTongue()` | Optional since 0.9.10 — `withTongue` + `#tongue/runtime` / `getT` auto-wire. Still run `tongue build` |

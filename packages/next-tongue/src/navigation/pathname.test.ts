@@ -70,6 +70,49 @@ describe('getPathname', () => {
       }),
     ).toBe('/en/blog/a?page=2');
   });
+
+  it('preserves query and hash on string hrefs through prefixing', () => {
+    expect(
+      getPathname({
+        href: '/dashboard?demo=1',
+        locale: 'de',
+        prefix: 'as-needed',
+        defaultLocale: 'en',
+      }),
+    ).toBe('/de/dashboard?demo=1');
+    expect(
+      getPathname({
+        href: '/cookies#preferences',
+        locale: 'de',
+        prefix: 'as-needed',
+        defaultLocale: 'en',
+      }),
+    ).toBe('/de/cookies#preferences');
+    expect(
+      getPathname({
+        href: {
+          pathname: '/cookies',
+          query: { tab: '1' },
+          hash: 'preferences',
+        },
+        locale: 'en',
+        prefix: 'as-needed',
+        defaultLocale: 'en',
+      }),
+    ).toBe('/cookies?tab=1#preferences');
+  });
+
+  it('applies pathnames before reattaching query/hash', () => {
+    expect(
+      getPathname({
+        href: '/about?ref=1#top',
+        locale: 'de',
+        prefix: 'always',
+        defaultLocale: 'en',
+        pathnames: { '/about': { de: '/ueber-uns' } },
+      }),
+    ).toBe('/de/ueber-uns?ref=1#top');
+  });
 });
 
 describe('stripLocalePrefix', () => {
