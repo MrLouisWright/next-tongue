@@ -12,8 +12,8 @@ The CLI uses only Node built-ins (`util.parseArgs`, `readline`, `fs`, global `fe
 ## `tongue init`
 Scaffolds config, messages, `proxy.ts`, `[locale]` layout and `withTongue` (see [Getting started](getting-started.md)).
 Writes `export const generateStaticParams = localeParams` in the root `[locale]` layout.
-Flags: `--locales en,de`, `--default en`, `--prefix always|as-needed|never`, `--export` (static-export setup, `prefix: 'always'`), `--yes` (non-interactive), `--dry-run`.
-Refuses to overwrite existing files unless `--force`; prints a diff in `--dry-run`.
+Flags: `--locales en,de`, `--default en`, `--prefix always|as-needed|never`, `--proxy merge|skip|overwrite` (existing proxy/middleware: merge wires `createProxy`, skip leaves it, overwrite replaces with the scaffold; default `skip`), `--export` (static-export setup, `prefix: 'always'`), `--yes` (non-interactive), `--dry-run`.
+Refuses to overwrite existing files unless `--force` (or `--proxy overwrite` for the proxy file); prints a plan in `--dry-run`.
 
 ## `tongue extract`
 Scans source (`app/`, `src/`, `components/`, `lib/`, `server/`, `actions/` by default; `--include` or `scan.include` in config) for `t()`, `t.rich()`, `useT()` and `getT()` calls and:

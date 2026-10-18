@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.14] — 2026-10-18
+
+### Added
+- `tongue init --proxy merge|skip|overwrite`: merge wires `createProxy` into an existing `proxy.ts` / `middleware.ts` (final `NextResponse.next()` → `tongue(req)`, or wrap the handler); skip is the default; overwrite replaces with the scaffold.
+
 ## [0.9.13] — 2026-10-18
 
 ### Added

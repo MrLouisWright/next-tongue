@@ -43,6 +43,8 @@ All pages live under `app/[locale]/`. The proxy guarantees that by the time a re
 
 ## Composing with your own proxy logic
 
+`tongue init --proxy merge` can wire `createProxy` into an existing file (see the [repo docs](https://github.com/MrLouisWright/next-tongue/blob/main/docs/routing-and-proxy.md#composing-with-your-own-proxy-logic)). Or compose by hand:
+
 ```ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { createProxy } from 'next-tongue/proxy';

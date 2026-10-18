@@ -94,7 +94,7 @@ describe('cmdInit', () => {
     expect(layout).toContain('TongueProvider');
   });
 
-  it('skips writing proxy when one already exists', async () => {
+  it('skips writing proxy when one already exists (default)', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'tongue-init-proxy-'));
     await writeFile(join(dir, 'proxy.ts'), '// existing\n');
     await writeFile(
@@ -106,6 +106,62 @@ describe('cmdInit', () => {
 
     const proxy = await readFile(join(dir, 'proxy.ts'), 'utf8');
     expect(proxy).toBe('// existing\n');
+  });
+
+  it('--proxy merge wires createProxy into an existing handler', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'tongue-init-merge-'));
+    await writeFile(
+      join(dir, 'proxy.ts'),
+      `import { NextResponse, type NextRequest } from 'next/server';
+
+export function proxy(req: NextRequest) {
+  if (req.nextUrl.pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
+  return NextResponse.next();
+}
+`,
+    );
+    await writeFile(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: 'app', private: true }, null, 2),
+    );
+
+    await cmdInit({
+      cwd: dir,
+      yes: true,
+      quiet: true,
+      proxyMode: 'merge',
+      locales: 'en,de',
+      default: 'en',
+    });
+
+    const proxy = await readFile(join(dir, 'proxy.ts'), 'utf8');
+    expect(proxy).toContain("from 'next-tongue/proxy'");
+    expect(proxy).toContain('const tongue = createProxy({');
+    expect(proxy).toContain('locales: ["en","de"]');
+    expect(proxy).toContain('return tongue(req)');
+    expect(proxy).toMatch(/startsWith\('\/api'\)[\s\S]*return NextResponse\.next\(\)/);
+  });
+
+  it('--proxy overwrite replaces an existing proxy', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'tongue-init-ow-'));
+    await writeFile(join(dir, 'proxy.ts'), '// existing\n');
+    await writeFile(
+      join(dir, 'package.json'),
+      JSON.stringify({ name: 'app', private: true }, null, 2),
+    );
+
+    await cmdInit({
+      cwd: dir,
+      yes: true,
+      quiet: true,
+      proxyMode: 'overwrite',
+    });
+
+    const proxy = await readFile(join(dir, 'proxy.ts'), 'utf8');
+    expect(proxy).toContain('createProxy({');
+    expect(proxy).not.toContain('// existing');
   });
 
   it('--dry-run writes nothing', async () => {

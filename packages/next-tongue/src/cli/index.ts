@@ -33,6 +33,7 @@ export async function runCli(argv: string[]): Promise<void> {
       prefix: { type: 'string' },
       export: { type: 'boolean', default: false },
       force: { type: 'boolean', default: false },
+      proxy: { type: 'string' },
       format: { type: 'string' },
       out: { type: 'string' },
       'missing-only': { type: 'boolean', default: false },
@@ -131,11 +132,32 @@ export async function runCli(argv: string[]): Promise<void> {
           process.exitCode = 2;
           break;
         }
+        const proxyRaw =
+          typeof values.proxy === 'string' ? values.proxy : undefined;
+        const proxyMode =
+          proxyRaw === 'merge' ||
+          proxyRaw === 'skip' ||
+          proxyRaw === 'overwrite'
+            ? proxyRaw
+            : undefined;
+        if (
+          proxyRaw != null &&
+          proxyRaw !== 'merge' &&
+          proxyRaw !== 'skip' &&
+          proxyRaw !== 'overwrite'
+        ) {
+          console.error(
+            `Invalid --proxy ${JSON.stringify(proxyRaw)} (expected merge|skip|overwrite)`,
+          );
+          process.exitCode = 2;
+          break;
+        }
         await cmdInit({
           ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
           ...(typeof values.locales === 'string' ? { locales: values.locales } : {}),
           ...(typeof values.default === 'string' ? { default: values.default } : {}),
           ...(prefix ? { prefix } : {}),
+          ...(proxyMode ? { proxyMode } : {}),
           export: values.export === true,
           yes: values.yes === true,
           force: values.force === true,
@@ -292,7 +314,7 @@ Usage:
   tongue build [--cwd <dir>] [--config <path>] [--json] [--quiet]
   tongue check [--cwd <dir>] [--config <path>] [--locale de] [--reporter pretty|json|github] [--max-warnings N]
   tongue extract [--include app,src] [--placeholder ''] [--prune] [--yes] [--dry-run]
-  tongue init [--locales en,de] [--default en] [--prefix as-needed] [--export] [--yes] [--force] [--dry-run]
+  tongue init [--locales en,de] [--default en] [--prefix as-needed] [--proxy merge|skip|overwrite] [--export] [--yes] [--force] [--dry-run]
   tongue export --format xliff|csv [--locale de] [--out ./translations] [--missing-only]
   tongue import <file.xlf|file.csv> [--dry-run]
   tongue report [--json] [--max-bytes 4kb]

@@ -196,7 +196,13 @@ The proxy rewrites `/de/ueber-uns` → `/de/about` (App Router file path) and na
 
 ## Composing with your own proxy logic
 
-`tongue init` does **not** overwrite an existing `proxy.ts` / `middleware.ts`. Compose:
+`tongue init` leaves an existing `proxy.ts` / `middleware.ts` alone by default (`--proxy skip`). Pass **`--proxy merge`** to wire `createProxy` into the file without wiping your logic:
+
+- Adds `import { createProxy } from 'next-tongue/proxy'` and `const tongue = createProxy({…})`.
+- Replaces the **final** `return NextResponse.next()` with `return tongue(req)` (early allow-list `next()` returns stay).
+- If there is no `next()` return, wraps the exported `proxy` / `middleware` so a non-passthrough user `Response` wins, then falls back to tongue.
+
+Use `--proxy overwrite` only when you want the greenfield scaffold instead. Or compose by hand:
 
 ```ts
 import { NextResponse, type NextRequest } from 'next/server';

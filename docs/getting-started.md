@@ -61,7 +61,7 @@ export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
 
 > **Matcher caveat:** `.*\\..*` skips every path containing a dot, so `/de/blog/v1.2` bypasses the proxy (no locale redirect). If you have dotted routes, exclude only real file extensions, e.g. `'/((?!api|_next|.*\\.(?:ico|png|jpg|svg|txt|xml|webmanifest)$).*)'`.
 
-`tongue init` writes `src/proxy.ts` + `src/app/[locale]/…` when `src/` is present, skips an existing proxy (compose yourself), and adds `tsconfig` `paths` for `#tongue/*` (tsc does not honor `package.json` `imports` alone).
+`tongue init` writes `src/proxy.ts` + `src/app/[locale]/…` when `src/` is present, skips an existing proxy by default (`--proxy merge` wires `createProxy` in place — see [Routing & proxy](routing-and-proxy.md#composing-with-your-own-proxy-logic)), and adds `tsconfig` `paths` for `#tongue/*` (tsc does not honor `package.json` `imports` alone).
 
 ## 4. Locale layout
 

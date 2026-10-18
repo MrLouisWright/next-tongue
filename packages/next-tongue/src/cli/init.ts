@@ -1,13 +1,22 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import * as readline from 'node:readline';
+import {
+  findExistingProxyPath,
+  mergeProxySource,
+  PROXY_CANDIDATES,
+} from './merge-proxy.js';
 import { resolveInsideProject } from './safe-path.js';
+
+export type ProxyMode = 'merge' | 'skip' | 'overwrite';
 
 export type InitCliOptions = {
   cwd?: string;
   locales?: string;
   default?: string;
   prefix?: 'always' | 'as-needed' | 'never';
+  /** How to treat an existing proxy.ts / middleware.ts. Default: skip. */
+  proxyMode?: ProxyMode;
   export?: boolean;
   yes?: boolean;
   force?: boolean;
@@ -70,7 +79,9 @@ export async function cmdInit(opts: InitCliOptions): Promise<void> {
     `${appRoot}/layout.jsx`,
     `${appRoot}/layout.js`,
   );
-  const proxyPath = await detectProxyPath(cwd, appRoot);
+  const existingProxy = await findExistingProxyPath(cwd, (rel) =>
+    exists(join(cwd, rel)),
+  );
   const plans: PlannedFile[] = [];
 
   plans.push({
@@ -103,16 +114,58 @@ export default defineConfig({
     });
   }
 
-  if (proxyPath) {
+  let proxyMode: ProxyMode = opts.proxyMode ?? 'skip';
+  if (existingProxy && opts.proxyMode == null && interactive) {
+    const answer = await ask(
+      `Existing ${existingProxy} — merge|skip|overwrite [skip]: `,
+      'skip',
+    );
+    if (answer === 'merge' || answer === 'skip' || answer === 'overwrite') {
+      proxyMode = answer;
+    }
+  }
+
+  const scaffold = proxyScaffold(locales, defaultLocale, prefix);
+  if (!existingProxy) {
     plans.push({
-      path: proxyPath,
+      path: detectProxyWritePath(appRoot),
       kind: 'create',
-      content: proxyScaffold(locales, defaultLocale, prefix),
+      content: scaffold,
     });
+  } else if (proxyMode === 'overwrite') {
+    plans.push({
+      path: existingProxy,
+      kind: 'merge',
+      content: scaffold,
+    });
+  } else if (proxyMode === 'merge') {
+    const abs = join(cwd, existingProxy);
+    const src = await readFile(abs, 'utf8');
+    const merged = mergeProxySource(src, {
+      locales,
+      defaultLocale,
+      prefix,
+    });
+    if (merged.status === 'merged') {
+      plans.push({
+        path: existingProxy,
+        kind: 'merge',
+        content: merged.code,
+      });
+      if (!opts.quiet && merged.note) {
+        console.log(`tongue init: ${merged.note}`);
+      }
+    } else if (!opts.quiet) {
+      console.log(
+        `tongue init: could not merge ${existingProxy} (${merged.reason}). Compose like:\n\n` +
+          scaffold +
+          '\nSee docs/routing-and-proxy.md#composing-with-your-own-proxy-logic.',
+      );
+    }
   } else if (!opts.quiet) {
     console.log(
-      'tongue init: existing proxy/middleware detected — do not overwrite. Compose like:\n\n' +
-        proxyScaffold(locales, defaultLocale, prefix) +
+      `tongue init: existing ${existingProxy} — skipped (pass --proxy merge to wire createProxy, or --proxy overwrite). Compose like:\n\n` +
+        scaffold +
         '\nSee docs/routing-and-proxy.md#composing-with-your-own-proxy-logic / hybrid routing.',
     );
   }
@@ -379,28 +432,23 @@ export async function detectAppRoot(cwd: string): Promise<'app' | 'src/app'> {
   return 'app';
 }
 
+/** Where to write a new proxy.ts when none exists. */
+export function detectProxyWritePath(appRoot: 'app' | 'src/app'): string {
+  return appRoot.startsWith('src/') ? 'src/proxy.ts' : 'proxy.ts';
+}
+
 /**
  * Where to write proxy.ts. Returns null when the project already has proxy/middleware
- * (caller should compose manually).
+ * (caller should compose or pass `--proxy merge|overwrite`).
  */
 export async function detectProxyPath(
   cwd: string,
   appRoot: 'app' | 'src/app',
 ): Promise<string | null> {
-  const existing = [
-    'proxy.ts',
-    'proxy.js',
-    'src/proxy.ts',
-    'src/proxy.js',
-    'middleware.ts',
-    'middleware.js',
-    'src/middleware.ts',
-    'src/middleware.js',
-  ];
-  for (const p of existing) {
+  for (const p of PROXY_CANDIDATES) {
     if (await exists(join(cwd, p))) return null;
   }
-  return appRoot.startsWith('src/') ? 'src/proxy.ts' : 'proxy.ts';
+  return detectProxyWritePath(appRoot);
 }
 
 function wrapNextConfig(src: string, staticExport: boolean): string {
