@@ -7,6 +7,11 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.17] — 2026-10-21
+
+### Fixed
+- `tongue --help` / `tongue -h` now exit 0; bare `tongue` (no command, no help flag) still exits 2.
+
 ## [0.9.16] — 2026-10-18
 
 ### Fixed

@@ -54,7 +54,8 @@ export async function runCli(argv: string[]): Promise<void> {
 
   if (!command || values.help) {
     printHelp();
-    if (!command) process.exitCode = 2;
+    // --help/-h is a successful request; only a bare `tongue` is a usage error.
+    if (!command && !values.help) process.exitCode = 2;
     return;
   }
 
