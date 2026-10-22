@@ -50,6 +50,12 @@
 | `LocaleSwitcher` option “active” | Field is **`current`**, not `active` |
 | Build table `●` → `ƒ` after `#tongue/runtime` | Often expected with Proxy / hybrid layouts; `generateStaticParams` can still emit pages — verify HTML output |
 | Unused warnings for every `getT` key | Ensure files are under `scan.include` (default `app,src,components,lib,…`); 0.9.16 hardens multiline / typed `getT` bindings |
+| `t("email")` invalid after adding `email.*` | Same path cannot be leaf + branch — rename group (`mail.*`) or use `email.label` ([ICU](icu-messages.md#never-leaf-and-branch-at-the-same-path)) |
+| `missing=[] extra=[supportEmail]` but EN JSON looks fine | English `couldn't` quotes away `{…}` — use `couldn''t`; mismatch errors show both strings (0.9.18+) |
+| `TONGUE_E_NOT_REWRITTEN` on `t(\`topics.${id}\`)` | Use `t.dynamic(id, { from: TOPIC_IDS })` with a same-file const ([client](client-components.md)) |
+| `TONGUE_W_ESCAPE` passing `t` to children | Pass strings or a same-file literal-key helper — not the whole `t` |
+| LocaleSwitcher / `usePathname` under PPR | Wrap in `<Suspense>` ([cache components](cache-components.md)) |
+| MT produced `__UCI_0__` / broken ICU | Run `tongue check` on target locales before build |
 | `<html>` in `app/[locale]/layout` with existing root layout | Invalid in Next — keep `<html>` on root layout; nest `TongueProvider` only under `[locale]` ([hybrid recipe](routing-and-proxy.md#root-layout-chrome-header--footer-outside-locale)) |
 | `/de/…` 404 on non-localized routes | No partial-localization config — gate in your proxy allow-list and only put localized pages under `[locale]` |
 | Existing `turbopack.rules` for `*.tsx` | `withTongue` **appends** the tongue loader to that glob (array merge); it does not remove your rules |

@@ -2,4 +2,4 @@
 
 Mirror of [docs/adopters.md](https://github.com/MrLouisWright/next-tongue/blob/main/docs/adopters.md).
 
-Five in-repo production-like examples verified with `next build` on 2026-10-17. External adopters: **3/3** (Noticed Sites, Hallume, louiswright.co.uk). Remaining AC: four quiet weeks from freeze start (**2026-10-17** → ~**2026-11-14**).
+External adopters (freeze AC): Noticed Sites, Hallume, louiswright.co.uk, **Serpfull**. Quiet window from freeze start **2026-10-17** → ~**2026-11-14**.

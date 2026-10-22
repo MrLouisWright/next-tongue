@@ -20,6 +20,8 @@ declare module 'next-tongue' {
 
 The **default locale's** messages define the types. Other locales are validated against it (missing keys, extra keys, mismatched args) by the build and `tongue check`.
 
+Nested JSON becomes **flat dotted keys** inside the namespace (`contact.mail.autoSubject` → `t('mail.autoSubject')`). A path cannot be both a leaf and a branch — see [ICU messages](icu-messages.md#never-leaf-and-branch-at-the-same-path). ICU arg types are **per message id**, not shared across the namespace: `{email}` in `errors.rateLimit` does not collide with key `email` unless you confuse the names yourself.
+
 ## What is checked
 
 | Mistake | Result |

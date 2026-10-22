@@ -8,6 +8,7 @@ import { parseMessage } from './parse/icu-parser.js';
 import { loadLocaleMessages, resolveMessagePath } from './load-messages.js';
 import { resolveFallbackChain } from './fallback.js';
 import { checkPluralCategories } from './validate/plurals.js';
+import { formatArgMismatch } from './validate/catalog.js';
 import {
   emitMessageFunction,
   emitRichMessageFunction,
@@ -119,7 +120,17 @@ export async function buildMessages(options: BuildOptions): Promise<BuildResult>
           const missing = Object.keys(args).filter((a) => !(a in otherArgs));
           const extra = Object.keys(otherArgs).filter((a) => !(a in args));
           if (missing.length || extra.length) {
-            const msg = `ICU arg mismatch for "${fullKey}" in "${locale}": missing=[${missing}] extra=[${extra}]`;
+            const msg = formatArgMismatch({
+              fullKey,
+              locale,
+              defaultLocale: config.defaultLocale,
+              defaultSource: source,
+              otherSource: resolved,
+              defaultArgs: Object.keys(args),
+              otherArgs: Object.keys(otherArgs),
+              missingArgs: missing,
+              extraArgs: extra,
+            });
             if (config.strict.mismatch === 'error') {
               throw new TongueError('TONGUE_E_BUILD', msg, { key: fullKey });
             }

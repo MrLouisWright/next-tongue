@@ -24,8 +24,21 @@ export function flattenMessages(
     }
     const full = prefix ? `${prefix}.${key}` : key;
     if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+      if (Object.prototype.hasOwnProperty.call(out, full)) {
+        throw new TongueError(
+          'TONGUE_E_BUILD',
+          `Key "${full}" cannot be both a string leaf and a nested object. Rename the group (e.g. mail.*) or the leaf (e.g. emailLabel).`,
+        );
+      }
       Object.assign(out, flattenMessages(value as NestedMessages, full));
     } else if (typeof value === 'string') {
+      const child = Object.keys(out).find((k) => k.startsWith(`${full}.`));
+      if (child) {
+        throw new TongueError(
+          'TONGUE_E_BUILD',
+          `Key "${full}" collides with nested key "${child}" — the same path cannot be a leaf and a branch. Rename one side.`,
+        );
+      }
       out[full] = value;
     } else {
       throw new TongueError(
@@ -34,7 +47,23 @@ export function flattenMessages(
       );
     }
   }
+  if (prefix === '') assertNoLeafBranchCollisions(out);
   return out;
+}
+
+/** Flat catalogs (e.g. after source merge) must not mix `email` and `email.x`. */
+export function assertNoLeafBranchCollisions(flat: FlatMessages): void {
+  const keys = Object.keys(flat);
+  for (const key of keys) {
+    for (const other of keys) {
+      if (other.length > key.length && other.startsWith(`${key}.`)) {
+        throw new TongueError(
+          'TONGUE_E_BUILD',
+          `Key "${key}" collides with nested key "${other}" — never use the same segment as both a leaf and a branch (e.g. contact.email + contact.email.autoSubject). Rename the group or the leaf.`,
+        );
+      }
+    }
+  }
 }
 
 /** Split "home.title" → { namespace: "home", key: "title" }. Top-level keys use namespace "". */

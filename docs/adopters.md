@@ -23,6 +23,7 @@ These are first-party, not external. They prove the surfaces an adopter hits; th
 | Noticed Sites | (beta feedback through 2026-10-18) | 0.9.7–0.9.15 | Next 16, ~960 keys, 4 locales; hybrid `[locale]` + root API/auth; root TongueShell. Drove loader/`useLocale` import fix (0.9.12), `t.dynamic`, reserved keys, `requestLocale`, hybrid docs, auto `ensureTongue`. |
 | Hallume | (beta feedback through 2026-10-18) | 0.9.14–0.9.15 | Existing root `app/layout.tsx` (theme/CSP); hybrid chrome + HtmlLang; `--proxy merge` / CSP `mergeProxyResponse` / `wrapResponse`; maintenance rewrite vs `[locale]`; `t.rich` ReactNode; Href query/hash; server footer vs client `useT`. |
 | louiswright.co.uk | (beta feedback 2026-10-18) | 0.9.15→0.9.16 | Next 16, existing root layout + CSP proxy, hybrid `[locale]`. Drove `#tongue/*` → `*.js` imports, static `#tongue/runtime` + globalThis server state, `next-tongue/navigation/server`, `t.dynamic` `[...KEYS]`, clearer `TONGUE_E_NOT_REWRITTEN`, getT scanner hardening. |
+| Serpfull | (beta feedback 2026-10-22) | 0.9.16→0.9.18 | Marketing + ~973 keys, EN/ES, Next 16 PPR, server actions, client forms. Drove leaf/branch key docs + collision errors, EN apostrophe+`{…}` ICU hints, richer mismatch diagnostics, `t.dynamic` enum / escape / PPR Suspense / server-action recipes. |
 
 File an issue with label `adopter` or a PR updating this table.
 

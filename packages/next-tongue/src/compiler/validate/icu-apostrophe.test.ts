@@ -12,11 +12,21 @@ describe('ICU apostrophe hints', () => {
     expect(likelyUnescapedApostrophe("it''s")).toBe(false);
   });
 
-  it('skips English locales for CI noise', () => {
+  it('skips bare English contractions without placeholders', () => {
     expect(shouldHintApostrophe('en')).toBe(false);
+    expect(shouldHintApostrophe('en', "don't worry")).toBe(false);
     expect(shouldHintApostrophe('en-GB')).toBe(false);
     expect(shouldHintApostrophe('fr')).toBe(true);
     expect(shouldHintApostrophe('fr-CA')).toBe(true);
     expect(shouldHintApostrophe('it')).toBe(true);
+  });
+
+  it('warns English when a prose apostrophe coexists with {placeholders}', () => {
+    expect(
+      shouldHintApostrophe(
+        'en',
+        "We couldn't send your message. Email {supportEmail}.",
+      ),
+    ).toBe(true);
   });
 });

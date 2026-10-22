@@ -84,13 +84,13 @@ export async function validateCatalog(
         continue;
       }
       if (
-        shouldHintApostrophe(config.defaultLocale) &&
+        shouldHintApostrophe(config.defaultLocale, source) &&
         likelyUnescapedApostrophe(source)
       ) {
         issues.push({
           check: 'icu',
           severity: 'warn',
-          message: `Key "${fullKey}" looks like a natural-language apostrophe. In ICU, double it: "l''été" → l'été`,
+          message: apostropheHintMessage(fullKey, source),
           key: fullKey,
           locale: config.defaultLocale,
           file,
@@ -167,13 +167,13 @@ export async function validateCatalog(
         }
 
         if (
-          shouldHintApostrophe(locale) &&
+          shouldHintApostrophe(locale, resolved) &&
           likelyUnescapedApostrophe(resolved)
         ) {
           issues.push({
             check: 'icu',
             severity: 'warn',
-            message: `Key "${fullKey}" looks like a natural-language apostrophe. In ICU, double it: "l''été" → l'été`,
+            message: apostropheHintMessage(fullKey, resolved),
             key: fullKey,
             locale,
             file: localeFile,
@@ -193,7 +193,17 @@ export async function validateCatalog(
             issues.push({
               check: 'mismatch',
               severity: mismatchSev,
-              message: `ICU arg mismatch for "${fullKey}" in "${locale}": missing=[${missingArgs}] extra=[${extraArgs}]`,
+              message: formatArgMismatch({
+                fullKey,
+                locale,
+                defaultLocale: config.defaultLocale,
+                defaultSource: source,
+                otherSource: resolved,
+                defaultArgs: Object.keys(defaultArgs),
+                otherArgs: Object.keys(otherArgs),
+                missingArgs,
+                extraArgs,
+              }),
               key: fullKey,
               locale,
               file: localeFile,
@@ -313,9 +323,71 @@ export function likelyUnescapedApostrophe(icu: string): boolean {
 }
 
 /**
- * Apostrophe-in-words is common in fr/it/…; English `don't` floods CI with noise.
- * Only hint for locales that regularly need ICU `''` in prose.
+ * Apostrophe-in-words is common in fr/it/…; English `don't` alone floods CI.
+ * Still warn for English when the message also has `{…}` placeholders — a prose
+ * apostrophe (couldn't) quotes away the rest of the string so args vanish.
  */
-export function shouldHintApostrophe(locale: string): boolean {
-  return /^(fr|it|ca|oc|ht|lb|rm|ga|gd|mt)(-|$)/i.test(locale);
+export function shouldHintApostrophe(
+  locale: string,
+  source?: string,
+): boolean {
+  if (/^(fr|it|ca|oc|ht|lb|rm|ga|gd|mt)(-|$)/i.test(locale)) return true;
+  if (
+    /^(en)(-|$)/i.test(locale) &&
+    source != null &&
+    /\{[A-Za-z_$]/.test(source) &&
+    likelyUnescapedApostrophe(source)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function apostropheHintMessage(fullKey: string, source: string): string {
+  const hasArgs = /\{[A-Za-z_$]/.test(source);
+  const base = `Key "${fullKey}" looks like a natural-language apostrophe. In ICU, double it: "couldn''t" / "l''été".`;
+  if (hasArgs) {
+    return `${base} A single ' before a letter quotes until the next ', which can swallow {placeholders} so the default locale looks like it has no args.`;
+  }
+  return base;
+}
+
+export function formatArgMismatch(opts: {
+  fullKey: string;
+  locale: string;
+  defaultLocale: string;
+  defaultSource: string;
+  otherSource: string;
+  defaultArgs: string[];
+  otherArgs: string[];
+  missingArgs: string[];
+  extraArgs: string[];
+}): string {
+  const {
+    fullKey,
+    locale,
+    defaultLocale,
+    defaultSource,
+    otherSource,
+    defaultArgs,
+    otherArgs,
+    missingArgs,
+    extraArgs,
+  } = opts;
+  const clip = (s: string) =>
+    s.length > 120 ? `${s.slice(0, 117)}…` : s;
+  let msg =
+    `ICU arg mismatch for "${fullKey}" in "${locale}": ` +
+    `missing=[${missingArgs}] extra=[${extraArgs}]\n` +
+    `  ${defaultLocale} args=[${defaultArgs}] ${JSON.stringify(clip(defaultSource))}\n` +
+    `  ${locale} args=[${otherArgs}] ${JSON.stringify(clip(otherSource))}`;
+  if (
+    defaultArgs.length === 0 &&
+    otherArgs.length > 0 &&
+    likelyUnescapedApostrophe(defaultSource)
+  ) {
+    msg +=
+      `\n  Hint: default locale may have an unescaped apostrophe (e.g. couldn't → couldn''t) that quoted away {…}.`;
+  }
+  return msg;
 }

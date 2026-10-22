@@ -38,7 +38,7 @@ describe('validateCatalog', () => {
     );
   });
 
-  it('reports ICU arg mismatch', async () => {
+  it('reports ICU arg mismatch with both locale strings', async () => {
     const dir = await fixture({
       en: { home: { title: 'Hello, {name}!' } },
       de: { home: { title: 'Hallo!' } },
@@ -50,7 +50,12 @@ describe('validateCatalog', () => {
       strict: { missing: 'off', mismatch: 'error', unused: 'off' },
     });
     const issues = await validateCatalog(config, dir);
-    expect(issues.some((i) => i.check === 'mismatch')).toBe(true);
+    const mismatch = issues.find((i) => i.check === 'mismatch');
+    expect(mismatch).toBeTruthy();
+    expect(mismatch!.message).toContain('en args=[name]');
+    expect(mismatch!.message).toContain('de args=[]');
+    expect(mismatch!.message).toContain('Hello, {name}!');
+    expect(mismatch!.message).toContain('Hallo!');
   });
 });
 

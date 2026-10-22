@@ -107,7 +107,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
 
 ## 5. Write messages and use them
 
-ICU treats `'` as an escape. Literal apostrophes must be doubled: `Let's` → `Let''s`, French `l'été` → `l''été`. `tongue check` warns on likely mistakes for fr/it/… (not English `don't`).
+ICU treats `'` as a quote. Literal apostrophes must be doubled: `Let's` → `Let''s`, `couldn't` → `couldn''t`, French `l'été` → `l''été`. An undoubled `'` before a letter can swallow `{placeholders}` so EN looks arg-free while ES mismatches. `tongue check` warns for fr/it/… always, and for English when `{…}` is present.
 
 ```json
 // messages/en.json

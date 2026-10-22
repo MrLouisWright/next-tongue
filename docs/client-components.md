@@ -86,7 +86,33 @@ Both legs become per-key imports. A variable key still needs `t.dynamic`.
 | Client component, key from data / map / step | `t.dynamic(key, { from: [...] })` or pass **strings** from a server parent |
 | Root chrome outside `[locale]` | Server `getT` + pass strings as props — avoid a second `TongueProvider` |
 
-Never `LINKS.map(({ key }) => t(key))` on the client — that typechecks and often “works” in a misconfigured local setup, then throws in production when the stub runs.
+Never `LINKS.map(({ key }) => t(key))` or `` t(`topics.${id}`) `` on the client — that typechecks and often “works” in a misconfigured local setup, then throws `TONGUE_E_NOT_REWRITTEN` at prerender. For a **small fixed enum** in the same file:
+
+```tsx
+const TOPIC_IDS = ['product', 'agency', 'other'] as const;
+type TopicId = (typeof TOPIC_IDS)[number];
+
+// prefer one of:
+t.dynamic(id, { from: TOPIC_IDS });
+t.dynamic(id, { from: [...TOPIC_IDS] });
+t.dynamic(id, { from: ['product', 'agency', 'other'] });
+```
+
+Imported `from` arrays are not resolved — keep the const in the same module, or use an explicit `switch (id)` / pass labels from a Server Component.
+
+### Escape warnings (`TONGUE_W_ESCAPE`)
+
+Passing `t` from `useT('assistant')` into a child helper marks the namespace as escaped (whole namespace ships). Prefer:
+
+```tsx
+// Pass concrete strings from the parent
+<Child title={t('title')} submitLabel={t('submit')} />
+
+// Or a tiny typed picker that only calls literal keys (same file — still rewritten)
+function labelFor(t: T<'nav'>, key: 'home' | 'about') {
+  return t(key);
+}
+```
 
 ### One `TongueProvider` (or two, deliberately)
 
@@ -104,6 +130,10 @@ The call-site loader injects `const __tongue_locale = useLocale()` (or `__tongue
 | `useLocale()` | `Locale` from the provider |
 | `useFormat()` | Same API as `getFormat` (number, dateTime, relativeTime, list) |
 | `useRouter()`, `usePathname()` | from `next-tongue/navigation` |
+
+### PPR / Suspense
+
+With Next.js 16 PPR / Cache Components, wrap client trees that call **`usePathname()`**, **`useRouter()`**, or **`LocaleSwitcher` / `useLocaleSwitcher`** in `<Suspense>` (same idea as Next’s `connection()` guidance). `useLocale()` / `useT()` from `TongueProvider` alone do not need a boundary. See [Cache Components](cache-components.md).
 
 ## Locale switcher
 

@@ -4,6 +4,20 @@
 
 With `cacheComponents: true` (Next.js 16), anything that reads request data — `headers()`, `cookies()`, `searchParams` — makes that part of the tree dynamic, and it cannot be used inside `'use cache'`. An i18n library that reads the locale from a header or cookie at render time therefore pushes every translated component out of the static shell. That is the root of the issues discussed in [amannn/next-intl#1493](https://github.com/amannn/next-intl/issues/1493) and [#2412](https://github.com/amannn/next-intl/issues/2412).
 
+## Client hooks under PPR
+
+| Hook / UI | Needs `<Suspense>` with PPR? |
+|---|---|
+| `useT` / `useLocale` / `useFormat` (provider only) | Usually no |
+| `usePathname` / `useRouter` from `createNavigation` | **Yes** — wrap the client island |
+| `LocaleSwitcher` / `useLocaleSwitcher` | **Yes** (uses pathname) |
+
+```tsx
+<Suspense fallback={null}>
+  <LanguageMenu />
+</Suspense>
+```
+
 ## next-tongue's rule
 
 > The locale is a **route param**. Only `proxy.ts` reads headers and cookies.

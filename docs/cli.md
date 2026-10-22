@@ -22,7 +22,7 @@ Scans source (`app/`, `src/`, `components/`, `lib/`, `server/`, `actions/` by de
 - regenerates `.tongue/types.d.ts` (same as `tongue build`).
 
 ## `tongue check`
-CI gate. Reads messages + source, reports:
+CI gate. Reads messages + source, reports. Run it **before** `tongue build` after machine translation — it catches ICU arg parity (`missing=[] extra=[name]`), apostrophe traps in EN source, and undefined keys without waiting for a full Next build:
 
 | Check | Meaning | Severity from |
 |---|---|---|

@@ -7,6 +7,16 @@ All notable changes to this project will be documented in this file. The format 
 ### Added
 - (none yet)
 
+## [0.9.18] — 2026-10-22
+
+### Fixed
+- ICU arg mismatch errors print both locale strings and parsed arg sets; hint when an English prose apostrophe (`couldn't`) likely quoted away `{placeholders}`.
+- `tongue check` warns on English messages that mix prose apostrophes with `{…}` (still quiet for bare `don't`).
+- Build rejects catalogs that mix a leaf and a branch at the same path (`email` + `email.autoSubject`).
+
+### Docs
+- Leaf/branch naming, `t.dynamic` enums, escape patterns, PPR Suspense for pathname/LocaleSwitcher, server-action `requestLocale` recipe; adopter **Serpfull**.
+
 ## [0.9.17] — 2026-10-21
 
 ### Fixed

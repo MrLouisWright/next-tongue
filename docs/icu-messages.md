@@ -14,7 +14,41 @@ next-tongue uses [ICU MessageFormat](https://unicode-org.github.io/icu/userguide
 | Select | `{gender, select, female {She} male {He} other {They}}` | `gender: 'female' \| 'male' \| (string & {})` |
 | Rich tag | `Read <b>this</b>` | `b: (chunks) => ReactNode` (via `t.rich`) |
 | Rich tag (self-closing) | `Line<br/>break` | `br: () => ReactNode` |
-| Escaping (apostrophes) | `'{'literal'}'`, `it''s`, `"data-ns=\"'<id>'\"` | — |
+| Escaping (apostrophes) | `'{'literal'}'`, `it''s` / `couldn''t`, `"data-ns=\"'<id>'\"` | — |
+
+### Apostrophes in English (and other) source
+
+ICU uses `'` as a **quote**. A prose contraction like `couldn't` starts a quoted run that continues until the next `'`, so placeholders after it are **not** parsed as args:
+
+```json
+"sendFailed": "We couldn't send your message. Email {supportEmail}."
+```
+
+EN is compiled with **no** args; ES with `{supportEmail}` → `TONGUE_E_BUILD` / `tongue check` mismatch (`missing=[] extra=[supportEmail]`). Fix:
+
+```json
+"sendFailed": "We couldn''t send your message. Email {supportEmail}."
+```
+
+`tongue check` warns on fr/it/… always, and on **English when the string also contains `{…}`** (bare `don't` without placeholders stays quiet). Mismatch errors print both locale strings and their parsed arg sets side by side.
+
+### Never leaf and branch at the same path
+
+JSON (and Tongue’s flat key space) cannot use the same segment as both a string and an object:
+
+```json
+// ❌ contact.email string + contact.email.* children — impossible / collision
+"contact": { "email": "Email", "email": { "autoSubject": "…" } }
+
+// ✅ rename the group or the leaf
+"contact": {
+  "email": "Email",
+  "mail": { "autoSubject": "…", "body": "…" }
+}
+// or nest the label: "email": { "label": "Email", "autoSubject": "…" } → t('email.label')
+```
+
+Build fails with `TONGUE_E_BUILD` if a catalog mixes `email` and `email.autoSubject`. Param names like `{email}` are per-message (not global); collisions with key paths are a naming clarity issue — prefer `{supportEmail}` when the namespace also has an `email` key.
 
 ### Angle brackets are rich tags
 

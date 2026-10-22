@@ -4,7 +4,44 @@
 
 Server actions have no `params`. Pass the locale explicitly — either bound or as a form field — and validate it ([ADR 0002](adr/0002-locale-from-params-only.md), [#26](https://github.com/MrLouisWright/next-tongue/issues/26)). Otherwise error strings stay in English.
 
-**Localizing actions:** thread `locale` through `withLocale`, a hidden FormData field, or read `TONGUE_LOCALE` via `requestLocale({ headers, cookies: await cookies() }, { locales, defaultLocale })` then `getT(locale, ns)`.
+**Localizing actions:** thread `locale` through `withLocale`, a hidden FormData field, or read `TONGUE_LOCALE` via `requestLocale` (below) then `getT(locale, ns)`.
+
+## Recipe: server action i18n (no `params`)
+
+Actions sit outside the `[locale]` tree — there is no `params.locale`. Pick one:
+
+| Pattern | When |
+|---|---|
+| `withLocale` + `.bind(null, locale)` from the client | Forms under `[locale]` (recommended) |
+| Hidden `locale` FormData field + `isLocale` | Progressive enhancement / no bind |
+| `requestLocale` from cookie / `x-locale` header | Flash messages, webhooks, actions opened without a locale prop |
+
+```ts
+'use server';
+import { cookies } from 'next/headers';
+import { getT, requestLocale } from 'next-tongue/server';
+import { locales, defaultLocale } from '#tongue/runtime';
+
+export async function activeLocale() {
+  const jar = await cookies();
+  return requestLocale(
+    {
+      headers: { get: () => null },
+      cookies: { get: (name) => jar.get(name) },
+    },
+    { locales: [...locales], defaultLocale },
+  );
+}
+
+export async function submitContact(_prev: unknown, form: FormData) {
+  const locale = await activeLocale();
+  const t = await getT(locale, 'contact');
+  // Zod (or any Standard Schema) → translateIssues(t, result.issues)
+  return { ok: t('sent') };
+}
+```
+
+`translateIssues` maps schema issue `message` strings to keys in that namespace (see below). Prefer `withLocale` when the form already knows `params.locale`.
 
 ## Bound argument (recommended)
 
