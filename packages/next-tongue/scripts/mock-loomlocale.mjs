@@ -11,7 +11,7 @@
  * Upcoming prepaid credits: creditBalanceGBP on /me + estimate, 402 insufficient_credit.
  * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
  * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
- * conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl}.
+ * conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate).
  */
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -44,6 +44,7 @@ export function createMockLoomlocale(opts = {}) {
     creditBalanceGBP: opts.creditBalanceGBP,
     insufficientCredit: opts.insufficientCredit ?? null,
     translateSizes: [],
+    creditExpiry: opts.creditExpiry ?? {}, // e.g. { nextExpiry: '2026-11-20', nextExpiryGBP: 12.5 }
   };
   const tooMany = (res) => {
     state.rateLimited++;
@@ -84,7 +85,7 @@ export function createMockLoomlocale(opts = {}) {
     if (!authed) return json(res, 401, { error: 'unauthorized', message: 'Missing or invalid token' });
 
     if (req.method === 'GET' && path === '/me') {
-      return json(res, 200, { user: { id: 'u_1', email: 'dev@example.com', name: 'Dev' }, org: { id: 'o_1', name: 'Example Ltd' }, plan: state.plan, spendCapGBP: state.spendCapGBP, ...(state.limits ? { limits: state.limits } : {}), ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), token: { prefix: 'llt_', scope: 'projects translate sync' } });
+      return json(res, 200, { user: { id: 'u_1', email: 'dev@example.com', name: 'Dev' }, org: { id: 'o_1', name: 'Example Ltd' }, plan: state.plan, spendCapGBP: state.spendCapGBP, ...(state.limits ? { limits: state.limits } : {}), ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), ...state.creditExpiry, token: { prefix: 'llt_', scope: 'projects translate sync' } });
     }
     if (path === '/projects' && req.method === 'GET') return json(res, 200, { projects: state.projects });
     if (path === '/projects' && req.method === 'POST') {
@@ -104,7 +105,7 @@ export function createMockLoomlocale(opts = {}) {
         const within = left != null && chars <= left;
         const costGBP = within ? 0 : Math.round((chars / 1e6) * state.plan.paygPerMillionGBP * 100) / 100;
         const withinSpendCap = state.spendCapGBP == null || costGBP <= state.spendCapGBP;
-        return json(res, 200, { chars, billableChars: within ? 0 : chars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, allowed: withinSpendCap, withinSpendCap, ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), ...(withinSpendCap ? {} : { note: `Org spend cap £${state.spendCapGBP} reached` }) });
+        return json(res, 200, { chars, billableChars: within ? 0 : chars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, allowed: withinSpendCap, withinSpendCap, ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), ...state.creditExpiry, ...(withinSpendCap ? {} : { note: `Org spend cap £${state.spendCapGBP} reached` }) });
       }
       if (m[2] === 'translate') {
         if (state.rateLimit.translate > 0) {
@@ -112,7 +113,7 @@ export function createMockLoomlocale(opts = {}) {
           return tooMany(res);
         }
         if (state.insufficientCredit) {
-          return json(res, 402, { error: 'insufficient_credit', message: 'Not enough prepaid credit', details: { creditBalanceGBP: state.creditBalanceGBP ?? 0, requiredGBP: 1.5, topUpUrl: state.insufficientCredit.topUpUrl ?? 'https://loomlocale.test/billing/top-up' } });
+          return json(res, 402, { error: 'insufficient_credit', message: 'Not enough prepaid credit', details: { requiredGBP: 1.5, balanceGBP: state.creditBalanceGBP ?? 0, ...(state.insufficientCredit.topUpUrl !== null ? { topUpUrl: state.insufficientCredit.topUpUrl ?? 'https://loomlocale.test/billing/top-up' } : {}) } });
         }
         const L = state.enforceLimits ?? state.limits?.translate ?? { maxItems: 1000, maxSourceChars: 200000, maxTargetLocales: 50 };
         const sourceChars = body.items.reduce((n, i) => n + [...i.text].length, 0);

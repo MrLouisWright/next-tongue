@@ -5,7 +5,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { TongueError } from '../errors.js';
-import { localCostGBP, translateLimits, type Me, type SyncEntry } from '../cloud/api.js';
+import { creditExpiry, creditExpiryWarning, localCostGBP, translateLimits, type Estimate, type Me, type SyncEntry } from '../cloud/api.js';
 import { flatten, readCatalog, writeCatalog, type Catalog, type Flat } from '../cloud/dictionaries.js';
 import {
   countChars,
@@ -209,6 +209,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
   }
 
   // GET /me is fetched at most once (limits, monthly spend); failures fall back to defaults.
+  let lastEstimate: Estimate | null = null;
   let mePromise: Promise<Me | null> | null = null;
   const getMe = () => (mePromise ??= client ? client.me().catch(() => null) : Promise.resolve(null));
 
@@ -229,6 +230,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       }),
       { chars: 0, billableChars: 0, costGBP: 0 } as { chars: number; billableChars: number; costGBP: number; allowed?: boolean; withinSpendCap?: boolean; note?: string },
     );
+    lastEstimate = ests.find((e) => creditExpiry(e)) ?? null;
     const credit = ests.find((e) => typeof e.creditBalanceGBP === 'number')?.creditBalanceGBP;
     if (typeof credit === 'number' && !opts.quiet && !opts.json) log(color.dim(`  prepaid credit balance: ${formatGBP(credit)} (this run ~${formatGBP(est.costGBP)})`));
     const plan2 = budget.monthlyChars != null || budget.monthlyCostGBP != null ? (await getMe())?.plan : undefined;
@@ -245,7 +247,10 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     const { writeFile: wf } = await import('node:fs/promises');
     const concurrency = opts.concurrency ?? ctx.config.cloud.concurrency ?? 4;
     let bar: Progress | null = opts.quiet || opts.json ? null : (opts.prompter ?? createPrompter([])).progress(`${ctx.sourceLocale} → ${locales.join(', ')}`, plan.length);
-    const limits = translateLimits(await getMe());
+    const me = await getMe();
+    const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(lastEstimate);
+    if (expiryWarn && !opts.json) console.error(color.yellow(expiryWarn));
+    const limits = translateLimits(me);
     const result = await translateViaCloud({
       concurrency,
       limits,

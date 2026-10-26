@@ -401,7 +401,8 @@ export async function runCli(argv: string[]): Promise<void> {
     }
     if (err instanceof ApiError) {
       console.error(`TONGUE_E_API: ${err.message}`);
-      process.exitCode = 1;
+      // 4 = insufficient prepaid credit (top up and re-run); other API errors 1.
+      process.exitCode = err.status === 402 && err.code === 'insufficient_credit' ? 4 : 1;
       return;
     }
     throw err;

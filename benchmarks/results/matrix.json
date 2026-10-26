@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-26T21:50:56.963Z",
+  "measuredAt": "2026-10-26T21:59:02.242Z",
   "scenario": "matrix: keys∈{50,1000} × locales∈{2,10,50} × used∈{2,20}, esbuild minify + gzip",
   "crossoverNote": "With all-locales-of-used-keys delivery, next-tongue and paraglide-style scale similarly with locale count; catalog-pick (narrowed JSON) stays competitive at small used×locales and loses as used keys grow. Per-locale client splitting would change the crossover — not enabled by default (ADR 0009).",
   "sampleUsed2Keys50": [

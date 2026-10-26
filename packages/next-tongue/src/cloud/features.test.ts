@@ -5,12 +5,12 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMockLoomlocale } from '../../scripts/mock-loomlocale.mjs';
-import { ApiError, LoomlocaleClient, backoffDelay, parseRetryAfter } from './api.js';
+import { ApiError, LoomlocaleClient, backoffDelay, creditExpiry, creditExpiryWarning, parseRetryAfter } from './api.js';
 import { enforceBudget, resolveBudget } from './budget.js';
 import { makeBatches } from './engine.js';
 import { runUpdate } from '../cli/update.js';
 import { runCli } from '../cli/index.js';
-import { cmdLogin } from '../cli/cloud.js';
+import { cmdLogin, cmdWhoami } from '../cli/cloud.js';
 import { buildChanges, renderChanges, repoSlugFromRemote } from '../cli/review.js';
 import { createLinePrompter } from './tui.js';
 import { TongueError } from '../errors.js';
@@ -38,6 +38,7 @@ async function project(url: string, extra = '', en: Record<string, unknown> = { 
   const env: NodeJS.ProcessEnv = { LOOMLOCALE_NO_KEYCHAIN: '1', LOOMLOCALE_NO_BROWSER: '1', XDG_CONFIG_HOME: join(dir, '.cfg'), LOOMLOCALE_API_URL: url, LOOMLOCALE_TOKEN: 'llt_test' };
   return { dir, env };
 }
+const noSleepGlobals = { clientOptions: noSleep } as const;
 const base = { quiet: true, pollIntervalMs: 1, clientOptions: noSleep } as const;
 const translates = (m: Mock) => m.state.requests.filter((r) => r.path.endsWith('/translate'));
 const exists = (p: string) => access(p).then(() => true, () => false);
@@ -374,14 +375,14 @@ describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
     expect((await new LoomlocaleClient({ baseURL: none.url, token: 'llt_test' }).me()).creditBalanceGBP).toBeUndefined();
   });
 
-  it('402 insufficient_credit prints the top-up URL, exits 1 and is not retried', async () => {
+  it('402 insufficient_credit prints balance + top-up URL, exits 4 and is not retried', async () => {
     const { mock, url } = await startMock({ insufficientCredit: { topUpUrl: 'https://loomlocale.test/top-up' }, creditBalanceGBP: 0.2 });
     const p = await project(url);
     const err = await runUpdate({ cwd: p.dir, env: p.env, ...base, concurrency: 1 }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).status).toBe(402);
     expect((err as ApiError).topUpUrl).toBe('https://loomlocale.test/top-up');
-    expect(String((err as Error).message)).toMatch(/Insufficient Loomlocale credit.*balance £0\.20.*Top up at https:\/\/loomlocale\.test\/top-up/);
+    expect(String((err as Error).message)).toMatch(/Insufficient Loomlocale credit.*balance £0\.20, needed £1\.50.*Top up at https:\/\/loomlocale\.test\/top-up/);
     expect(translates(mock).length).toBe(1);
     // Through the CLI: clear message, exit 1.
     const saved = { ...process.env };
@@ -391,7 +392,7 @@ describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
     const prevExit = process.exitCode;
     try {
       await runCli(['update', '--yes', '--quiet', '--cwd', p.dir]);
-      expect(process.exitCode).toBe(1);
+      expect(process.exitCode).toBe(4);
       expect(errs.join('\n')).toMatch(/Top up at https:\/\/loomlocale\.test\/top-up/);
     } finally {
       spy.mockRestore();
@@ -400,5 +401,47 @@ describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
       Object.assign(process.env, saved);
     }
     expect(translates(mock).length).toBe(2);
+  });
+
+  it('402 without topUpUrl falls back to the dashboard billing page; prefers details.balanceGBP', async () => {
+    const { url } = await startMock({ insufficientCredit: { topUpUrl: null }, creditBalanceGBP: 3 });
+    const client = new LoomlocaleClient({ baseURL: url, token: 'llt_test', ...noSleep });
+    const err = (await client
+      .translate('prj_1', { sourceLocale: 'en', targetLocales: ['de'], items: [{ key: 'a', text: 'A' }], glossary: {}, idempotencyKey: 'x'.repeat(40) })
+      .catch((e: unknown) => e)) as ApiError;
+    expect(err.topUpUrl).toBe('https://loomlocale.com/dashboard/billing');
+    expect(err.message).toMatch(/balance £3\.00, needed £1\.50\. .*Top up at https:\/\/loomlocale\.com\/dashboard\/billing/);
+  });
+
+  it('parses credit expiry variants and warns only within 30 days', () => {
+    const now = new Date('2026-10-26T12:00:00Z');
+    expect(creditExpiry({ nextExpiry: '2026-11-10', nextExpiryGBP: 12.5 })).toEqual({ date: new Date('2026-11-10'), amountGBP: 12.5 });
+    expect(creditExpiry({ nextExpiry: '2026-11-10', expiringGBP: 2 })?.amountGBP).toBe(2);
+    expect(creditExpiry({ nextExpiry: { date: '2026-11-10', amountGBP: 4 } })?.amountGBP).toBe(4);
+    expect(creditExpiry({ nextExpiry: 'not a date' })).toBeNull();
+    expect(creditExpiry({})).toBeNull();
+    expect(creditExpiryWarning({ nextExpiry: '2026-11-10', nextExpiryGBP: 12.5 }, now)).toMatch(/£12\.50 of Loomlocale credit expires on 2026-11-10 \(in 15 days\)/);
+    expect(creditExpiryWarning({ nextExpiry: '2027-01-10', nextExpiryGBP: 12.5 }, now)).toBeNull();
+    expect(creditExpiryWarning({ nextExpiry: '2026-10-01', nextExpiryGBP: 12.5 }, now)).toBeNull();
+    expect(creditExpiryWarning({ nextExpiry: '2026-11-10' }, now)).toMatch(/^⚠ Loomlocale credit expires/);
+  });
+
+  it('warns about soon-expiring credit in whoami and before translating in update', async () => {
+    const soon = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+    const { url } = await startMock({ creditBalanceGBP: 20, creditExpiry: { nextExpiry: soon, nextExpiryGBP: 7 } });
+    const p = await project(url);
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void errs.push(a.join(' ')));
+    const out = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await cmdWhoami({ cwd: p.dir, env: p.env, ...noSleepGlobals });
+      expect(errs.join('\n')).toMatch(new RegExp(`£7\\.00 of Loomlocale credit expires on ${soon}`));
+      errs.length = 0;
+      await runUpdate({ cwd: p.dir, env: p.env, ...base });
+      expect(errs.filter((e) => /expires on/.test(e)).length).toBe(1);
+    } finally {
+      spy.mockRestore();
+      out.mockRestore();
+    }
   });
 });

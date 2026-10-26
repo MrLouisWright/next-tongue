@@ -77,7 +77,7 @@ export type Me = {
   limits?: Limits;
   /** Prepaid credit balance (upcoming). Optional. */
   creditBalanceGBP?: number | null;
-};
+} & CreditExpiryFields;
 
 export type Project = {
   id: string;
@@ -108,7 +108,7 @@ export type Estimate = {
   note?: string;
   /** Prepaid credit balance (upcoming). Optional. */
   creditBalanceGBP?: number | null;
-};
+} & CreditExpiryFields;
 
 export type GlossaryTerms = Record<
   string,
@@ -174,6 +174,42 @@ export type SyncResponse = {
   glossary: GlossaryTerms;
   accepted?: number;
 };
+
+export const TOP_UP_FALLBACK_URL = 'https://loomlocale.com/dashboard/billing';
+
+/**
+ * Prepaid credits expire 12 months after purchase. Assumed shape (canonical):
+ * `nextExpiry: "2026-11-20"` (ISO date) + `nextExpiryGBP: 12.5`. Also accepted: amount as
+ * `expiringGBP` / `creditExpiringGBP`, or `nextExpiry: { date | at | expiresAt, amountGBP }`.
+ */
+export type CreditExpiryFields = {
+  nextExpiry?: string | { date?: string; at?: string; expiresAt?: string; amountGBP?: number } | null;
+  nextExpiryGBP?: number | null;
+  expiringGBP?: number | null;
+  creditExpiringGBP?: number | null;
+};
+
+export function creditExpiry(src: CreditExpiryFields | null | undefined): { date: Date; amountGBP: number | null } | null {
+  const ne = src?.nextExpiry;
+  if (!ne) return null;
+  const raw = typeof ne === 'string' ? ne : (ne.date ?? ne.at ?? ne.expiresAt);
+  const date = raw ? new Date(raw) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  const amounts = [typeof ne === 'object' ? ne.amountGBP : undefined, src.nextExpiryGBP, src.expiringGBP, src.creditExpiringGBP];
+  const amountGBP = amounts.find((a): a is number => typeof a === 'number' && Number.isFinite(a)) ?? null;
+  return { date, amountGBP };
+}
+
+/** One-line warning when credit expires within `days` (default 30), else null. */
+export function creditExpiryWarning(src: CreditExpiryFields | null | undefined, now: Date = new Date(), days = 30): string | null {
+  const e = creditExpiry(src);
+  if (!e || e.amountGBP === 0) return null;
+  const ms = e.date.getTime() - now.getTime();
+  if (ms < 0 || ms > days * 86_400_000) return null;
+  const left = Math.ceil(ms / 86_400_000);
+  const amt = e.amountGBP != null ? `£${e.amountGBP.toFixed(2)} of Loomlocale credit` : 'Loomlocale credit';
+  return `⚠ ${amt} expires on ${e.date.toISOString().slice(0, 10)} (${left === 1 ? 'in 1 day' : `in ${left} days`}) — credits expire 12 months after purchase.`;
+}
 
 export class ApiError extends Error {
   /** From Retry-After on 429/503. */
@@ -324,10 +360,11 @@ export class LoomlocaleClient {
       const d = data as { error?: string; message?: string; error_description?: string; details?: unknown; topUpUrl?: string; top_up_url?: string };
       const code = d.error ?? `http_${res.status}`;
       if (res.status === 402 && code === 'insufficient_credit') {
-        const det = (d.details && typeof d.details === 'object' ? d.details : {}) as { topUpUrl?: string; top_up_url?: string; creditBalanceGBP?: number; requiredGBP?: number };
-        const url = det.topUpUrl ?? det.top_up_url ?? d.topUpUrl ?? d.top_up_url ?? 'https://loomlocale.com/billing';
+        const det = (d.details && typeof d.details === 'object' ? d.details : {}) as { topUpUrl?: string; top_up_url?: string; balanceGBP?: number; creditBalanceGBP?: number; requiredGBP?: number };
+        const url = det.topUpUrl ?? det.top_up_url ?? d.topUpUrl ?? d.top_up_url ?? TOP_UP_FALLBACK_URL;
         const bits = [d.message ?? 'Not enough prepaid credit for this run'];
-        if (typeof det.creditBalanceGBP === 'number') bits.push(`balance £${det.creditBalanceGBP.toFixed(2)}`);
+        const bal = typeof det.balanceGBP === 'number' ? det.balanceGBP : det.creditBalanceGBP;
+        if (typeof bal === 'number') bits.push(`balance £${bal.toFixed(2)}`);
         if (typeof det.requiredGBP === 'number') bits.push(`needed £${det.requiredGBP.toFixed(2)}`);
         const e = new ApiError(402, code, `Insufficient Loomlocale credit — ${bits.join(', ')}. Nothing more was translated. Top up at ${url} and re-run.`);
         e.details = d.details;

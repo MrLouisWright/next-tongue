@@ -4,7 +4,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { localCostGBP, type Me } from '../cloud/api.js';
+import { creditExpiryWarning, localCostGBP, type Estimate, type Me } from '../cloud/api.js';
 import { createCredentialStore, resolveToken } from '../cloud/credentials.js';
 import { detectFramework, detectLayouts, readCatalog } from '../cloud/dictionaries.js';
 import { countChars } from '../cloud/engine.js';
@@ -134,8 +134,9 @@ export async function runWizard(opts: WizardOptions): Promise<void> {
     const client = await makeClient(g, fresh);
     me ??= await client.me().catch(() => null);
     let estimateLine = `${keyCount} keys · ${srcChars.toLocaleString('en-GB')} chars × ${targets.length} languages = ${color.bold(totalChars.toLocaleString('en-GB'))} chars`;
+    let est: Estimate | null = null;
     try {
-      const est = await client.estimate(projectId, { sourceLocale, targetLocales: targets, items: Object.entries(source.flat).map(([key, text]) => ({ key, text })) });
+      est = await client.estimate(projectId, { sourceLocale, targetLocales: targets, items: Object.entries(source.flat).map(([key, text]) => ({ key, text })) });
       estimateLine += est.withinAllowance
         ? `\n${color.green('Included in your plan')} (${(est.allowanceRemaining ?? 0).toLocaleString('en-GB')} chars left after this run would be ${Math.max(0, (est.allowanceRemaining ?? 0) - est.billableChars).toLocaleString('en-GB')})`
         : `\nEstimated cost ${color.bold(formatGBP(est.costGBP))} (${est.billableChars.toLocaleString('en-GB')} billable chars)`;
@@ -143,6 +144,8 @@ export async function runWizard(opts: WizardOptions): Promise<void> {
       estimateLine += `\n≈ ${color.bold(formatGBP(localCostGBP(totalChars, me?.plan.paygPerMillionGBP ?? 25)))} at PAYG £25 / 1M chars ${color.dim('(local estimate)')}`;
     }
     if (me) estimateLine += `\n${color.dim(`${me.user.email} · ${describePlan(me)}`)}`;
+    const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(est);
+    if (expiryWarn) estimateLine += `\n${color.yellow(expiryWarn)}`;
     pr.note(estimateLine, 'Estimate');
     if (!opts.yes && !(await pr.confirm(`Translate into ${targets.join(', ')}?`, true))) {
       pr.outro('Nothing translated. Run `tongue update` any time.');

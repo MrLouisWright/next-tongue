@@ -1,6 +1,6 @@
 /** Loomlocale account + project commands: login, logout, whoami, link, status, push, pull. */
 import { TongueError } from '../errors.js';
-import { LoomlocaleClient, TOKEN_PREFIX, type Me, type Project, type SyncEntry } from '../cloud/api.js';
+import { LoomlocaleClient, TOKEN_PREFIX, creditExpiryWarning, type Me, type Project, type SyncEntry } from '../cloud/api.js';
 import { createCredentialStore } from '../cloud/credentials.js';
 import { readCatalog, writeCatalog, type Flat } from '../cloud/dictionaries.js';
 import { diffCatalogs, loadLock, lockSection, saveLock, sha } from '../cloud/engine.js';
@@ -65,6 +65,8 @@ export async function cmdWhoami(opts: CloudGlobals): Promise<Me> {
   const me = await (await makeClient(opts)).me();
   if (opts.json) console.log(JSON.stringify(me));
   else console.log(`${me.user.email} · ${me.org.name} · ${describePlan(me)}${typeof me.creditBalanceGBP === 'number' ? ` · credit £${me.creditBalanceGBP.toFixed(2)}` : ''}`);
+  const warn = opts.json ? null : creditExpiryWarning(me);
+  if (warn) console.error(color.yellow(warn));
   return me;
 }
 

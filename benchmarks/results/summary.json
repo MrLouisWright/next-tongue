@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-26T21:51:04.088Z",
+  "measuredAt": "2026-10-26T21:59:09.812Z",
   "scenario": "2 of 500 keys × 3 locales, esbuild minify + gzip",
   "rows": [
     {
@@ -32,8 +32,8 @@
   ],
   "ssr": {
     "calls": 1000,
-    "ms": 0.2920649999999796,
-    "msPerCall": 0.0002920649999999796
+    "ms": 0.3255929999999694,
+    "msPerCall": 0.00032559299999996937
   },
   "matrix": {
     "scenario": "matrix: keys∈{50,1000} × locales∈{2,10,50} × used∈{2,20}, esbuild minify + gzip",
