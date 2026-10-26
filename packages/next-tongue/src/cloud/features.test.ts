@@ -409,8 +409,8 @@ describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
     const err = (await client
       .translate('prj_1', { sourceLocale: 'en', targetLocales: ['de'], items: [{ key: 'a', text: 'A' }], glossary: {}, idempotencyKey: 'x'.repeat(40) })
       .catch((e: unknown) => e)) as ApiError;
-    expect(err.topUpUrl).toBe('https://loomlocale.com/dashboard/billing');
-    expect(err.message).toMatch(/needs £1\.50, balance is £3\.00\. .*Top up at https:\/\/loomlocale\.com\/dashboard\/billing/);
+    expect(err.topUpUrl).toBe('https://www.loomlocale.com/dashboard/billing');
+    expect(err.message).toMatch(/needs £1\.50, balance is £3\.00\. .*Top up at https:\/\/www\.loomlocale\.com\/dashboard\/billing/);
   });
 
   it('parses credit expiry variants and warns only within 30 days', () => {
@@ -469,7 +469,7 @@ describe('prepaid credits contract (flat error envelope, withinCredit, plan kind
     const err = await runUpdate({ cwd: p.dir, env: p.env, ...base, maxCost: 100 }).catch((e: unknown) => e as ApiError);
     expect(err).toBeInstanceOf(ApiError);
     expect(err.code).toBe('insufficient_credit');
-    expect(err.message).toMatch(/needs £40\.00, balance is £30\.00.*Top up at https:\/\/loomlocale\.com\/dashboard\/billing/);
+    expect(err.message).toMatch(/needs £40\.00, balance is £30\.00.*Top up at https:\/\/www\.loomlocale\.com\/dashboard\/billing/);
     expect(translates(mock).length).toBe(0);
   });
 
@@ -484,7 +484,7 @@ describe('prepaid credits contract (flat error envelope, withinCredit, plan kind
       }
     })();
     expect(e?.code).toBe('insufficient_credit');
-    expect(e?.topUpUrl).toBe('https://loomlocale.com/dashboard/billing');
+    expect(e?.topUpUrl).toBe('https://www.loomlocale.com/dashboard/billing');
     expect(aggregateEstimates([
       { chars: 1, billableChars: 1, costGBP: 6, currency: 'GBP', allowanceRemaining: null, withinAllowance: false, withinCredit: true, creditRequiredGBP: 6, creditBalanceGBP: 10 },
       { chars: 1, billableChars: 1, costGBP: 6, currency: 'GBP', allowanceRemaining: null, withinAllowance: false, withinCredit: true, creditRequiredGBP: 6, creditBalanceGBP: 10 },
@@ -560,7 +560,7 @@ describe('free allowance: card_required + /me allowance fields', () => {
   });
 
   it('falls back to the billing page when setupUrl is missing', () => {
-    expect(cardRequiredError({}).message).toMatch(/Add a card at https:\/\/loomlocale\.com\/dashboard\/billing/);
+    expect(cardRequiredError({}).message).toMatch(/Add a card at https:\/\/www\.loomlocale\.com\/dashboard\/billing/);
   });
 
   it('allowanceLines is tolerant of missing fields', () => {

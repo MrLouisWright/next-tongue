@@ -199,7 +199,7 @@ export type SyncResponse = {
   accepted?: number;
 };
 
-export const TOP_UP_FALLBACK_URL = 'https://loomlocale.com/dashboard/billing';
+export const TOP_UP_FALLBACK_URL = 'https://www.loomlocale.com/dashboard/billing';
 
 /**
  * Prepaid credits expire 12 months after purchase. Assumed shape (canonical):
@@ -281,7 +281,7 @@ export function insufficientCreditError(a: { requiredGBP?: number | undefined; b
   return e;
 }
 
-export const CARD_SETUP_FALLBACK_URL = 'https://loomlocale.com/dashboard/billing';
+export const CARD_SETUP_FALLBACK_URL = 'https://www.loomlocale.com/dashboard/billing';
 
 /** `402 card_required`: free workspace must add a card to claim its one-time allowance. CLI exit code 4. */
 export function cardRequiredError(a: { message?: string | undefined; setupUrl?: string | undefined; requestId?: string | undefined }): ApiError {

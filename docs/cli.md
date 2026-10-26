@@ -95,7 +95,7 @@ Colour is used only on a TTY and is disabled by `NO_COLOR`. In a terminal you ar
 
 **Free allowance.** Free workspaces add a card to claim a one-time 50,000-character allowance. Until then, `tongue whoami` and `tongue status` print the card setup link, and translating stops with `402 card_required` (exit 4; the message, link and request id are printed; finished batches are kept). Both commands also show the allowance remaining.
 
-**Prepaid credit.** If Loomlocale answers `402 insufficient_credit`, the run stops with **exit code 4** and prints your balance, the amount needed and the top-up link (fallback `https://loomlocale.com/dashboard/billing`). Nothing is retried. Finished batches are kept, so re-running after topping up resumes. Credits expire 12 months after purchase: if some expire within 30 days, `tongue whoami`, `tongue update` (before translating) and the wizard print a one-line warning. They also print a hint when Loomlocale reports low credit.
+**Prepaid credit.** If Loomlocale answers `402 insufficient_credit`, the run stops with **exit code 4** and prints your balance, the amount needed and the top-up link (fallback `https://www.loomlocale.com/dashboard/billing`). Nothing is retried. Finished batches are kept, so re-running after topping up resumes. Credits expire 12 months after purchase: if some expire within 30 days, `tongue whoami`, `tongue update` (before translating) and the wizard print a one-line warning. They also print a hint when Loomlocale reports low credit.
 
 **Spending caps.** Before translating, `update` asks Loomlocale for an estimate and aborts with **exit code 1** (`TONGUE_E_BUDGET`, nothing translated or billed) when a cap would be exceeded:
 

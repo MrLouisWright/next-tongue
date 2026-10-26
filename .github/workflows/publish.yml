@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
@@ -35,4 +36,4 @@ jobs:
             echo "NPM_TOKEN secret is not set — skip publish"
             exit 1
           fi
-          npm publish --access public
+          npm publish --access public --provenance
