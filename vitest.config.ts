@@ -9,5 +9,6 @@ export default defineConfig({
       'test/**/*.test.ts',
     ],
     environment: 'node',
+    setupFiles: ['./test/setup-webcrypto.ts'],
   },
 });

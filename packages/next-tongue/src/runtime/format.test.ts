@@ -82,7 +82,7 @@ describe('Format helpers (#45)', () => {
     for (const locale of locales) {
       const f = createFormat({ locale, timeZone: 'UTC' });
       const km = f.unit(5, 'kilometer', { unitDisplay: 'short' });
-      expect(km).toMatch(/5/);
+      expect(km).toMatch(/[5٥۵]/) // Node 18 ICU uses Arabic-Indic digits for ar;
       const speed = f.unit(100, 'kilometer-per-hour');
       expect(speed).toMatch(/100/);
     }
