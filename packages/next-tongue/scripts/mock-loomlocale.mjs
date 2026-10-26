@@ -6,7 +6,12 @@
  * Mirrors server f9a71b9 (Loom-Locale/loomlocale): llt_ tokens, scope echo, expired_token for
  * unknown/redeemed device codes, extra response fields clients must ignore, estimate counts
  * identical texts once, Idempotency-Key on translate, 429 + Retry-After.
- * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP.
+ * Mirrors 83d98cb too: 409 conflict when an Idempotency-Key is reused with a different request,
+ * 413 payload_too_large over the batch limits, /me `limits` and plan.periodSpendGBP.
+ * Upcoming prepaid credits: creditBalanceGBP on /me + estimate, 402 insufficient_credit.
+ * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
+ * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
+ * conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl}.
  */
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -33,6 +38,12 @@ export function createMockLoomlocale(opts = {}) {
     active: new Set(),
     maxActive: 0,
     rateLimited: 0,
+    limits: opts.limits === null ? null : { translate: { maxItems: 1000, maxSourceChars: 200000, maxTargetLocales: 50 }, maxActiveJobsPerOrg: 8, rateLimitPerMinute: 600, idempotencyKeyTtlHours: 720, ...(opts.limits ?? {}) },
+    enforceLimits: opts.enforceLimits ?? null,
+    conflicts: opts.conflicts ?? 0,
+    creditBalanceGBP: opts.creditBalanceGBP,
+    insufficientCredit: opts.insufficientCredit ?? null,
+    translateSizes: [],
   };
   const tooMany = (res) => {
     state.rateLimited++;
@@ -73,7 +84,7 @@ export function createMockLoomlocale(opts = {}) {
     if (!authed) return json(res, 401, { error: 'unauthorized', message: 'Missing or invalid token' });
 
     if (req.method === 'GET' && path === '/me') {
-      return json(res, 200, { user: { id: 'u_1', email: 'dev@example.com', name: 'Dev' }, org: { id: 'o_1', name: 'Example Ltd' }, plan: state.plan, spendCapGBP: state.spendCapGBP, token: { prefix: 'llt_', scope: 'projects translate sync' } });
+      return json(res, 200, { user: { id: 'u_1', email: 'dev@example.com', name: 'Dev' }, org: { id: 'o_1', name: 'Example Ltd' }, plan: state.plan, spendCapGBP: state.spendCapGBP, ...(state.limits ? { limits: state.limits } : {}), ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), token: { prefix: 'llt_', scope: 'projects translate sync' } });
     }
     if (path === '/projects' && req.method === 'GET') return json(res, 200, { projects: state.projects });
     if (path === '/projects' && req.method === 'POST') {
@@ -93,14 +104,28 @@ export function createMockLoomlocale(opts = {}) {
         const within = left != null && chars <= left;
         const costGBP = within ? 0 : Math.round((chars / 1e6) * state.plan.paygPerMillionGBP * 100) / 100;
         const withinSpendCap = state.spendCapGBP == null || costGBP <= state.spendCapGBP;
-        return json(res, 200, { chars, billableChars: within ? 0 : chars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, allowed: withinSpendCap, withinSpendCap, ...(withinSpendCap ? {} : { note: `Org spend cap £${state.spendCapGBP} reached` }) });
+        return json(res, 200, { chars, billableChars: within ? 0 : chars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, allowed: withinSpendCap, withinSpendCap, ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), ...(withinSpendCap ? {} : { note: `Org spend cap £${state.spendCapGBP} reached` }) });
       }
       if (m[2] === 'translate') {
         if (state.rateLimit.translate > 0) {
           state.rateLimit.translate--;
           return tooMany(res);
         }
+        if (state.insufficientCredit) {
+          return json(res, 402, { error: 'insufficient_credit', message: 'Not enough prepaid credit', details: { creditBalanceGBP: state.creditBalanceGBP ?? 0, requiredGBP: 1.5, topUpUrl: state.insufficientCredit.topUpUrl ?? 'https://loomlocale.test/billing/top-up' } });
+        }
+        const L = state.enforceLimits ?? state.limits?.translate ?? { maxItems: 1000, maxSourceChars: 200000, maxTargetLocales: 50 };
+        const sourceChars = body.items.reduce((n, i) => n + [...i.text].length, 0);
+        if (body.items.length > L.maxItems || sourceChars > L.maxSourceChars || body.targetLocales.length > L.maxTargetLocales) {
+          return json(res, 413, { error: 'payload_too_large', message: 'Batch too large; split it', details: { items: body.items.length, sourceChars, targetLocales: body.targetLocales.length, limits: L } });
+        }
         const idem = req.headers['idempotency-key'] ?? body.idempotencyKey;
+        const hash = JSON.stringify([body.sourceLocale, body.targetLocales, body.items]);
+        if (state.conflicts > 0 || (idem && state.idempotency.has(idem) && state.jobs.get(state.idempotency.get(idem)).hash !== hash)) {
+          if (state.conflicts > 0) state.conflicts--;
+          return json(res, 409, { error: 'conflict', message: 'Idempotency-Key was already used with a different request', details: { error: 'idempotency_key_reused' } });
+        }
+        state.translateSizes.push(body.items.length);
         if (idem && state.idempotency.has(idem)) {
           const prev = state.jobs.get(state.idempotency.get(idem));
           return json(res, 200, { job: { id: prev.job.id, status: 'queued', progress: { done: 0, total: prev.job.progress.total } } });
@@ -117,7 +142,7 @@ export function createMockLoomlocale(opts = {}) {
           }
         }
         const total = results.length;
-        state.jobs.set(id, { polls: 0, job: { id, status: 'succeeded', progress: { done: total, total }, results, errors: [], billedChars: body.items.reduce((n, i) => n + [...i.text].length, 0) * body.targetLocales.length } });
+        state.jobs.set(id, { hash, polls: 0, job: { id, status: 'succeeded', progress: { done: total, total }, results, errors: [], billedChars: body.items.reduce((n, i) => n + [...i.text].length, 0) * body.targetLocales.length } });
         return json(res, 202, { job: { id, status: 'queued', progress: { done: 0, total } } });
       }
       // sync

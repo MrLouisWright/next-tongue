@@ -2,13 +2,13 @@
 
 Base URL: `https://loomlocale.com/api/v1` (override: `cloud.baseURL`, `--base-url`, `LOOMLOCALE_API_URL`).
 All bodies are JSON. Authenticated endpoints require `Authorization: Bearer <token>`.
-Errors: non-2xx with `{ "error": "<code>", "message": "<human text>" }`. The CLI special-cases `401` (→ "run tongue login") and `402` (→ allowance exhausted).
+Errors: non-2xx with `{ "error": "<code>", "message": "<human text>" }`. Errors may carry `details`. The CLI special-cases `401` (→ "run tongue login"), `402` (→ allowance exhausted; `insufficient_credit` → top-up link, see below), `409` and `413` (see `/translate`).
 **Forward compatibility:** the client ignores response fields it does not know (e.g. `org` on the token response, `spendCapGBP`/`token` on `/me`), so the server may add fields freely.
-Server reference: Loom-Locale/loomlocale commit `f9a71b9`.
+Server reference: Loom-Locale/loomlocale commits `f9a71b9`, `83d98cb` (requests 8–11).
 
 ### Retries, rate limits and idempotency
 - On `429` or `503` the client waits for `Retry-After` (delta-seconds or HTTP-date, plus up to 250 ms jitter); without the header it uses exponential backoff with jitter (500 ms × 2ⁿ, capped at 30 s). Dropped connections are retried the same way. Default 5 retries (`cloud.maxRetries`). A `429` pauses **all** concurrent workers until the wait expires.
-- `POST /translate` sends an `Idempotency-Key` header (also `idempotencyKey` in the body). The key is **deterministic** — a hash of project, locales, masked items, context, glossary and attempt — so a retry, or a re-run after a crash, returns the existing job instead of starting (and billing) a new one. **Server requirement:** same key ⇒ same job for at least 24 h.
+- `POST /translate` sends an `Idempotency-Key` header (also `idempotencyKey` in the body). The key is **deterministic** — a hash of project, locales, masked items, context, glossary and attempt — so a retry, or a re-run after a crash, returns the existing job instead of starting (and billing) a new one. The server keeps keys per org for 30 days. Reusing a key with a **different** request returns `409 conflict` (`details.error: "idempotency_key_reused"`); the CLI then retries **once** with a fresh key (the old key plus a random suffix). A second `409` is reported as an error.
 - Resume: job ids and finished results are written to `<lockfile>.run.json` (git-ignore it). A re-run polls the recorded job (`GET /jobs/:id`); a `404` there means the job expired and the batch is resubmitted.
 Client: [`packages/next-tongue/src/cloud/api.ts`](../packages/next-tongue/src/cloud/api.ts). Mock: [`scripts/mock-loomlocale.mjs`](../packages/next-tongue/scripts/mock-loomlocale.mjs).
 
@@ -42,9 +42,15 @@ CLI polls every `interval` s, +5 s on `slow_down`. No refresh token is assumed (
   "org":  { "id": "o_1", "name": "Example Ltd" },
   "plan": { "name": "Starter", "kind": "payg" | "subscription", "charsIncluded": 500000, "charsUsed": 12000,
             "periodEnd": "2026-11-30T00:00:00Z", "paygPerMillionGBP": 25 },
-  "spendCapGBP": 50, "token": { … } }        // optional extras; the CLI ignores them
+  "spendCapGBP": 50, "token": { … },          // optional extras; the CLI ignores them
+  "limits": { "translate": { "maxItems": 1000, "maxSourceChars": 200000, "maxTargetLocales": 50 },
+              "maxActiveJobsPerOrg": 8, "rateLimitPerMinute": 600, "idempotencyKeyTtlHours": 720 },   // optional
+  "creditBalanceGBP": 42.1 }                   // optional (upcoming prepaid credits)
 ```
-Monthly budgets (`cloud.budget.monthlyChars` / `monthlyCostGBP`) use `plan.charsUsed` as usage in the current period; PAYG period spend is estimated as `charsUsed × paygPerMillionGBP / 1e6`.
+(`plan.periodSpendGBP` is optional: £ billed so far this period.)
+- Monthly budgets: `monthlyChars` uses `plan.charsUsed`. `monthlyCostGBP` uses `plan.periodSpendGBP` when present; otherwise PAYG spend is estimated locally as `charsUsed × paygPerMillionGBP / 1e6`.
+- `limits.translate` sets the batch caps (see `/translate`). If `limits` is absent or `/me` fails, the CLI uses the published defaults 1000 items / 200 000 source chars / 50 target locales.
+- `creditBalanceGBP` (if present) is shown by `tongue whoami`.
 
 ## Projects
 `GET /projects` → `{ "projects": Project[] }`
@@ -59,11 +65,12 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 { "sourceLocale": "en", "targetLocales": ["de","fr"], "items": [{ "key": "home.title", "text": "Hello, {name}!" }] }
 // 200
 { "chars": 28, "billableChars": 28, "costGBP": 0.0007, "currency": "GBP", "allowanceRemaining": null, "withinAllowance": false,
-  "allowed": true, "withinSpendCap": true, "note": "…" }     // last three optional
+  "allowed": true, "withinSpendCap": true, "note": "…", "creditBalanceGBP": 42.1 }     // last four optional
 ```
 - `chars` = Σ source chars (Unicode code points) of **unique texts** × target count. **Identical texts are counted once**, so the server estimate can be lower than the CLI's local count (which counts every key).
 - `allowanceRemaining` is `null` for PAYG.
 - Budget check: before translating, the CLI requests one estimate per target locale and sums them, then enforces `cloud.budget` / `--max-chars` / `--max-cost` / env caps. If any estimate has `withinSpendCap: false` (org spend cap) or `allowed: false`, the run aborts with exit 1 and shows `note`. Nothing is translated or billed.
+- `creditBalanceGBP` (if present) is printed next to the run's estimated cost.
 - `--dry-run` uses the local count and the PAYG rate only (no network).
 
 ## `POST /projects/:id/translate` → job
@@ -78,7 +85,9 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 // 202 (or 200 with a finished job)
 { "job": Job }
 ```
-Header: `Idempotency-Key: <same as body idempotencyKey>` (see above). Requests are **batched**: at most `cloud.batchSize` keys (default 100) and `cloud.batchChars` source chars (default 20 000) per request, one target locale per request. Locales run concurrently (`--concurrency` / `cloud.concurrency`, default 4).
+Header: `Idempotency-Key: <same as body idempotencyKey>` (see above). Requests are **batched**, one target locale per request, within the server's `limits.translate` from `/me` (default 1000 items / 200 000 source chars). `cloud.batchSize` / `cloud.batchChars` can only lower these caps.
+- `413 payload_too_large`: the CLI splits the batch in half and retries each half (recursively). A single key that is still too large is reported as failed for that locale.
+- `402 insufficient_credit` (upcoming prepaid credits): `{ "error": "insufficient_credit", "message": "…", "details": { "creditBalanceGBP": 0.2, "requiredGBP": 1.5, "topUpUrl": "https://…" } }`. The CLI prints `Insufficient Loomlocale credit — … Top up at <topUpUrl> and re-run.` and exits 1, with no retry. `topUpUrl` may also appear at the top level; the fallback is `https://loomlocale.com/billing`. Finished batches stay in the run state, so the re-run resumes. Locales run concurrently (`--concurrency` / `cloud.concurrency`, default 4).
 Server must return `__TONGUE_n__` tokens verbatim. The CLI re-validates everything (tokens, ICU args, plural categories, glossary, maxLength) and retries failed keys once in a new job.
 
 ## `GET /jobs/:id`
@@ -119,8 +128,11 @@ CLI polls every 1 s (30 min timeout).
 6. Job results returned inline on `GET /jobs/:id` (no separate results endpoint); large jobs could later add pagination via `results_cursor`.
 7. Errors: `402 { error: "allowance_exhausted" }` when plan/credit is exhausted; `429`/`503` with `Retry-After` (now honoured by the CLI with backoff).
 
-### Still needed from the server (1.0 resilience/budget features)
-8. **Idempotency:** honour `Idempotency-Key` on `/translate` (same key → same job, ≥ 24 h) and keep finished jobs readable via `GET /jobs/:id` for ≥ 24 h so interrupted runs can resume without re-billing.
-9. **Rate limits:** send `Retry-After` on every `429`/`503`. Per-org limits should allow ~4 concurrent translate jobs (CLI default concurrency).
-10. **Budget:** keep `allowed` / `withinSpendCap` / `note` on `/estimate`. Consider adding `periodSpendGBP` to `/me` so monthly £ caps don't need to be derived from `charsUsed`.
-11. **Batch limits:** publish the max items/chars per `/translate` request (CLI defaults: 100 keys / 20 000 chars).
+### Implemented by the server (83d98cb)
+8. **Idempotency:** `Idempotency-Key` on `/translate` (same key → same job, 30 days; reuse with a different request → `409`); finished jobs readable for ≥ 30 days.
+9. **Rate limits:** `Retry-After` on every `429`/`503`; `RateLimit-*` headers; per-org active-job cap (8, returned as `429` + `Retry-After: 10`).
+10. **Budget:** `allowed` / `withinSpendCap` / `note` on `/estimate`; `plan.periodSpendGBP` on `/me`.
+11. **Batch limits:** published on `/me` as `limits`; `413 payload_too_large` above them.
+
+### Upcoming (client already tolerant)
+- Prepaid credits: optional `creditBalanceGBP` on `/me` and `/estimate`; `402 insufficient_credit` with `details.topUpUrl`.

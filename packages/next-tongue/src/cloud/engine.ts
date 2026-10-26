@@ -8,6 +8,7 @@ import { collectArgs } from '../compiler/ast.js';
 import { parseMessage } from '../compiler/parse/icu-parser.js';
 import { checkPluralCategories } from '../compiler/validate/plurals.js';
 import { resolveInsideProject } from '../cli/safe-path.js';
+import { ApiError, DEFAULT_TRANSLATE_LIMITS } from './api.js';
 import type { GlossaryTerms, Job, LoomlocaleClient, TranslateItem } from './api.js';
 
 export function sha(text: string): string {
@@ -265,6 +266,8 @@ export async function translateViaCloud(args: {
   concurrency?: number;
   batchSize?: number;
   batchChars?: number;
+  /** Server limits (from /me `limits`); batch caps are clamped to these. */
+  limits?: { maxItems: number; maxSourceChars: number };
   /** Resume state; mutated in place and passed to `persist` after every change. */
   state?: RunState;
   persist?: (state: RunState) => Promise<void>;
@@ -317,7 +320,9 @@ export async function translateViaCloud(args: {
         }
       }
       if (!job) {
-        const started = await args.client.translate(args.projectId, {
+        let started: Job;
+        try {
+          started = await args.client.translate(args.projectId, {
           sourceLocale: args.sourceLocale,
           targetLocales: [locale],
           items: reqItems,
@@ -326,6 +331,20 @@ export async function translateViaCloud(args: {
           placeholderPattern: '__TONGUE_n__',
           idempotencyKey,
         });
+        } catch (err) {
+          // 413 payload_too_large: split the batch in half and retry each half.
+          if (err instanceof ApiError && err.status === 413 && batch.length > 1) {
+            const mid = Math.ceil(batch.length / 2);
+            const a = await runBatch(locale, batch.slice(0, mid), attempt);
+            const b = await runBatch(locale, batch.slice(mid), attempt);
+            return [...a, ...b];
+          }
+          if (err instanceof ApiError && err.status === 413) {
+            out.failed.push({ locale, key: batch[0]!.key, reason: 'too large for one request (413 payload_too_large)' });
+            return [];
+          }
+          throw err;
+        }
         if (state) {
           rec = state.batches[idempotencyKey] = { locale, keys: batch.map((b) => b.key), jobId: started.id };
           await persist();
@@ -390,7 +409,9 @@ export async function translateViaCloud(args: {
 
   await pool([...byLocale.entries()], args.concurrency ?? 4, async ([locale, items]) => {
     args.onLocaleStart?.(locale, items.length);
-    for (const batch of makeBatches(items, args.batchSize, args.batchChars)) {
+    const maxItems = Math.min(args.batchSize ?? Infinity, args.limits?.maxItems ?? DEFAULT_TRANSLATE_LIMITS.maxItems);
+    const maxChars = Math.min(args.batchChars ?? Infinity, args.limits?.maxSourceChars ?? DEFAULT_TRANSLATE_LIMITS.maxSourceChars);
+    for (const batch of makeBatches(items, maxItems, maxChars)) {
       const retry = await runBatch(locale, batch, 0);
       if (retry.length) await runBatch(locale, retry, 1);
       args.onBatchDone?.(locale, batch.length);

@@ -64,7 +64,7 @@ export function describePlan(me: Me): string {
 export async function cmdWhoami(opts: CloudGlobals): Promise<Me> {
   const me = await (await makeClient(opts)).me();
   if (opts.json) console.log(JSON.stringify(me));
-  else console.log(`${me.user.email} · ${me.org.name} · ${describePlan(me)}`);
+  else console.log(`${me.user.email} · ${me.org.name} · ${describePlan(me)}${typeof me.creditBalanceGBP === 'number' ? ` · credit £${me.creditBalanceGBP.toFixed(2)}` : ''}`);
   return me;
 }
 

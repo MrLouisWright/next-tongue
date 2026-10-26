@@ -70,8 +70,8 @@ export default defineConfig({
     // baseURL: 'https://loomlocale.com/api/v1',
     // budget: { maxChars: 200_000, maxCostGBP: 5, monthlyChars: 2_000_000, monthlyCostGBP: 50 },
     // concurrency: 4,      // target locales translated in parallel
-    // batchSize: 100,      // max keys per translate request
-    // batchChars: 20_000,  // max source chars per translate request
+    // batchSize: 100,      // lower the max keys per translate request (server limit: 1000)
+    // batchChars: 20_000,  // lower the max source chars per request (server limit: 200 000)
     // maxRetries: 5,       // 429/503/network retries (Retry-After + exponential backoff)
   },
 });
@@ -114,10 +114,10 @@ export default defineConfig({
 | `cloud.budget.maxChars` | — | Abort a run whose estimate exceeds this many characters (exit 1). |
 | `cloud.budget.maxCostGBP` | — | Abort a run whose estimated cost exceeds this (GBP). |
 | `cloud.budget.monthlyChars` | — | Abort if period usage (`/me` `plan.charsUsed`) + this run would exceed it. |
-| `cloud.budget.monthlyCostGBP` | — | Same, in GBP. |
+| `cloud.budget.monthlyCostGBP` | — | Same, in GBP (uses `/me` `plan.periodSpendGBP` when the server sends it, else derived from `charsUsed`). |
 | `cloud.concurrency` | `4` | Target locales translated in parallel (`--concurrency`). |
-| `cloud.batchSize` | `100` | Max keys per translate request. |
-| `cloud.batchChars` | `20000` | Max source characters per translate request. |
+| `cloud.batchSize` | server limit (1000) | Max keys per translate request; clamped to `/me` `limits`. |
+| `cloud.batchChars` | server limit (200 000) | Max source characters per translate request; clamped to `/me` `limits`. |
 | `cloud.maxRetries` | `5` | Retries on 429/503/dropped connections. |
 
 ## `withTongue` and Turbopack / TypeScript

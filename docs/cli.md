@@ -99,7 +99,7 @@ Flags beat env, env beats config. An organisation spend cap set on loomlocale.co
 
 **Resilience.** `429`/`503` responses and dropped connections are retried, honouring `Retry-After`, with exponential backoff and jitter (`cloud.maxRetries`, default 5). Translate requests carry a deterministic `Idempotency-Key`. Job ids and progress are saved to `tongue.lock.run.json` (add it to `.gitignore`). If a run is interrupted (crash, Ctrl-C, network loss), re-running `tongue update` resumes polling the same jobs and reuses finished batches instead of translating again. The file is deleted when the run completes.
 
-**Performance.** Keys are sent in batches (≤ `cloud.batchSize` keys, default 100, and ≤ `cloud.batchChars` source chars, default 20 000, per request). Target locales are translated concurrently: `--concurrency N` or `cloud.concurrency`, default 4. After a `429`, all workers pause until `Retry-After` expires.
+**Performance.** Keys are sent in batches within the server's limits from `/me` (default 1000 keys / 200 000 source chars per request). `cloud.batchSize` / `cloud.batchChars` can lower them. If the server answers `413`, the batch is split and retried. Target locales are translated concurrently: `--concurrency N` or `cloud.concurrency`, default 4. After a `429`, all workers pause until `Retry-After` expires.
 
 ## `tongue export` / `tongue import` (v0.4)
 XLIFF 2.0 and CSV round-trip for translators. See [Translator workflow](translator-workflow.md).

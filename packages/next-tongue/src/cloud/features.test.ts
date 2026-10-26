@@ -1,5 +1,5 @@
 /** 1.0 cloud features against the mock server: retries, resume, budget, review/diff, PR mode, concurrency. */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { access, mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,7 @@ import { ApiError, LoomlocaleClient, backoffDelay, parseRetryAfter } from './api
 import { enforceBudget, resolveBudget } from './budget.js';
 import { makeBatches } from './engine.js';
 import { runUpdate } from '../cli/update.js';
+import { runCli } from '../cli/index.js';
 import { cmdLogin } from '../cli/cloud.js';
 import { buildChanges, renderChanges, repoSlugFromRemote } from '../cli/review.js';
 import { createLinePrompter } from './tui.js';
@@ -310,5 +311,94 @@ describe('server f9a71b9 contract', () => {
     expect(src?.file).toBe('messages/en.json');
     const de = [...mock.state.entries.values()].find((e) => e.locale === 'de');
     expect(de?.file).toBe('en.json'); // server default file_path for keys without a file
+  });
+});
+
+describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
+  const keys = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`k${i}`, `Text ${i}`]));
+
+  it('on 409 (Idempotency-Key reused) retries once with a fresh key', async () => {
+    const { mock, url } = await startMock({ conflicts: 1 });
+    const p = await project(url);
+    const s = await runUpdate({ cwd: p.dir, env: p.env, ...base, concurrency: 1 });
+    expect(s.translated).toBe(4);
+    const t = translates(mock);
+    expect(t.length).toBe(3); // one 409 + retry, then the second locale
+    expect(t[1]!.idempotencyKey).not.toBe(t[0]!.idempotencyKey);
+    expect(t[1]!.idempotencyKey!.startsWith(t[0]!.idempotencyKey!.slice(0, 40))).toBe(true);
+  });
+
+  it('a second 409 is not retried again', async () => {
+    const { url } = await startMock({ conflicts: 2 });
+    const client = new LoomlocaleClient({ baseURL: url, token: 'llt_test', ...noSleep });
+    const err = await client
+      .translate('prj_1', { sourceLocale: 'en', targetLocales: ['de'], items: [{ key: 'a', text: 'A' }], glossary: {}, idempotencyKey: 'k'.repeat(40) })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(409);
+  });
+
+  it('on 413 splits the batch and retries the halves', async () => {
+    // /me publishes nothing → defaults (1000 items); the server actually enforces 2 items.
+    const { mock, url } = await startMock({ limits: null, enforceLimits: { maxItems: 2, maxSourceChars: 200000, maxTargetLocales: 50 } });
+    const p = await project(url, '', keys(5));
+    const s = await runUpdate({ cwd: p.dir, env: p.env, ...base, concurrency: 1 });
+    expect(s.translated).toBe(10);
+    expect(mock.state.translateSizes.every((n) => n <= 2)).toBe(true);
+    expect(mock.state.translateSizes.reduce((a, b) => a + b, 0)).toBe(10);
+  });
+
+  it('batches by the limits published on /me', async () => {
+    const { mock, url } = await startMock({ limits: { translate: { maxItems: 3, maxSourceChars: 200000, maxTargetLocales: 50 } } });
+    const p = await project(url, '', keys(7));
+    await runUpdate({ cwd: p.dir, env: p.env, ...base });
+    expect([...mock.state.translateSizes].sort()).toEqual([1, 1, 3, 3, 3, 3]);
+    expect(translates(mock).every((r) => r.idempotencyKey)).toBe(true);
+  });
+
+  it('uses plan.periodSpendGBP for monthly £ caps, else derives it from charsUsed', () => {
+    const plan = { name: 'PAYG', kind: 'payg' as const, charsIncluded: 0, charsUsed: 1_000_000, paygPerMillionGBP: 25 };
+    const est = { chars: 10, billableChars: 10, costGBP: 1 };
+    expect(() => enforceBudget({ monthlyCostGBP: 20 }, est, plan)).toThrow(/£26\.00 this period/);
+    expect(() => enforceBudget({ monthlyCostGBP: 20 }, est, { ...plan, periodSpendGBP: 3 })).not.toThrow();
+    expect(() => enforceBudget({ monthlyCostGBP: 20 }, est, { ...plan, periodSpendGBP: 19.5 })).toThrow(/£20\.50 this period/);
+  });
+
+  it('reads creditBalanceGBP from /me and the estimate when present', async () => {
+    const { url } = await startMock({ creditBalanceGBP: 12.5 });
+    const client = new LoomlocaleClient({ baseURL: url, token: 'llt_test', ...noSleep });
+    expect((await client.me()).creditBalanceGBP).toBe(12.5);
+    const est = await client.estimate('prj_1', { sourceLocale: 'en', targetLocales: ['de'], items: [{ key: 'a', text: 'A' }] });
+    expect(est.creditBalanceGBP).toBe(12.5);
+    const none = await startMock();
+    expect((await new LoomlocaleClient({ baseURL: none.url, token: 'llt_test' }).me()).creditBalanceGBP).toBeUndefined();
+  });
+
+  it('402 insufficient_credit prints the top-up URL, exits 1 and is not retried', async () => {
+    const { mock, url } = await startMock({ insufficientCredit: { topUpUrl: 'https://loomlocale.test/top-up' }, creditBalanceGBP: 0.2 });
+    const p = await project(url);
+    const err = await runUpdate({ cwd: p.dir, env: p.env, ...base, concurrency: 1 }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(402);
+    expect((err as ApiError).topUpUrl).toBe('https://loomlocale.test/top-up');
+    expect(String((err as Error).message)).toMatch(/Insufficient Loomlocale credit.*balance £0\.20.*Top up at https:\/\/loomlocale\.test\/top-up/);
+    expect(translates(mock).length).toBe(1);
+    // Through the CLI: clear message, exit 1.
+    const saved = { ...process.env };
+    Object.assign(process.env, p.env, { NO_COLOR: '1' });
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void errs.push(a.join(' ')));
+    const prevExit = process.exitCode;
+    try {
+      await runCli(['update', '--yes', '--quiet', '--cwd', p.dir]);
+      expect(process.exitCode).toBe(1);
+      expect(errs.join('\n')).toMatch(/Top up at https:\/\/loomlocale\.test\/top-up/);
+    } finally {
+      spy.mockRestore();
+      process.exitCode = prevExit;
+      for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+      Object.assign(process.env, saved);
+    }
+    expect(translates(mock).length).toBe(2);
   });
 });

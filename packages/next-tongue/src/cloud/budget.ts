@@ -50,7 +50,9 @@ export function enforceBudget(budget: Budget, est: Pick<Estimate, 'chars' | 'bil
     over.push(`${(plan.charsUsed + est.chars).toLocaleString('en-GB')} chars this period > monthly cap ${budget.monthlyChars.toLocaleString('en-GB')}`);
   }
   if (plan && budget.monthlyCostGBP != null) {
-    const spent = plan.kind === 'payg' ? (plan.charsUsed / 1_000_000) * plan.paygPerMillionGBP : 0;
+    // Prefer the server's figure; fall back to deriving it from charsUsed (PAYG only).
+    const spent =
+      typeof plan.periodSpendGBP === 'number' ? plan.periodSpendGBP : plan.kind === 'payg' ? (plan.charsUsed / 1_000_000) * plan.paygPerMillionGBP : 0;
     if (spent + est.costGBP > budget.monthlyCostGBP) over.push(`${gbp(spent + est.costGBP)} this period > monthly cap ${gbp(budget.monthlyCostGBP)}`);
   }
   if (est.withinSpendCap === false) over.push(`over your Loomlocale organisation spend cap${est.note ? ` (${est.note})` : ''}`);

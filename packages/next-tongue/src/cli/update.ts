@@ -5,7 +5,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { TongueError } from '../errors.js';
-import { localCostGBP, type SyncEntry } from '../cloud/api.js';
+import { localCostGBP, translateLimits, type Me, type SyncEntry } from '../cloud/api.js';
 import { flatten, readCatalog, writeCatalog, type Catalog, type Flat } from '../cloud/dictionaries.js';
 import {
   countChars,
@@ -208,6 +208,10 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     return summary;
   }
 
+  // GET /me is fetched at most once (limits, monthly spend); failures fall back to defaults.
+  let mePromise: Promise<Me | null> | null = null;
+  const getMe = () => (mePromise ??= client ? client.me().catch(() => null) : Promise.resolve(null));
+
   if (plan.length && client && projectId && hasBudget(budget)) {
     const byLocale = new Map<string, PlanItem[]>();
     for (const p of plan) byLocale.set(p.locale, [...(byLocale.get(p.locale) ?? []), p]);
@@ -225,7 +229,9 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       }),
       { chars: 0, billableChars: 0, costGBP: 0 } as { chars: number; billableChars: number; costGBP: number; allowed?: boolean; withinSpendCap?: boolean; note?: string },
     );
-    const plan2 = budget.monthlyChars != null || budget.monthlyCostGBP != null ? (await client.me()).plan : undefined;
+    const credit = ests.find((e) => typeof e.creditBalanceGBP === 'number')?.creditBalanceGBP;
+    if (typeof credit === 'number' && !opts.quiet && !opts.json) log(color.dim(`  prepaid credit balance: ${formatGBP(credit)} (this run ~${formatGBP(est.costGBP)})`));
+    const plan2 = budget.monthlyChars != null || budget.monthlyCostGBP != null ? (await getMe())?.plan : undefined;
     enforceBudget(budget, est, plan2);
   }
 
@@ -239,8 +245,10 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     const { writeFile: wf } = await import('node:fs/promises');
     const concurrency = opts.concurrency ?? ctx.config.cloud.concurrency ?? 4;
     let bar: Progress | null = opts.quiet || opts.json ? null : (opts.prompter ?? createPrompter([])).progress(`${ctx.sourceLocale} → ${locales.join(', ')}`, plan.length);
+    const limits = translateLimits(await getMe());
     const result = await translateViaCloud({
       concurrency,
+      limits,
       ...(ctx.config.cloud.batchSize != null ? { batchSize: ctx.config.cloud.batchSize } : {}),
       ...(ctx.config.cloud.batchChars != null ? { batchChars: ctx.config.cloud.batchChars } : {}),
       state,

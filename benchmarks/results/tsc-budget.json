@@ -1,20 +1,20 @@
 {
-  "measuredAt": "2026-10-26T21:33:01.066Z",
+  "measuredAt": "2026-10-26T21:51:03.991Z",
   "keys": 10000,
   "namespaces": 10,
   "consumerCalls": 50,
   "runs": 3,
   "baseline": {
     "checkSeconds": 0.01,
-    "totalSeconds": 0.68,
+    "totalSeconds": 0.59,
     "files": 174
   },
   "withI18n": {
-    "checkSeconds": 0.56,
-    "totalSeconds": 1.24,
+    "checkSeconds": 0.53,
+    "totalSeconds": 1.19,
     "files": 190
   },
-  "deltaRatio": 55,
+  "deltaRatio": 52,
   "absoluteBudgetSeconds": 2,
   "absoluteOk": true,
   "relativeFloorSeconds": 0.1,

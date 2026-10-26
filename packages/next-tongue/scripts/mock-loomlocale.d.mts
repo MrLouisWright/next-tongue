@@ -9,6 +9,11 @@ export declare function createMockLoomlocale(opts?: {
   rateLimit?: { translate?: number; job?: number; retryAfter?: string };
   dropJobPolls?: number;
   pollsToFinish?: number;
+  limits?: { translate?: Partial<{ maxItems: number; maxSourceChars: number; maxTargetLocales: number }> } | null;
+  enforceLimits?: { maxItems: number; maxSourceChars: number; maxTargetLocales: number } | null;
+  conflicts?: number;
+  creditBalanceGBP?: number | null;
+  insufficientCredit?: { topUpUrl?: string } | null;
 }): {
   state: {
     requests: Array<{ method: string; path: string; body: unknown; auth: string | null; idempotencyKey: string | null }>;
@@ -23,6 +28,12 @@ export declare function createMockLoomlocale(opts?: {
     maxActive: number;
     rateLimited: number;
     breakKeys: Set<string>;
+    limits: { translate?: Partial<{ maxItems: number; maxSourceChars: number; maxTargetLocales: number }> } | null;
+    enforceLimits: { maxItems: number; maxSourceChars: number; maxTargetLocales: number } | null;
+    conflicts: number;
+    creditBalanceGBP: number | null | undefined;
+    insufficientCredit: { topUpUrl?: string } | null;
+    translateSizes: number[];
   };
   listen(port?: number): Promise<string>;
   close(): Promise<void>;

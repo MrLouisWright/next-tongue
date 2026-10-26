@@ -42,7 +42,30 @@ export type Plan = {
   periodEnd?: string;
   /** PAYG price, GBP per 1,000,000 characters (default 25). */
   paygPerMillionGBP: number;
+  /** £ billed so far this period (server-computed; preferred for monthly £ caps). Optional. */
+  periodSpendGBP?: number;
 };
+
+/** Published per-request limits (`GET /me` → `limits`). */
+export type Limits = {
+  translate?: { maxItems?: number; maxSourceChars?: number; maxTargetLocales?: number };
+  maxActiveJobsPerOrg?: number;
+  rateLimitPerMinute?: number;
+  idempotencyKeyTtlHours?: number;
+};
+
+/** Server defaults used when `/me` has no `limits`. */
+export const DEFAULT_TRANSLATE_LIMITS = { maxItems: 1000, maxSourceChars: 200_000, maxTargetLocales: 50 } as const;
+
+export function translateLimits(me: Pick<Me, 'limits'> | null | undefined): { maxItems: number; maxSourceChars: number; maxTargetLocales: number } {
+  const t = me?.limits?.translate ?? {};
+  const pos = (n: unknown, d: number) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : d);
+  return {
+    maxItems: pos(t.maxItems, DEFAULT_TRANSLATE_LIMITS.maxItems),
+    maxSourceChars: pos(t.maxSourceChars, DEFAULT_TRANSLATE_LIMITS.maxSourceChars),
+    maxTargetLocales: pos(t.maxTargetLocales, DEFAULT_TRANSLATE_LIMITS.maxTargetLocales),
+  };
+}
 
 export type Me = {
   user: { id: string; email: string; name?: string };
@@ -50,6 +73,10 @@ export type Me = {
   plan: Plan;
   /** Org monthly spend cap set on loomlocale.com (null = none). Optional. */
   spendCapGBP?: number | null;
+  /** Published batch/rate limits. Optional. */
+  limits?: Limits;
+  /** Prepaid credit balance (upcoming). Optional. */
+  creditBalanceGBP?: number | null;
 };
 
 export type Project = {
@@ -79,6 +106,8 @@ export type Estimate = {
   /** Server-side: false when the job would exceed the org's spend cap. Optional. */
   withinSpendCap?: boolean;
   note?: string;
+  /** Prepaid credit balance (upcoming). Optional. */
+  creditBalanceGBP?: number | null;
 };
 
 export type GlossaryTerms = Record<
@@ -149,6 +178,10 @@ export type SyncResponse = {
 export class ApiError extends Error {
   /** From Retry-After on 429/503. */
   retryAfterMs: number | null = null;
+  /** `details` from the error body, if any. */
+  details: unknown = undefined;
+  /** Top-up link for 402 insufficient_credit. */
+  topUpUrl: string | null = null;
   constructor(
     readonly status: number,
     readonly code: string,
@@ -288,10 +321,23 @@ export class LoomlocaleClient {
       throw e;
     }
     if (!res.ok && !opts.allowError) {
-      const d = data as { error?: string; message?: string; error_description?: string };
+      const d = data as { error?: string; message?: string; error_description?: string; details?: unknown; topUpUrl?: string; top_up_url?: string };
       const code = d.error ?? `http_${res.status}`;
+      if (res.status === 402 && code === 'insufficient_credit') {
+        const det = (d.details && typeof d.details === 'object' ? d.details : {}) as { topUpUrl?: string; top_up_url?: string; creditBalanceGBP?: number; requiredGBP?: number };
+        const url = det.topUpUrl ?? det.top_up_url ?? d.topUpUrl ?? d.top_up_url ?? 'https://loomlocale.com/billing';
+        const bits = [d.message ?? 'Not enough prepaid credit for this run'];
+        if (typeof det.creditBalanceGBP === 'number') bits.push(`balance £${det.creditBalanceGBP.toFixed(2)}`);
+        if (typeof det.requiredGBP === 'number') bits.push(`needed £${det.requiredGBP.toFixed(2)}`);
+        const e = new ApiError(402, code, `Insufficient Loomlocale credit — ${bits.join(', ')}. Nothing more was translated. Top up at ${url} and re-run.`);
+        e.details = d.details;
+        e.topUpUrl = url;
+        throw e;
+      }
       const hint = res.status === 401 ? ' (run `tongue login`)' : res.status === 402 ? ' (plan allowance exhausted — top up at loomlocale.com/billing)' : '';
-      throw new ApiError(res.status, code, `Loomlocale API ${method} ${path} → ${res.status} ${d.message ?? d.error_description ?? code}${hint}`);
+      const e = new ApiError(res.status, code, `Loomlocale API ${method} ${path} → ${res.status} ${d.message ?? d.error_description ?? code}${hint}`);
+      e.details = d.details;
+      throw e;
     }
     return { status: res.status, data: data as T };
   }
@@ -327,11 +373,23 @@ export class LoomlocaleClient {
     return this.request<Estimate>('POST', `/projects/${encodeURIComponent(projectId)}/estimate`, req).then((r) => r.data);
   }
 
-  translate(projectId: string, req: TranslateRequest): Promise<Job> {
-    // Idempotency-Key header (and body field) lets retries/resumes return the same job.
-    return this.request<{ job: Job }>('POST', `/projects/${encodeURIComponent(projectId)}/translate`, req, {
-      headers: { 'idempotency-key': req.idempotencyKey },
-    }).then((r) => r.data.job);
+  /**
+   * Idempotency-Key header (and body field) lets retries/resumes return the same job.
+   * A 409 conflict means the key was already used for a different request: retry once with a fresh key.
+   */
+  async translate(projectId: string, req: TranslateRequest): Promise<Job> {
+    const send = (r: TranslateRequest) =>
+      this.request<{ job: Job }>('POST', `/projects/${encodeURIComponent(projectId)}/translate`, r, {
+        headers: { 'idempotency-key': r.idempotencyKey },
+      }).then((x) => x.data.job);
+    try {
+      return await send(req);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 409)) throw err;
+      const fresh = `${req.idempotencyKey.slice(0, 40)}-${Date.now().toString(36)}${Math.floor(this.random() * 1e9).toString(36)}`;
+      this.onRetry?.({ attempt: 1, waitMs: 0, status: 409, path: 'translate (idempotency key reused — new key)' });
+      return send({ ...req, idempotencyKey: fresh });
+    }
   }
 
   job(id: string): Promise<Job> {
