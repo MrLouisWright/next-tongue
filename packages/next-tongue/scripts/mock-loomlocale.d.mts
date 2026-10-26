@@ -15,6 +15,9 @@ export declare function createMockLoomlocale(opts?: {
   creditBalanceGBP?: number | null;
   insufficientCredit?: { topUpUrl?: string | null } | null;
   creditExpiry?: Record<string, unknown>;
+  nestedErrors?: boolean;
+  spendCapReached?: boolean;
+  lowCredit?: boolean;
 }): {
   state: {
     requests: Array<{ method: string; path: string; body: unknown; auth: string | null; idempotencyKey: string | null }>;
@@ -35,6 +38,9 @@ export declare function createMockLoomlocale(opts?: {
     creditBalanceGBP: number | null | undefined;
     insufficientCredit: { topUpUrl?: string | null } | null;
     creditExpiry: Record<string, unknown>;
+    nestedErrors: boolean;
+    spendCapReached: boolean;
+    lowCredit: boolean | undefined;
     translateSizes: number[];
   };
   listen(port?: number): Promise<string>;

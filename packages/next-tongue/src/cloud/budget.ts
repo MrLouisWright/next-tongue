@@ -4,7 +4,7 @@
  */
 import type { CloudBudget, ResolvedTongueConfig } from '../config/types.js';
 import { TongueError } from '../errors.js';
-import type { Estimate, Plan } from './api.js';
+import { insufficientCreditError, type Estimate, type Plan } from './api.js';
 
 export type Budget = CloudBudget;
 
@@ -40,9 +40,10 @@ const gbp = (n: number) => `£${n.toFixed(2)}`;
 
 /**
  * Throws TONGUE_E_BUDGET (exit 1) when the run would exceed a cap.
- * `estimate.allowed === false` / `withinSpendCap === false` (server-side org cap) also abort.
+ * Server verdicts: `withinCredit: false` → insufficient credit (ApiError 402, exit 4).
+ * The deprecated `withinSpendCap` is only read when `withinCredit` is absent; `allowed: false` aborts too.
  */
-export function enforceBudget(budget: Budget, est: Pick<Estimate, 'chars' | 'billableChars' | 'costGBP'> & { allowed?: boolean; withinSpendCap?: boolean; note?: string }, plan?: Plan): void {
+export function enforceBudget(budget: Budget, est: Pick<Estimate, 'chars' | 'billableChars' | 'costGBP'> & Partial<Pick<Estimate, 'allowed' | 'withinSpendCap' | 'withinCredit' | 'creditRequiredGBP' | 'creditBalanceGBP' | 'topUpUrl' | 'note'>>, plan?: Plan): void {
   const over: string[] = [];
   if (budget.maxChars != null && est.chars > budget.maxChars) over.push(`${est.chars.toLocaleString('en-GB')} chars > max ${budget.maxChars.toLocaleString('en-GB')} per run`);
   if (budget.maxCostGBP != null && est.costGBP > budget.maxCostGBP) over.push(`${gbp(est.costGBP)} > max ${gbp(budget.maxCostGBP)} per run`);
@@ -52,11 +53,19 @@ export function enforceBudget(budget: Budget, est: Pick<Estimate, 'chars' | 'bil
   if (plan && budget.monthlyCostGBP != null) {
     // Prefer the server's figure; fall back to deriving it from charsUsed (PAYG only).
     const spent =
-      typeof plan.periodSpendGBP === 'number' ? plan.periodSpendGBP : plan.kind === 'payg' ? (plan.charsUsed / 1_000_000) * plan.paygPerMillionGBP : 0;
+      typeof plan.periodSpendGBP === 'number' ? plan.periodSpendGBP : plan.kind === 'subscription' ? 0 : (Math.max(0, plan.charsUsed - (plan.charsIncluded ?? 0)) / 1_000_000) * plan.paygPerMillionGBP;
     if (spent + est.costGBP > budget.monthlyCostGBP) over.push(`${gbp(spent + est.costGBP)} this period > monthly cap ${gbp(budget.monthlyCostGBP)}`);
   }
-  if (est.withinSpendCap === false) over.push(`over your Loomlocale organisation spend cap${est.note ? ` (${est.note})` : ''}`);
-  else if (est.allowed === false) over.push(`not allowed by Loomlocale${est.note ? `: ${est.note}` : ''}`);
+  const creditKnown = typeof est.withinCredit === 'boolean';
+  if (!creditKnown && est.withinSpendCap === false) over.push(`over your Loomlocale organisation spend cap${est.note ? ` (${est.note})` : ''}`);
+  else if (!creditKnown && est.allowed === false) over.push(`not allowed by Loomlocale${est.note ? `: ${est.note}` : ''}`);
+  if (!over.length && est.withinCredit === false) {
+    throw insufficientCreditError({
+      ...(est.creditRequiredGBP != null ? { requiredGBP: est.creditRequiredGBP } : {}),
+      ...(est.creditBalanceGBP != null ? { balanceGBP: est.creditBalanceGBP } : {}),
+      ...(est.topUpUrl ? { topUpUrl: est.topUpUrl } : {}),
+    });
+  }
   if (over.length) {
     throw new TongueError(
       'TONGUE_E_BUDGET',

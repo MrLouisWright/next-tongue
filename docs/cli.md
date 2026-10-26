@@ -7,9 +7,9 @@ Binary: `tongue` (via `npx tongue` or a package.json script). Every command read
 | Code | Meaning |
 |---|---|
 | `0` | OK |
-| `1` | Check failures, spending cap exceeded (`TONGUE_E_BUDGET`), declined review, other API errors |
+| `1` | Check failures, spending cap exceeded (`TONGUE_E_BUDGET`, including a server `spend_cap_reached`), declined review, other API errors |
 | `2` | Usage / config error |
-| `4` | Insufficient prepaid Loomlocale credit (`402 insufficient_credit`): top up at the printed URL and re-run |
+| `4` | Insufficient prepaid Loomlocale credit (`402 insufficient_credit`, or an estimate with `withinCredit: false`): top up at the printed URL and re-run |
 
 ## `tongue build`
 Runs codegen: compiles messages (files + build-time `sources`) into `.tongue/` and writes types. The same step `withTongue` runs at `next.config` load; use it in CI before `tsc`/tests. Flags: `--watch`, `--watch-sources <seconds>`.
@@ -93,7 +93,7 @@ Colour is used only on a TTY and is disabled by `NO_COLOR`. In a terminal you ar
 - `--out-dir .tongue-staging`: dictionaries and the lock are written under that directory (mirroring their paths). Your files are untouched and nothing is pushed.
 - `--review pr`: creates a branch `tongue/update-<timestamp>`, commits only the changed dictionaries and `tongue.lock`, pushes to `origin`, opens a pull request, then switches back to your branch. Your working tree is not modified. The PR body is a Markdown table of the per-key changes. To open the PR, the CLI uses `GITHUB_TOKEN` (or `GH_TOKEN`) with `GITHUB_REPOSITORY` / the `origin` URL (and `GITHUB_API_URL` on GHES); otherwise it uses the `gh` CLI; if neither is available it pushes the branch and prints a message. Translations are not pushed to Loomlocale in this mode; run `tongue push` after merging.
 
-**Prepaid credit.** If Loomlocale answers `402 insufficient_credit`, the run stops with **exit code 4** and prints your balance, the amount needed and the top-up link (fallback `https://loomlocale.com/dashboard/billing`). Nothing is retried. Finished batches are kept, so re-running after topping up resumes. Credits expire 12 months after purchase: if some expire within 30 days, `tongue whoami`, `tongue update` (before translating) and the wizard print a one-line warning.
+**Prepaid credit.** If Loomlocale answers `402 insufficient_credit`, the run stops with **exit code 4** and prints your balance, the amount needed and the top-up link (fallback `https://loomlocale.com/dashboard/billing`). Nothing is retried. Finished batches are kept, so re-running after topping up resumes. Credits expire 12 months after purchase: if some expire within 30 days, `tongue whoami`, `tongue update` (before translating) and the wizard print a one-line warning. They also print a hint when Loomlocale reports low credit.
 
 **Spending caps.** Before translating, `update` asks Loomlocale for an estimate and aborts with **exit code 1** (`TONGUE_E_BUDGET`, nothing translated or billed) when a cap would be exceeded:
 

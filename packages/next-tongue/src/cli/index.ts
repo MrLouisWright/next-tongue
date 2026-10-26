@@ -399,6 +399,12 @@ export async function runCli(argv: string[]): Promise<void> {
       process.exitCode = err.code === 'TONGUE_E_CONFIG' ? 2 : 1;
       return;
     }
+    if (err instanceof ApiError && err.code === 'spend_cap_reached') {
+      // The job's own maxCostGBP was exceeded → same as a local spending cap.
+      console.error(`TONGUE_E_BUDGET: Spending cap exceeded — ${err.message}`);
+      process.exitCode = 1;
+      return;
+    }
     if (err instanceof ApiError) {
       console.error(`TONGUE_E_API: ${err.message}`);
       // 4 = insufficient prepaid credit (top up and re-run); other API errors 1.

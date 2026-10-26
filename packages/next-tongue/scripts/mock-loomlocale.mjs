@@ -8,10 +8,10 @@
  * identical texts once, Idempotency-Key on translate, 429 + Retry-After.
  * Mirrors 83d98cb too: 409 conflict when an Idempotency-Key is reused with a different request,
  * 413 payload_too_large over the batch limits, /me `limits` and plan.periodSpendGBP.
- * Upcoming prepaid credits: creditBalanceGBP on /me + estimate, 402 insufficient_credit.
+ * Prepaid credits (plan.kind free|credits|subscription; estimate withinCredit/creditRequiredGBP): creditBalanceGBP on /me + estimate, 402 insufficient_credit.
  * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
  * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
- * conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate).
+ * nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate).
  */
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -28,7 +28,7 @@ export function createMockLoomlocale(opts = {}) {
     glossary: opts.glossary ?? {},
     cursor: 0,
     requests: [],
-    plan: opts.plan ?? { name: 'Pay as you go', kind: 'payg', charsIncluded: 0, charsUsed: 0, paygPerMillionGBP: 25 },
+    plan: opts.plan ?? { name: 'Credits', kind: 'credits', charsIncluded: 0, charsUsed: 0, paygPerMillionGBP: 25 },
     breakKeys: new Set(opts.breakKeys ?? []),
     spendCapGBP: opts.spendCapGBP ?? null,
     rateLimit: { translate: 0, job: 0, retryAfter: '0', ...(opts.rateLimit ?? {}) },
@@ -44,12 +44,22 @@ export function createMockLoomlocale(opts = {}) {
     creditBalanceGBP: opts.creditBalanceGBP,
     insufficientCredit: opts.insufficientCredit ?? null,
     translateSizes: [],
+    nestedErrors: opts.nestedErrors ?? false,
+    spendCapReached: opts.spendCapReached ?? false,
+    lowCredit: opts.lowCredit,
     creditExpiry: opts.creditExpiry ?? {}, // e.g. { nextExpiry: '2026-11-20', nextExpiryGBP: 12.5 }
   };
   const tooMany = (res) => {
     state.rateLimited++;
     res.writeHead(429, { 'content-type': 'application/json', 'retry-after': state.rateLimit.retryAfter });
     res.end(JSON.stringify({ error: 'rate_limited', message: 'Too many requests' }));
+  };
+  let reqSeq = 0;
+  // Errors use the flat envelope { error: "<code>", message, details?, request_id }; nestedErrors → { error: { code, … } }.
+  const fail = (res, status, code, message, details) => {
+    const request_id = `req_${++reqSeq}`;
+    const flat = { error: code, message, ...(details ? { details } : {}), request_id };
+    json(res, status, state.nestedErrors ? { error: { code, message, ...(details ? { details } : {}), request_id } } : flat);
   };
   const json = (res, status, body) => {
     res.writeHead(status, { 'content-type': 'application/json' });
@@ -85,7 +95,9 @@ export function createMockLoomlocale(opts = {}) {
     if (!authed) return json(res, 401, { error: 'unauthorized', message: 'Missing or invalid token' });
 
     if (req.method === 'GET' && path === '/me') {
-      return json(res, 200, { user: { id: 'u_1', email: 'dev@example.com', name: 'Dev' }, org: { id: 'o_1', name: 'Example Ltd' }, plan: state.plan, spendCapGBP: state.spendCapGBP, ...(state.limits ? { limits: state.limits } : {}), ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), ...state.creditExpiry, token: { prefix: 'llt_', scope: 'projects translate sync' } });
+      return json(res, 200, { user: { id: 'u_1', email: 'dev@example.com', name: 'Dev' }, org: { id: 'o_1', name: 'Example Ltd' }, plan: state.plan, spendCapGBP: state.spendCapGBP, ...(state.limits ? { limits: state.limits } : {}), ...(state.creditBalanceGBP !== undefined
+        ? { creditBalanceGBP: state.creditBalanceGBP, credit: { creditBalanceGBP: state.creditBalanceGBP, lowCredit: state.lowCredit ?? (state.creditBalanceGBP ?? 0) < 1, creditLots: [], topUpUrl: 'https://loomlocale.test/top-up' } }
+        : {}), ...state.creditExpiry, token: { prefix: 'llt_', scope: 'projects translate sync' } });
     }
     if (path === '/projects' && req.method === 'GET') return json(res, 200, { projects: state.projects });
     if (path === '/projects' && req.method === 'POST') {
@@ -101,11 +113,17 @@ export function createMockLoomlocale(opts = {}) {
         // Identical texts are counted once.
         const unique = new Set(body.items.map((i) => i.text));
         const chars = [...unique].reduce((n, t) => n + [...t].length, 0) * body.targetLocales.length;
-        const left = state.plan.kind === 'payg' ? null : state.plan.charsIncluded - state.plan.charsUsed;
+        const left = state.plan.kind === 'payg' || state.plan.kind === 'credits' ? null : state.plan.charsIncluded - state.plan.charsUsed;
         const within = left != null && chars <= left;
         const costGBP = within ? 0 : Math.round((chars / 1e6) * state.plan.paygPerMillionGBP * 100) / 100;
         const withinSpendCap = state.spendCapGBP == null || costGBP <= state.spendCapGBP;
-        return json(res, 200, { chars, billableChars: within ? 0 : chars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, allowed: withinSpendCap, withinSpendCap, ...(state.creditBalanceGBP !== undefined ? { creditBalanceGBP: state.creditBalanceGBP } : {}), ...state.creditExpiry, ...(withinSpendCap ? {} : { note: `Org spend cap £${state.spendCapGBP} reached` }) });
+        return json(res, 200, { chars, billableChars: within ? 0 : chars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, ...(state.creditBalanceGBP != null
+          ? (() => {
+              // Prepaid: withinCredit is authoritative; withinSpendCap is its deprecated alias.
+              const withinCredit = costGBP <= state.creditBalanceGBP;
+              return { creditRequiredGBP: costGBP, creditBalanceGBP: state.creditBalanceGBP, withinCredit, allowed: withinCredit, withinSpendCap: withinCredit, ...(withinCredit ? {} : { topUpUrl: 'https://loomlocale.test/top-up' }) };
+            })()
+          : { allowed: withinSpendCap, withinSpendCap }), ...state.creditExpiry, ...(withinSpendCap ? {} : { note: `Org spend cap £${state.spendCapGBP} reached` }) });
       }
       if (m[2] === 'translate') {
         if (state.rateLimit.translate > 0) {
@@ -113,7 +131,11 @@ export function createMockLoomlocale(opts = {}) {
           return tooMany(res);
         }
         if (state.insufficientCredit) {
-          return json(res, 402, { error: 'insufficient_credit', message: 'Not enough prepaid credit', details: { requiredGBP: 1.5, balanceGBP: state.creditBalanceGBP ?? 0, ...(state.insufficientCredit.topUpUrl !== null ? { topUpUrl: state.insufficientCredit.topUpUrl ?? 'https://loomlocale.test/billing/top-up' } : {}) } });
+          const bal = state.creditBalanceGBP ?? 0;
+          return fail(res, 402, 'insufficient_credit', `Not enough prepaid credit: this job needs £1.5000, balance is £${bal.toFixed(2)}.`, { requiredGBP: 1.5, balanceGBP: bal, creditBalanceGBP: bal, ...(state.insufficientCredit.topUpUrl !== null ? { topUpUrl: state.insufficientCredit.topUpUrl ?? 'https://loomlocale.test/billing/top-up' } : {}) });
+        }
+        if (state.spendCapReached) {
+          return fail(res, 402, 'spend_cap_reached', `Estimated cost £3 exceeds max_cost_gbp`, { estimate: {} });
         }
         const L = state.enforceLimits ?? state.limits?.translate ?? { maxItems: 1000, maxSourceChars: 200000, maxTargetLocales: 50 };
         const sourceChars = body.items.reduce((n, i) => n + [...i.text].length, 0);

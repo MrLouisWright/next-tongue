@@ -4,7 +4,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { creditExpiryWarning, localCostGBP, type Estimate, type Me } from '../cloud/api.js';
+import { creditExpiryWarning, localCostGBP, lowCreditHint, type Estimate, type Me } from '../cloud/api.js';
 import { createCredentialStore, resolveToken } from '../cloud/credentials.js';
 import { detectFramework, detectLayouts, readCatalog } from '../cloud/dictionaries.js';
 import { countChars } from '../cloud/engine.js';
@@ -146,6 +146,8 @@ export async function runWizard(opts: WizardOptions): Promise<void> {
     if (me) estimateLine += `\n${color.dim(`${me.user.email} · ${describePlan(me)}`)}`;
     const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(est);
     if (expiryWarn) estimateLine += `\n${color.yellow(expiryWarn)}`;
+    const low = lowCreditHint(me);
+    if (low) estimateLine += `\n${color.yellow(low)}`;
     pr.note(estimateLine, 'Estimate');
     if (!opts.yes && !(await pr.confirm(`Translate into ${targets.join(', ')}?`, true))) {
       pr.outro('Nothing translated. Run `tongue update` any time.');

@@ -2,7 +2,7 @@
 
 Base URL: `https://loomlocale.com/api/v1` (override: `cloud.baseURL`, `--base-url`, `LOOMLOCALE_API_URL`).
 All bodies are JSON. Authenticated endpoints require `Authorization: Bearer <token>`.
-Errors: non-2xx with `{ "error": "<code>", "message": "<human text>" }`. Errors may carry `details`. The CLI special-cases `401` (→ "run tongue login"), `402` (→ allowance exhausted; `insufficient_credit` → top-up link and exit code 4, see below), `409` and `413` (see `/translate`).
+Errors: non-2xx with the **flat envelope** `{ "error": "<code>", "message": "<human text>", "details"?: {…}, "request_id": "…" }`, where `error` is a string code. Defensively, the client also accepts a nested `{ "error": { "code", "message", "details", "request_id" } }`. Error messages include `(request id …)` when present. The CLI special-cases `401` (→ "run tongue login"), `402` (`insufficient_credit` → top-up link and **exit code 4**; `spend_cap_reached` → `TONGUE_E_BUDGET`, exit 1; see below), `409` and `413` (see `/translate`).
 **Forward compatibility:** the client ignores response fields it does not know (e.g. `org` on the token response, `spendCapGBP`/`token` on `/me`), so the server may add fields freely.
 Server reference: Loom-Locale/loomlocale commits `f9a71b9`, `83d98cb` (requests 8–11).
 
@@ -40,24 +40,26 @@ CLI polls every `interval` s, +5 s on `slow_down`. No refresh token is assumed (
 ```json
 { "user": { "id": "u_1", "email": "dev@example.com", "name": "Dev" },
   "org":  { "id": "o_1", "name": "Example Ltd" },
-  "plan": { "name": "Starter", "kind": "payg" | "subscription", "charsIncluded": 500000, "charsUsed": 12000,
+  "plan": { "name": "Credits", "kind": "free" | "credits" | "subscription", "charsIncluded": 500000, "charsUsed": 12000,   // older servers: "payg"
             "periodEnd": "2026-11-30T00:00:00Z", "paygPerMillionGBP": 25 },
   "spendCapGBP": 50, "token": { … },          // optional extras; the CLI ignores them
   "limits": { "translate": { "maxItems": 1000, "maxSourceChars": 200000, "maxTargetLocales": 50 },
               "maxActiveJobsPerOrg": 8, "rateLimitPerMinute": 600, "idempotencyKeyTtlHours": 720 },   // optional
-  "creditBalanceGBP": 42.1,                    // optional (upcoming prepaid credits)
-  "nextExpiry": "2026-11-20", "nextExpiryGBP": 12.5 }   // optional, see "Credit expiry"
+  "creditBalanceGBP": 42.1,                    // optional (prepaid credits)
+  "credit": { "creditBalanceGBP": 42.1, "lowCredit": false, "creditLots": [ … ], "topUpUrl": "https://…" },   // optional
+  "nextExpiry": { "expiresAt": "2026-11-20T00:00:00Z", "amountGBP": 12.5, "expiringSoon": true } }   // optional, see "Credit expiry"
 ```
 (`plan.periodSpendGBP` is optional: £ billed so far this period.)
 - Monthly budgets: `monthlyChars` uses `plan.charsUsed`. `monthlyCostGBP` uses `plan.periodSpendGBP` when present; otherwise PAYG spend is estimated locally as `charsUsed × paygPerMillionGBP / 1e6`.
 - `limits.translate` sets the batch caps (see `/translate`). If `limits` is absent or `/me` fails, the CLI uses the published defaults 1000 items / 200 000 source chars / 50 target locales.
-- `creditBalanceGBP` (if present) is shown by `tongue whoami`.
+- `creditBalanceGBP` (if present) is shown by `tongue whoami`. If `credit.lowCredit` is true, `whoami`, `update` and the wizard print `Loomlocale credit is low (£x). Top up at <credit.topUpUrl>.`
+- `plan.kind`: `credits` (and `free` without an allowance) show the per-1M-chars rate. For monthly £ caps without `periodSpendGBP`, spend is derived from usage beyond the allowance at `paygPerMillionGBP`; `subscription` counts as £0.
 
-### Credit expiry (assumed field names)
+### Credit expiry
 Prepaid credits expire 12 months after purchase. `/me` and `/estimate` may carry:
-- **Assumed canonical shape:** `nextExpiry` (ISO date or datetime of the next expiry) plus `nextExpiryGBP` (the amount expiring then).
-- Also accepted for the amount: `expiringGBP` or `creditExpiringGBP`.
-- Also accepted: `nextExpiry: { "date" | "at" | "expiresAt": "…", "amountGBP": 12.5 }`.
+- **Server shape (Loom-Locale/loomlocale credits):** `nextExpiry: { expiresAt, amountGBP, expiringSoon }` (null when there are no lots). The CLI reads `expiresAt` and `amountGBP`.
+- Also accepted, defensively: `nextExpiry` as an ISO string with the amount in `nextExpiryGBP`, `expiringGBP` or `creditExpiringGBP`.
+- Also accepted: the date as `date` or `at` inside the object.
 - If no amount is sent, the warning omits it. An amount of 0 suppresses the warning.
 
 If the expiry is within 30 days, `whoami`, `update` (before translating) and the wizard print a one-line warning to stderr, e.g. `⚠ £12.50 of Loomlocale credit expires on 2026-11-20 (in 25 days) — credits expire 12 months after purchase.` It is not printed with `--json`.
@@ -75,11 +77,13 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 { "sourceLocale": "en", "targetLocales": ["de","fr"], "items": [{ "key": "home.title", "text": "Hello, {name}!" }] }
 // 200
 { "chars": 28, "billableChars": 28, "costGBP": 0.0007, "currency": "GBP", "allowanceRemaining": null, "withinAllowance": false,
-  "allowed": true, "withinSpendCap": true, "note": "…", "creditBalanceGBP": 42.1 }     // last four optional
+  "creditRequiredGBP": 0.0007, "creditBalanceGBP": 42.1, "withinCredit": true, "topUpUrl": "https://…",   // prepaid; topUpUrl only when withinCredit is false
+  "allowed": true, "withinSpendCap": true, "note": "…" }     // all optional; withinSpendCap is a deprecated alias of withinCredit
 ```
 - `chars` = Σ source chars (Unicode code points) of **unique texts** × target count. **Identical texts are counted once**, so the server estimate can be lower than the CLI's local count (which counts every key).
 - `allowanceRemaining` is `null` for PAYG.
-- Budget check: before translating, the CLI requests one estimate per target locale and sums them, then enforces `cloud.budget` / `--max-chars` / `--max-cost` / env caps. If any estimate has `withinSpendCap: false` (org spend cap) or `allowed: false`, the run aborts with exit 1 and shows `note`. Nothing is translated or billed.
+- Budget check: before translating (when any cap is set), the CLI requests one estimate per target locale and sums them, then enforces `cloud.budget` / `--max-chars` / `--max-cost` / env caps (`TONGUE_E_BUDGET`, exit 1).
+- **Credit check:** `withinCredit` is authoritative. Per-locale `creditRequiredGBP` amounts are summed and compared with `creditBalanceGBP`. If any estimate says `withinCredit: false`, or the summed amount exceeds the balance, the run aborts before translating with the insufficient-credit error (exit code 4). `withinSpendCap` / `allowed` are deprecated and only read when `withinCredit` is absent (older servers). In that case a `false` aborts with exit 1 and shows `note`. Nothing is translated or billed.
 - `creditBalanceGBP` (if present) is printed next to the run's estimated cost.
 - `--dry-run` uses the local count and the PAYG rate only (no network).
 
@@ -97,7 +101,10 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 ```
 Header: `Idempotency-Key: <same as body idempotencyKey>` (see above). Requests are **batched**, one target locale per request, within the server's `limits.translate` from `/me` (default 1000 items / 200 000 source chars). `cloud.batchSize` / `cloud.batchChars` can only lower these caps.
 - `413 payload_too_large`: the CLI splits the batch in half and retries each half (recursively). A single key that is still too large is reported as failed for that locale.
-- `402 insufficient_credit` (upcoming prepaid credits): `{ "error": "insufficient_credit", "message": "…", "details": { "requiredGBP": 1.5, "balanceGBP": 0.2, "topUpUrl": "https://…" } }` (confirmed by the server). The CLI prints `Insufficient Loomlocale credit — …, balance £0.20, needed £1.50. … Top up at <topUpUrl> and re-run.` and exits with **code 4**, with no retry. `details.balanceGBP` is preferred, with `details.creditBalanceGBP` as a fallback. If `topUpUrl` is missing, it falls back to `https://loomlocale.com/dashboard/billing`. Finished batches stay in the run state, so the re-run resumes. Locales run concurrently (`--concurrency` / `cloud.concurrency`, default 4).
+- `402 insufficient_credit`: `{ "error": "insufficient_credit", "message": "…", "details": { "requiredGBP": 1.5, "balanceGBP": 0.2, "creditBalanceGBP": 0.2, "topUpUrl": "https://…" }, "request_id": "…" }`. The CLI prints `Insufficient Loomlocale credit: this run needs £1.50, balance is £0.20. Nothing more was translated. Top up at <topUpUrl> and re-run. (request id …)` and exits with **code 4**, with no retry. `details.balanceGBP` is preferred over `details.creditBalanceGBP`. If `topUpUrl` is missing, it falls back to `https://loomlocale.com/dashboard/billing`. Finished batches stay in the run state, so the re-run resumes.
+- `402 spend_cap_reached` now only means the job's own `maxCostGBP` was exceeded. The CLI reports it as `TONGUE_E_BUDGET` (spending cap exceeded, exit 1). The org-wide monthly spend cap was replaced by prepaid credit.
+
+Locales run concurrently (`--concurrency` / `cloud.concurrency`, default 4).
 Server must return `__TONGUE_n__` tokens verbatim. The CLI re-validates everything (tokens, ICU args, plural categories, glossary, maxLength) and retries failed keys once in a new job.
 
 ## `GET /jobs/:id`
@@ -141,8 +148,8 @@ CLI polls every 1 s (30 min timeout).
 ### Implemented by the server (83d98cb)
 8. **Idempotency:** `Idempotency-Key` on `/translate` (same key → same job, 30 days; reuse with a different request → `409`); finished jobs readable for ≥ 30 days.
 9. **Rate limits:** `Retry-After` on every `429`/`503`; `RateLimit-*` headers; per-org active-job cap (8, returned as `429` + `Retry-After: 10`).
-10. **Budget:** `allowed` / `withinSpendCap` / `note` on `/estimate`; `plan.periodSpendGBP` on `/me`.
+10. **Budget:** `allowed` / `withinSpendCap` / `note` on `/estimate` (now superseded by `withinCredit`); `plan.periodSpendGBP` on `/me`.
 11. **Batch limits:** published on `/me` as `limits`; `413 payload_too_large` above them.
 
-### Upcoming (client already tolerant)
-- Prepaid credits: optional `creditBalanceGBP` and expiry fields on `/me` and `/estimate`; `402 insufficient_credit` with `details.requiredGBP` / `balanceGBP` / `topUpUrl` (exit code 4).
+### Prepaid credits (server credits release)
+- `plan.kind` is `free | credits | subscription`, plus `credit` (`creditLots`, `lowCredit` → the CLI shows a low-credit hint in `whoami`, `update` and the wizard), `creditBalanceGBP` and `nextExpiry` on `/me`. The estimate carries `withinCredit` / `creditRequiredGBP` / `creditBalanceGBP`. `402 insufficient_credit` gives exit code 4, and `402 spend_cap_reached` gives `TONGUE_E_BUDGET`.

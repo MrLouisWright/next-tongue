@@ -1,6 +1,6 @@
 /** Loomlocale account + project commands: login, logout, whoami, link, status, push, pull. */
 import { TongueError } from '../errors.js';
-import { LoomlocaleClient, TOKEN_PREFIX, creditExpiryWarning, type Me, type Project, type SyncEntry } from '../cloud/api.js';
+import { LoomlocaleClient, TOKEN_PREFIX, creditExpiryWarning, lowCreditHint, type Me, type Project, type SyncEntry } from '../cloud/api.js';
 import { createCredentialStore } from '../cloud/credentials.js';
 import { readCatalog, writeCatalog, type Flat } from '../cloud/dictionaries.js';
 import { diffCatalogs, loadLock, lockSection, saveLock, sha } from '../cloud/engine.js';
@@ -56,7 +56,7 @@ export async function cmdLogout(opts: CloudGlobals): Promise<void> {
 
 export function describePlan(me: Me): string {
   const p = me.plan;
-  if (p.kind === 'payg') return `${p.name} (${formatGBP(p.paygPerMillionGBP)} per 1M chars)`;
+  if (p.kind === 'payg' || p.kind === 'credits' || (p.kind === 'free' && !p.charsIncluded)) return `${p.name} (${formatGBP(p.paygPerMillionGBP)} per 1M chars)`;
   const left = Math.max(0, p.charsIncluded - p.charsUsed);
   return `${p.name} (${left.toLocaleString('en-GB')} of ${p.charsIncluded.toLocaleString('en-GB')} chars left${p.periodEnd ? `, resets ${p.periodEnd.slice(0, 10)}` : ''})`;
 }
@@ -67,6 +67,8 @@ export async function cmdWhoami(opts: CloudGlobals): Promise<Me> {
   else console.log(`${me.user.email} · ${me.org.name} · ${describePlan(me)}${typeof me.creditBalanceGBP === 'number' ? ` · credit £${me.creditBalanceGBP.toFixed(2)}` : ''}`);
   const warn = opts.json ? null : creditExpiryWarning(me);
   if (warn) console.error(color.yellow(warn));
+  const low = opts.json ? null : lowCreditHint(me);
+  if (low) console.error(color.yellow(low));
   return me;
 }
 

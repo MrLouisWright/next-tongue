@@ -5,7 +5,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { TongueError } from '../errors.js';
-import { creditExpiry, creditExpiryWarning, localCostGBP, translateLimits, type Estimate, type Me, type SyncEntry } from '../cloud/api.js';
+import { ApiError, aggregateEstimates, creditExpiry, creditExpiryWarning, localCostGBP, lowCreditHint, translateLimits, type Estimate, type Me, type SyncEntry } from '../cloud/api.js';
 import { flatten, readCatalog, writeCatalog, type Catalog, type Flat } from '../cloud/dictionaries.js';
 import {
   countChars,
@@ -219,20 +219,10 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     const ests = await Promise.all(
       [...byLocale].map(([l, items]) => client.estimate(projectId, { sourceLocale: ctx.sourceLocale, targetLocales: [l], items: items.map((p) => ({ key: p.key, text: p.source })) })),
     );
-    const est = ests.reduce(
-      (acc, e) => ({
-        chars: acc.chars + e.chars,
-        billableChars: acc.billableChars + e.billableChars,
-        costGBP: acc.costGBP + e.costGBP,
-        ...(e.allowed === false || acc.allowed === false ? { allowed: false } : {}),
-        ...(e.withinSpendCap === false || acc.withinSpendCap === false ? { withinSpendCap: false } : {}),
-        ...(e.note ?? acc.note ? { note: e.note ?? acc.note } : {}),
-      }),
-      { chars: 0, billableChars: 0, costGBP: 0 } as { chars: number; billableChars: number; costGBP: number; allowed?: boolean; withinSpendCap?: boolean; note?: string },
-    );
+    const est = aggregateEstimates(ests);
     lastEstimate = ests.find((e) => creditExpiry(e)) ?? null;
-    const credit = ests.find((e) => typeof e.creditBalanceGBP === 'number')?.creditBalanceGBP;
-    if (typeof credit === 'number' && !opts.quiet && !opts.json) log(color.dim(`  prepaid credit balance: ${formatGBP(credit)} (this run ~${formatGBP(est.costGBP)})`));
+    if (typeof est.creditBalanceGBP === 'number' && !opts.quiet && !opts.json)
+      log(color.dim(`  prepaid credit balance: ${formatGBP(est.creditBalanceGBP)} (this run ~${formatGBP(est.creditRequiredGBP ?? est.costGBP)})`));
     const plan2 = budget.monthlyChars != null || budget.monthlyCostGBP != null ? (await getMe())?.plan : undefined;
     enforceBudget(budget, est, plan2);
   }
@@ -250,6 +240,8 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     const me = await getMe();
     const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(lastEstimate);
     if (expiryWarn && !opts.json) console.error(color.yellow(expiryWarn));
+    const low = lowCreditHint(me);
+    if (low && !opts.json) console.error(color.yellow(low));
     const limits = translateLimits(me);
     const result = await translateViaCloud({
       concurrency,
@@ -270,7 +262,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       onProgress: (l, job) => {
         if (bar) bar.tick(0, `${l} ${job.status} ${job.progress.done}/${job.progress.total}`);
       },
-    });
+    }).catch(mapSpendCap);
     (bar as Progress | null)?.done();
     bar = null;
     summary.billedChars = result.billedChars;
@@ -435,4 +427,12 @@ export async function acceptReviews(opts: CloudGlobals): Promise<number> {
   }
   await saveLock(ctx.cwd, ctx.lockPath, lock);
   return n;
+}
+
+/** `402 spend_cap_reached` now only means a job's own `maxCostGBP` was exceeded: report it as a budget error. */
+function mapSpendCap(err: unknown): never {
+  if (err instanceof ApiError && err.code === 'spend_cap_reached') {
+    throw new TongueError('TONGUE_E_BUDGET', `Spending cap exceeded — ${err.message}. Raise --max-cost / cloud.budget.maxCostGBP or narrow the run.`);
+  }
+  throw err;
 }

@@ -35,7 +35,8 @@ export type DeviceTokenError = {
 
 export type Plan = {
   name: string;
-  kind: 'payg' | 'subscription';
+  /** Server: free | credits | subscription. `payg` from older servers. */
+  kind: 'free' | 'credits' | 'subscription' | 'payg';
   /** Monthly included characters (0 for PAYG). */
   charsIncluded: number;
   charsUsed: number;
@@ -73,6 +74,14 @@ export type Me = {
   plan: Plan;
   /** Org monthly spend cap set on loomlocale.com (null = none). Optional. */
   spendCapGBP?: number | null;
+  /** Prepaid credit summary. Optional. */
+  credit?: {
+    creditBalanceGBP?: number;
+    lowCredit?: boolean;
+    creditLots?: Array<{ remainingGBP?: number; expiresAt?: string; expiringSoon?: boolean; [k: string]: unknown }>;
+    topUpUrl?: string;
+    [k: string]: unknown;
+  } | null;
   /** Published batch/rate limits. Optional. */
   limits?: Limits;
   /** Prepaid credit balance (upcoming). Optional. */
@@ -103,7 +112,13 @@ export type Estimate = {
   withinAllowance: boolean;
   /** Server-side: false when the org may not run this job (e.g. spend cap). Optional. */
   allowed?: boolean;
-  /** Server-side: false when the job would exceed the org's spend cap. Optional. */
+  /** Server-side: false when prepaid credit doesn't cover the run. Optional. */
+  withinCredit?: boolean;
+  /** Credit this run would reserve (0 when not prepaid). Optional. */
+  creditRequiredGBP?: number;
+  /** Top-up link when `withinCredit` is false. Optional. */
+  topUpUrl?: string;
+  /** Deprecated alias of `withinCredit`; only read when `withinCredit` is absent. */
   withinSpendCap?: boolean;
   note?: string;
   /** Prepaid credit balance (upcoming). Optional. */
@@ -211,6 +226,81 @@ export function creditExpiryWarning(src: CreditExpiryFields | null | undefined, 
   return `⚠ ${amt} expires on ${e.date.toISOString().slice(0, 10)} (${left === 1 ? 'in 1 day' : `in ${left} days`}) — credits expire 12 months after purchase.`;
 }
 
+type ErrorBody = {
+  error?: string;
+  message?: string;
+  error_description?: string;
+  details?: Record<string, unknown>;
+  request_id?: string;
+  topUpUrl?: string;
+  top_up_url?: string;
+};
+
+/**
+ * Error bodies are flat (`{ error: "<code>", message, details?, request_id }`); a nested
+ * `{ error: { code, message, details, request_id } }` is accepted too, defensively.
+ */
+export function normalizeErrorBody(data: unknown): ErrorBody {
+  const d = (data && typeof data === 'object' ? data : {}) as Record<string, unknown>;
+  const inner = d.error && typeof d.error === 'object' ? (d.error as Record<string, unknown>) : null;
+  const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+  const obj = (v: unknown) => (v && typeof v === 'object' ? (v as Record<string, unknown>) : undefined);
+  const out: ErrorBody = {};
+  const pick = <K extends keyof ErrorBody>(k: K, v: ErrorBody[K] | undefined) => {
+    if (v !== undefined) out[k] = v;
+  };
+  pick('error', inner ? (str(inner.code) ?? str(inner.error)) : str(d.error));
+  pick('message', str(inner?.message) ?? str(d.message));
+  pick('error_description', str(d.error_description));
+  pick('details', obj(inner?.details) ?? obj(d.details));
+  pick('request_id', str(inner?.request_id) ?? str(d.request_id));
+  pick('topUpUrl', str(inner?.topUpUrl) ?? str(d.topUpUrl));
+  pick('top_up_url', str(d.top_up_url));
+  return out;
+}
+
+/** The `402 insufficient_credit` error (also raised before translating when the estimate says `withinCredit: false`). CLI exit code 4. */
+export function insufficientCreditError(a: { requiredGBP?: number | undefined; balanceGBP?: number | undefined; topUpUrl?: string | undefined; requestId?: string | undefined }): ApiError {
+  const url = a.topUpUrl ?? TOP_UP_FALLBACK_URL;
+  const bits: string[] = [];
+  if (typeof a.requiredGBP === 'number') bits.push(`this run needs ${gbpPrecise(a.requiredGBP)}`);
+  if (typeof a.balanceGBP === 'number') bits.push(`balance is ${gbpPrecise(a.balanceGBP)}`);
+  const rid = a.requestId ? ` (request id ${a.requestId})` : '';
+  const e = new ApiError(402, 'insufficient_credit', `Insufficient Loomlocale credit${bits.length ? `: ${bits.join(', ')}` : ''}. Nothing more was translated. Top up at ${url} and re-run.${rid}`);
+  e.topUpUrl = url;
+  e.requestId = a.requestId ?? null;
+  return e;
+}
+
+const gbpPrecise = (n: number) => `£${n !== 0 && Math.abs(n) < 0.01 ? n.toFixed(4) : n.toFixed(2)}`;
+
+/** Sums per-locale estimates. Credit: required amounts add up, so the sum is checked against the balance. */
+export function aggregateEstimates(ests: Estimate[]): Pick<Estimate, 'chars' | 'billableChars' | 'costGBP'> &
+  Partial<Pick<Estimate, 'allowed' | 'withinSpendCap' | 'withinCredit' | 'creditRequiredGBP' | 'creditBalanceGBP' | 'topUpUrl' | 'note'>> {
+  const out: ReturnType<typeof aggregateEstimates> = { chars: 0, billableChars: 0, costGBP: 0 };
+  for (const e of ests) {
+    out.chars += e.chars;
+    out.billableChars += e.billableChars;
+    out.costGBP += e.costGBP;
+    if (e.allowed === false) out.allowed = false;
+    if (e.withinSpendCap === false) out.withinSpendCap = false;
+    if (typeof e.withinCredit === 'boolean') out.withinCredit = (out.withinCredit ?? true) && e.withinCredit;
+    if (typeof e.creditRequiredGBP === 'number') out.creditRequiredGBP = (out.creditRequiredGBP ?? 0) + e.creditRequiredGBP;
+    if (typeof e.creditBalanceGBP === 'number') out.creditBalanceGBP = e.creditBalanceGBP;
+    if (e.topUpUrl) out.topUpUrl = e.topUpUrl;
+    if (e.note && !out.note) out.note = e.note;
+  }
+  if (out.withinCredit === true && out.creditRequiredGBP != null && out.creditBalanceGBP != null && out.creditRequiredGBP > out.creditBalanceGBP + 1e-9) out.withinCredit = false;
+  return out;
+}
+
+/** Hint when `/me` says credit is low (`credit.lowCredit`). */
+export function lowCreditHint(me: Pick<Me, 'credit' | 'creditBalanceGBP'> | null | undefined): string | null {
+  if (!me?.credit?.lowCredit) return null;
+  const bal = me.creditBalanceGBP ?? me.credit.creditBalanceGBP;
+  return `Loomlocale credit is low${typeof bal === 'number' ? ` (${gbpPrecise(bal)})` : ''}. Top up at ${me.credit.topUpUrl ?? TOP_UP_FALLBACK_URL}.`;
+}
+
 export class ApiError extends Error {
   /** From Retry-After on 429/503. */
   retryAfterMs: number | null = null;
@@ -218,6 +308,8 @@ export class ApiError extends Error {
   details: unknown = undefined;
   /** Top-up link for 402 insufficient_credit. */
   topUpUrl: string | null = null;
+  /** `request_id` from the error body (quote it to Loomlocale support). */
+  requestId: string | null = null;
   constructor(
     readonly status: number,
     readonly code: string,
@@ -351,29 +443,30 @@ export class LoomlocaleClient {
       }
     }
     if (res.status === 429 || res.status === 503) {
-      const d = data as { error?: string; message?: string };
+      const d = normalizeErrorBody(data);
       const e = new ApiError(res.status, d.error ?? (res.status === 429 ? 'rate_limited' : 'unavailable'), `Loomlocale API ${method} ${path} → ${res.status} ${d.message ?? 'rate limited / unavailable'} (retries exhausted)`);
       e.retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
       throw e;
     }
     if (!res.ok && !opts.allowError) {
-      const d = data as { error?: string; message?: string; error_description?: string; details?: unknown; topUpUrl?: string; top_up_url?: string };
+      const d = normalizeErrorBody(data);
       const code = d.error ?? `http_${res.status}`;
+      const rid = d.request_id ? ` (request id ${d.request_id})` : '';
       if (res.status === 402 && code === 'insufficient_credit') {
-        const det = (d.details && typeof d.details === 'object' ? d.details : {}) as { topUpUrl?: string; top_up_url?: string; balanceGBP?: number; creditBalanceGBP?: number; requiredGBP?: number };
-        const url = det.topUpUrl ?? det.top_up_url ?? d.topUpUrl ?? d.top_up_url ?? TOP_UP_FALLBACK_URL;
-        const bits = [d.message ?? 'Not enough prepaid credit for this run'];
-        const bal = typeof det.balanceGBP === 'number' ? det.balanceGBP : det.creditBalanceGBP;
-        if (typeof bal === 'number') bits.push(`balance £${bal.toFixed(2)}`);
-        if (typeof det.requiredGBP === 'number') bits.push(`needed £${det.requiredGBP.toFixed(2)}`);
-        const e = new ApiError(402, code, `Insufficient Loomlocale credit — ${bits.join(', ')}. Nothing more was translated. Top up at ${url} and re-run.`);
+        const det = (d.details ?? {}) as { topUpUrl?: string; top_up_url?: string; balanceGBP?: number; creditBalanceGBP?: number; requiredGBP?: number };
+        const e = insufficientCreditError({
+          requiredGBP: det.requiredGBP,
+          balanceGBP: typeof det.balanceGBP === 'number' ? det.balanceGBP : det.creditBalanceGBP,
+          topUpUrl: det.topUpUrl ?? det.top_up_url ?? d.topUpUrl ?? d.top_up_url,
+          requestId: d.request_id,
+        });
         e.details = d.details;
-        e.topUpUrl = url;
         throw e;
       }
-      const hint = res.status === 401 ? ' (run `tongue login`)' : res.status === 402 ? ' (plan allowance exhausted — top up at loomlocale.com/billing)' : '';
-      const e = new ApiError(res.status, code, `Loomlocale API ${method} ${path} → ${res.status} ${d.message ?? d.error_description ?? code}${hint}`);
+      const hint = res.status === 401 ? ' (run `tongue login`)' : res.status === 402 && code !== 'spend_cap_reached' ? ` (top up at ${TOP_UP_FALLBACK_URL})` : '';
+      const e = new ApiError(res.status, code, `Loomlocale API ${method} ${path} → ${res.status} ${d.message ?? d.error_description ?? code}${hint}${rid}`);
       e.details = d.details;
+      e.requestId = d.request_id ?? null;
       throw e;
     }
     return { status: res.status, data: data as T };

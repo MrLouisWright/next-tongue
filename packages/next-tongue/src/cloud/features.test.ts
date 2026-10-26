@@ -5,12 +5,12 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMockLoomlocale } from '../../scripts/mock-loomlocale.mjs';
-import { ApiError, LoomlocaleClient, backoffDelay, creditExpiry, creditExpiryWarning, parseRetryAfter } from './api.js';
+import { ApiError, LoomlocaleClient, aggregateEstimates, backoffDelay, creditExpiry, creditExpiryWarning, lowCreditHint, normalizeErrorBody, parseRetryAfter } from './api.js';
 import { enforceBudget, resolveBudget } from './budget.js';
 import { makeBatches } from './engine.js';
 import { runUpdate } from '../cli/update.js';
 import { runCli } from '../cli/index.js';
-import { cmdLogin, cmdWhoami } from '../cli/cloud.js';
+import { cmdLogin, cmdWhoami, describePlan } from '../cli/cloud.js';
 import { buildChanges, renderChanges, repoSlugFromRemote } from '../cli/review.js';
 import { createLinePrompter } from './tui.js';
 import { TongueError } from '../errors.js';
@@ -382,7 +382,7 @@ describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).status).toBe(402);
     expect((err as ApiError).topUpUrl).toBe('https://loomlocale.test/top-up');
-    expect(String((err as Error).message)).toMatch(/Insufficient Loomlocale credit.*balance £0\.20, needed £1\.50.*Top up at https:\/\/loomlocale\.test\/top-up/);
+    expect(String((err as Error).message)).toMatch(/Insufficient Loomlocale credit: this run needs £1\.50, balance is £0\.20\. .*Top up at https:\/\/loomlocale\.test\/top-up and re-run\. \(request id req_\d+\)/);
     expect(translates(mock).length).toBe(1);
     // Through the CLI: clear message, exit 1.
     const saved = { ...process.env };
@@ -410,7 +410,7 @@ describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
       .translate('prj_1', { sourceLocale: 'en', targetLocales: ['de'], items: [{ key: 'a', text: 'A' }], glossary: {}, idempotencyKey: 'x'.repeat(40) })
       .catch((e: unknown) => e)) as ApiError;
     expect(err.topUpUrl).toBe('https://loomlocale.com/dashboard/billing');
-    expect(err.message).toMatch(/balance £3\.00, needed £1\.50\. .*Top up at https:\/\/loomlocale\.com\/dashboard\/billing/);
+    expect(err.message).toMatch(/needs £1\.50, balance is £3\.00\. .*Top up at https:\/\/loomlocale\.com\/dashboard\/billing/);
   });
 
   it('parses credit expiry variants and warns only within 30 days', () => {
@@ -439,6 +439,83 @@ describe('server 83d98cb contract (requests 8–11) + prepaid credits', () => {
       errs.length = 0;
       await runUpdate({ cwd: p.dir, env: p.env, ...base });
       expect(errs.filter((e) => /expires on/.test(e)).length).toBe(1);
+    } finally {
+      spy.mockRestore();
+      out.mockRestore();
+    }
+  });
+});
+
+describe('prepaid credits contract (flat error envelope, withinCredit, plan kinds)', () => {
+  const tr = (c: LoomlocaleClient) =>
+    c.translate('prj_1', { sourceLocale: 'en', targetLocales: ['de'], items: [{ key: 'a', text: 'A' }], glossary: {}, idempotencyKey: 'y'.repeat(40) }).catch((e: unknown) => e as ApiError);
+
+  it('reads the 402 from both the flat and the nested error envelope, with request_id', async () => {
+    for (const nestedErrors of [false, true]) {
+      const { url } = await startMock({ insufficientCredit: {}, creditBalanceGBP: 0.25, nestedErrors });
+      const err = await tr(new LoomlocaleClient({ baseURL: url, token: 'llt_test', ...noSleep }));
+      expect(err.code).toBe('insufficient_credit');
+      expect(err.requestId).toMatch(/^req_/);
+      expect(err.topUpUrl).toBe('https://loomlocale.test/billing/top-up');
+      expect(err.message).toMatch(/needs £1\.50, balance is £0\.25.*\(request id req_\d+\)/);
+    }
+    expect(normalizeErrorBody({ error: { code: 'x', message: 'm', request_id: 'r' } })).toEqual({ error: 'x', message: 'm', request_id: 'r' });
+    expect(normalizeErrorBody({ error: 'x', details: { a: 1 } })).toEqual({ error: 'x', details: { a: 1 } });
+  });
+
+  it('withinCredit: false on the estimate aborts before translating with exit-4 credit error; summed across locales', async () => {
+    const { mock, url } = await startMock({ plan: { name: 'Credits', kind: 'credits', charsIncluded: 0, charsUsed: 0, paygPerMillionGBP: 1_000_000 }, creditBalanceGBP: 30 });
+    const p = await project(url, '', { a: 'Twenty characters!!!' }); // 20 chars → £20 per locale, £40 total > £30
+    const err = await runUpdate({ cwd: p.dir, env: p.env, ...base, maxCost: 100 }).catch((e: unknown) => e as ApiError);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.code).toBe('insufficient_credit');
+    expect(err.message).toMatch(/needs £40\.00, balance is £30\.00.*Top up at https:\/\/loomlocale\.com\/dashboard\/billing/);
+    expect(translates(mock).length).toBe(0);
+  });
+
+  it('ignores the deprecated withinSpendCap when withinCredit is present', () => {
+    expect(() => enforceBudget({}, { chars: 1, billableChars: 1, costGBP: 1, withinCredit: true, withinSpendCap: false, allowed: false })).not.toThrow();
+    expect(() => enforceBudget({}, { chars: 1, billableChars: 1, costGBP: 1, withinSpendCap: false })).toThrow(/organisation spend cap/);
+    const e = (() => {
+      try {
+        enforceBudget({}, { chars: 1, billableChars: 1, costGBP: 1, withinCredit: false, creditRequiredGBP: 2, creditBalanceGBP: 1 });
+      } catch (x) {
+        return x as ApiError;
+      }
+    })();
+    expect(e?.code).toBe('insufficient_credit');
+    expect(e?.topUpUrl).toBe('https://loomlocale.com/dashboard/billing');
+    expect(aggregateEstimates([
+      { chars: 1, billableChars: 1, costGBP: 6, currency: 'GBP', allowanceRemaining: null, withinAllowance: false, withinCredit: true, creditRequiredGBP: 6, creditBalanceGBP: 10 },
+      { chars: 1, billableChars: 1, costGBP: 6, currency: 'GBP', allowanceRemaining: null, withinAllowance: false, withinCredit: true, creditRequiredGBP: 6, creditBalanceGBP: 10 },
+    ] as never)).toMatchObject({ withinCredit: false, creditRequiredGBP: 12, creditBalanceGBP: 10 });
+  });
+
+  it('maps spend_cap_reached (job maxCostGBP) to TONGUE_E_BUDGET', async () => {
+    const { url } = await startMock({ spendCapReached: true });
+    const p = await project(url);
+    const err = await runUpdate({ cwd: p.dir, env: p.env, ...base }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TongueError);
+    expect((err as TongueError).code).toBe('TONGUE_E_BUDGET');
+    expect(String(err)).toMatch(/Spending cap exceeded.*max_cost_gbp/);
+  });
+
+  it('handles free | credits | subscription plan kinds and shows a low-credit hint', async () => {
+    expect(describePlan({ plan: { name: 'Credits', kind: 'credits', charsIncluded: 0, charsUsed: 0, paygPerMillionGBP: 25 } } as never)).toMatch(/£25\.00 per 1M chars/);
+    expect(describePlan({ plan: { name: 'Free', kind: 'free', charsIncluded: 10000, charsUsed: 2000, paygPerMillionGBP: 25 } } as never)).toMatch(/8,000 of 10,000 chars left/);
+    expect(() => enforceBudget({ monthlyCostGBP: 1 }, { chars: 1, billableChars: 1, costGBP: 0 }, { name: 'S', kind: 'subscription', charsIncluded: 1e6, charsUsed: 9e9, paygPerMillionGBP: 25 })).not.toThrow();
+    expect(lowCreditHint({ creditBalanceGBP: 0.5, credit: { lowCredit: true, topUpUrl: 'https://t/u' } })).toBe('Loomlocale credit is low (£0.50). Top up at https://t/u.');
+    expect(lowCreditHint({ creditBalanceGBP: 50, credit: { lowCredit: false } })).toBeNull();
+    const { url } = await startMock({ creditBalanceGBP: 0.5 });
+    const p = await project(url);
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void errs.push(a.join(' ')));
+    const out = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const me = await cmdWhoami({ cwd: p.dir, env: p.env, ...noSleepGlobals });
+      expect(me.plan.kind).toBe('credits');
+      expect(me.credit?.lowCredit).toBe(true);
+      expect(errs.join('\n')).toMatch(/Loomlocale credit is low \(£0\.50\)\. Top up at https:\/\/loomlocale\.test\/top-up/);
     } finally {
       spy.mockRestore();
       out.mockRestore();
