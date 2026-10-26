@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { loadConfig } from '../config/load-config.js';
 import type { ResolvedTongueConfig } from '../config/types.js';
 import { TongueError } from '../errors.js';
-import { DEFAULT_BASE_URL, LoomlocaleClient } from './api.js';
+import { DEFAULT_BASE_URL, LoomlocaleClient, type ClientOptions } from './api.js';
 import { createCredentialStore, resolveToken, type CredentialStore } from './credentials.js';
 
 export type CloudGlobals = {
@@ -19,6 +19,8 @@ export type CloudGlobals = {
   env?: NodeJS.ProcessEnv;
   store?: CredentialStore;
   pollIntervalMs?: number;
+  /** Injected for tests (retry sleep/backoff). */
+  clientOptions?: Partial<ClientOptions>;
 };
 
 export function resolveBaseURL(opts: CloudGlobals, config?: ResolvedTongueConfig): string {
@@ -33,7 +35,19 @@ export async function makeClient(opts: CloudGlobals, config?: ResolvedTongueConf
   if (!token && requireAuth) {
     throw new TongueError('TONGUE_E_CONFIG', 'Not logged in to Loomlocale. Run `tongue login` (CI: set LOOMLOCALE_TOKEN).');
   }
-  return new LoomlocaleClient({ baseURL, token, ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}) });
+  const maxRetries = config?.cloud.maxRetries;
+  return new LoomlocaleClient({
+    baseURL,
+    token,
+    ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}),
+    ...(maxRetries != null ? { maxRetries } : {}),
+    onRetry: ({ attempt, waitMs, status }) => {
+      if (!opts.quiet && !opts.json) {
+        console.error(`  ${status === 0 ? 'connection dropped' : `HTTP ${status}`} — retrying in ${(waitMs / 1000).toFixed(1)}s (attempt ${attempt})`);
+      }
+    },
+    ...opts.clientOptions,
+  });
 }
 
 export type ProjectContext = {

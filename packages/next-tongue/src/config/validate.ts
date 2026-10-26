@@ -1,4 +1,5 @@
 import type {
+  CloudConfig,
   DevOverlayOption,
   ResolvedDevOverlay,
   ResolvedTongueConfig,
@@ -193,6 +194,24 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
       length: input.strict?.length ?? 'warn',
     },
     translate: input.translate,
-    cloud: input.cloud ?? {},
+    cloud: validateCloud(input.cloud),
   };
+}
+
+function validateCloud(cloud: TongueConfig['cloud']): CloudConfig {
+  const c = cloud ?? {};
+  const nonNeg = (v: unknown, name: string, int = false) => {
+    if (v == null) return;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || (int && !Number.isInteger(v))) {
+      throw new TongueError('TONGUE_E_CONFIG', `cloud.${name} must be a non-negative ${int ? 'integer' : 'number'}`);
+    }
+  };
+  nonNeg(c.maxRetries, 'maxRetries', true);
+  nonNeg(c.batchSize, 'batchSize', true);
+  nonNeg(c.batchChars, 'batchChars', true);
+  if (c.concurrency != null && (!Number.isInteger(c.concurrency) || c.concurrency < 1)) {
+    throw new TongueError('TONGUE_E_CONFIG', 'cloud.concurrency must be an integer ≥ 1');
+  }
+  for (const k of ['maxChars', 'maxCostGBP', 'monthlyChars', 'monthlyCostGBP'] as const) nonNeg(c.budget?.[k], `budget.${k}`);
+  return c;
 }

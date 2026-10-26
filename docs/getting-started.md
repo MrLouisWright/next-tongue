@@ -2,7 +2,7 @@
 
 > **Status: beta 0.9.** `tongue init` scaffolds the files below. Package: [`next-tongue` on npm](https://www.npmjs.com/package/next-tongue). See [ROADMAP](../ROADMAP.md).
 
-**Requirements:** Next.js 16+ (App Router), React 19.2+, TypeScript 5.5+ recommended, Node 20.9+.
+**Requirements:** Next.js 16+ (App Router), React 19.2+, TypeScript 5.5+ recommended. next-tongue itself (runtime + CLI) supports Node 18+; Next.js 16 needs Node 20.9+, so apps on Next 16 must use 20.9+.
 
 ## 1. Install and scaffold
 

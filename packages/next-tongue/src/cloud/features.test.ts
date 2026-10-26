@@ -1,0 +1,314 @@
+/** 1.0 cloud features against the mock server: retries, resume, budget, review/diff, PR mode, concurrency. */
+import { afterEach, describe, expect, it } from 'vitest';
+import { access, mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createMockLoomlocale } from '../../scripts/mock-loomlocale.mjs';
+import { ApiError, LoomlocaleClient, backoffDelay, parseRetryAfter } from './api.js';
+import { enforceBudget, resolveBudget } from './budget.js';
+import { makeBatches } from './engine.js';
+import { runUpdate } from '../cli/update.js';
+import { cmdLogin } from '../cli/cloud.js';
+import { buildChanges, renderChanges, repoSlugFromRemote } from '../cli/review.js';
+import { createLinePrompter } from './tui.js';
+import { TongueError } from '../errors.js';
+
+type Mock = ReturnType<typeof createMockLoomlocale>;
+const mocks: Mock[] = [];
+afterEach(async () => {
+  while (mocks.length) await mocks.pop()!.close();
+});
+async function startMock(opts: Parameters<typeof createMockLoomlocale>[0] = {}) {
+  const mock = createMockLoomlocale({ projects: [{ id: 'prj_1', name: 'demo', sourceLocale: 'en', targetLocales: ['de', 'fr'] }], ...opts });
+  mocks.push(mock);
+  return { mock, url: await mock.listen() };
+}
+const noSleep = { sleep: async () => {}, random: () => 0 };
+
+async function project(url: string, extra = '', en: Record<string, unknown> = { home: { title: 'Hello, {name}!', body: 'Welcome <b>back</b>' } }) {
+  const dir = await mkdtemp(join(tmpdir(), 'tongue-feat-'));
+  await mkdir(join(dir, 'messages'));
+  await writeFile(join(dir, 'messages/en.json'), JSON.stringify(en));
+  await writeFile(
+    join(dir, 'tongue.config.mjs'),
+    `export default {\n  locales: ['en', 'de', 'fr'],\n  defaultLocale: 'en',\n  messages: './messages/{locale}.json',\n  cloud: { projectId: 'prj_1', ${extra} },\n};\n`,
+  );
+  const env: NodeJS.ProcessEnv = { LOOMLOCALE_NO_KEYCHAIN: '1', LOOMLOCALE_NO_BROWSER: '1', XDG_CONFIG_HOME: join(dir, '.cfg'), LOOMLOCALE_API_URL: url, LOOMLOCALE_TOKEN: 'llt_test' };
+  return { dir, env };
+}
+const base = { quiet: true, pollIntervalMs: 1, clientOptions: noSleep } as const;
+const translates = (m: Mock) => m.state.requests.filter((r) => r.path.endsWith('/translate'));
+const exists = (p: string) => access(p).then(() => true, () => false);
+
+describe('retry / backoff', () => {
+  it('parses Retry-After seconds and HTTP dates; backoff grows with jitter', () => {
+    expect(parseRetryAfter('3')).toBe(3000);
+    expect(parseRetryAfter(new Date(10_000).toUTCString(), 4000)).toBe(6000);
+    expect(parseRetryAfter('soon')).toBeNull();
+    expect(backoffDelay(0, 2000, 500, () => 0)).toBe(2000);
+    expect(backoffDelay(0, null, 500, () => 0)).toBe(250);
+    expect(backoffDelay(3, null, 500, () => 0.999)).toBeLessThanOrEqual(4000);
+    expect(backoffDelay(20, null, 500, () => 1)).toBe(30_000);
+  });
+
+  it('honours 429 Retry-After on translate and job polls, then succeeds', async () => {
+    const { mock, url } = await startMock({ rateLimit: { translate: 2, job: 1, retryAfter: '2' } });
+    const waits: number[] = [];
+    const p = await project(url);
+    const s = await runUpdate({ cwd: p.dir, env: p.env, locale: 'de', ...base, clientOptions: { sleep: async (ms) => void waits.push(ms), random: () => 0 } });
+    expect(s.translated).toBe(2);
+    expect(mock.state.rateLimited).toBe(3);
+    expect(waits.filter((w) => w === 2000).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('gives up after maxRetries with a clear error', async () => {
+    const { url } = await startMock({ rateLimit: { translate: 10, retryAfter: '0' } });
+    const c = new LoomlocaleClient({ baseURL: url, token: 'llt_test', maxRetries: 2, ...noSleep });
+    const err = await c
+      .translate('prj_1', { sourceLocale: 'en', targetLocales: ['de'], items: [{ key: 'a', text: 'A' }], placeholderPattern: '__TONGUE_n__', idempotencyKey: 'k1' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(429);
+    expect(String(err)).toMatch(/retries exhausted/);
+  });
+
+  it('sends a deterministic Idempotency-Key; the server dedupes repeats', async () => {
+    const { mock, url } = await startMock();
+    const p = await project(url);
+    await runUpdate({ cwd: p.dir, env: p.env, locale: 'de', ...base });
+    const keys = translates(mock).map((r) => r.idempotencyKey);
+    expect(keys.length).toBe(1);
+    expect(keys[0]).toMatch(/^[0-9a-f]{40}$/);
+    expect((translates(mock)[0]!.body as { idempotencyKey: string }).idempotencyKey).toBe(keys[0]);
+  });
+});
+
+describe('resume', () => {
+  it('persists job ids and resumes polling the same job after a dropped connection', async () => {
+    const { mock, url } = await startMock({ dropJobPolls: 100 });
+    const p = await project(url, 'maxRetries: 0');
+    await expect(runUpdate({ cwd: p.dir, env: p.env, locale: 'de', ...base })).rejects.toThrow(/Cannot reach/);
+    const state = JSON.parse(await readFile(join(p.dir, 'tongue.lock.run.json'), 'utf8'));
+    const rec = Object.values(state.batches)[0] as { jobId: string; done?: boolean };
+    expect(rec.jobId).toBe('job_1');
+    expect(rec.done).toBeUndefined();
+    expect(await exists(join(p.dir, 'messages/de.json'))).toBe(false);
+
+    mock.state.dropJobPolls = 0;
+    const s = await runUpdate({ cwd: p.dir, env: p.env, locale: 'de', ...base });
+    expect(s.resumed).toBe(true);
+    expect(s.translated).toBe(2);
+    expect(translates(mock).length).toBe(1); // no second translate request
+    expect(await exists(join(p.dir, 'tongue.lock.run.json'))).toBe(false);
+  });
+
+  it('reuses finished batches from an interrupted run without re-billing', async () => {
+    const { mock, url } = await startMock();
+    const p = await project(url);
+    const prev = process.exitCode;
+    // decline at the review prompt → nothing written, finished batches kept
+    const s1 = await runUpdate({ cwd: p.dir, env: p.env, ...base, quiet: true, prompter: createLinePrompter(['n']) });
+    process.exitCode = prev;
+    expect(s1.changes.length).toBe(4);
+    expect(await exists(join(p.dir, 'messages/de.json'))).toBe(false);
+    const n = translates(mock).length;
+    const s2 = await runUpdate({ cwd: p.dir, env: p.env, ...base, yes: true });
+    expect(s2.translated).toBe(4);
+    expect(s2.billedChars).toBe(0);
+    expect(translates(mock).length).toBe(n);
+  });
+});
+
+describe('budget', () => {
+  it('resolves flag → env → cloud.budget → translate.maxChars', () => {
+    const cfg = { cloud: { budget: { maxChars: 100, maxCostGBP: 5, monthlyChars: 1000 } }, translate: { maxChars: 7 } } as never;
+    expect(resolveBudget(cfg, {}, {})).toEqual({ maxChars: 100, maxCostGBP: 5, monthlyChars: 1000 });
+    expect(resolveBudget(cfg, { maxChars: 1 }, { LOOMLOCALE_MAX_CHARS: '50', LOOMLOCALE_MAX_COST: '2' })).toMatchObject({ maxChars: 1, maxCostGBP: 2 });
+    expect(() => resolveBudget(cfg, {}, { LOOMLOCALE_MAX_COST: 'lots' })).toThrow(/LOOMLOCALE_MAX_COST/);
+    expect(() => enforceBudget({}, { chars: 1, billableChars: 1, costGBP: 0, withinSpendCap: false, note: 'cap' })).toThrow(/spend cap/);
+    expect(() => enforceBudget({ monthlyChars: 10 }, { chars: 5, billableChars: 5, costGBP: 0 }, { name: 'x', kind: 'payg', charsIncluded: 0, charsUsed: 6, paygPerMillionGBP: 25 })).toThrow(/monthly cap/);
+  });
+
+  it('aborts with TONGUE_E_BUDGET (exit 1) before translating when over cloud.budget / env caps', async () => {
+    const { mock, url } = await startMock();
+    const p = await project(url, 'budget: { maxChars: 20 }');
+    const err = await runUpdate({ cwd: p.dir, env: p.env, ...base }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TongueError);
+    expect((err as TongueError).code).toBe('TONGUE_E_BUDGET');
+    expect(String(err)).toMatch(/Spending cap exceeded.*max 20 per run/);
+    expect(translates(mock).length).toBe(0);
+    const q = await project(url);
+    await expect(runUpdate({ cwd: q.dir, env: { ...q.env, LOOMLOCALE_MAX_CHARS: '5' }, ...base })).rejects.toThrow(/Spending cap/);
+    await expect(runUpdate({ cwd: q.dir, env: q.env, dryRun: true, maxChars: 5, ...base })).rejects.toThrow(/Spending cap/);
+    expect(translates(mock).length).toBe(0);
+  });
+
+  it('uses the server estimate (identical texts once) and its spend-cap verdict for --max-cost', async () => {
+    const { mock, url } = await startMock({ plan: { name: 'PAYG', kind: 'payg', charsIncluded: 0, charsUsed: 0, paygPerMillionGBP: 1_000_000 }, spendCapGBP: 1000 });
+    const p = await project(url, '', { a: 'Same text', b: 'Same text' });
+    // 9 chars once (dedupe) × 2 locales = 18 chars → £18 at £1/char
+    await expect(runUpdate({ cwd: p.dir, env: p.env, maxCost: 17, ...base })).rejects.toThrow(/£18\.00 > max £17\.00/);
+    mock.state.spendCapGBP = 5;
+    await expect(runUpdate({ cwd: p.dir, env: p.env, ...base, maxCost: 100 })).rejects.toThrow(/organisation spend cap/);
+    expect(translates(mock).length).toBe(0);
+    mock.state.spendCapGBP = null;
+    const s = await runUpdate({ cwd: p.dir, env: p.env, ...base, maxCost: 18 });
+    expect(s.translated).toBe(4);
+  });
+});
+
+describe('review diff', () => {
+  it('builds added/changed/removed changes and renders without colour under NO_COLOR', () => {
+    const changes = buildChanges({ de: { set: { a: 'A2', b: 'B' }, remove: ['c'] } }, { de: { a: 'A1', c: 'C' } });
+    expect(changes).toEqual([
+      { locale: 'de', key: 'a', kind: 'changed', before: 'A1', after: 'A2' },
+      { locale: 'de', key: 'b', kind: 'added', after: 'B' },
+      { locale: 'de', key: 'c', kind: 'removed', before: 'C' },
+    ]);
+    const prev = process.env.NO_COLOR;
+    process.env.NO_COLOR = '1';
+    const out = renderChanges(changes);
+    if (prev === undefined) delete process.env.NO_COLOR;
+    else process.env.NO_COLOR = prev;
+    // eslint-disable-next-line no-control-regex
+    expect(out).not.toMatch(/\u001b\[/);
+    expect(out).toContain('- A1');
+    expect(out).toContain('+ A2');
+    expect(out).toContain('1 added, 1 changed, 1 removed');
+  });
+
+  it('--json includes the per-key diff; confirm=yes writes', async () => {
+    const { url } = await startMock();
+    const p = await project(url);
+    const logs: string[] = [];
+    const orig = console.log;
+    console.log = (m: unknown) => void logs.push(String(m));
+    try {
+      await runUpdate({ cwd: p.dir, env: p.env, pollIntervalMs: 1, clientOptions: noSleep, json: true, locale: 'de' });
+    } finally {
+      console.log = orig;
+    }
+    const out = JSON.parse(logs.at(-1)!);
+    expect(out.changes).toContainEqual({ locale: 'de', key: 'home.title', kind: 'added', after: '[de] Hello, {name}!' });
+    const s = await runUpdate({ cwd: p.dir, env: p.env, ...base, locale: 'fr', prompter: createLinePrompter(['y']) });
+    expect(s.files).toContain('messages/fr.json');
+  });
+
+  it('--out-dir stages dictionaries + lock without touching the working files', async () => {
+    const { url } = await startMock();
+    const p = await project(url);
+    const s = await runUpdate({ cwd: p.dir, env: p.env, ...base, yes: true, outDir: '.tongue-staging' });
+    expect(s.translated).toBe(4);
+    expect(await exists(join(p.dir, 'messages/de.json'))).toBe(false);
+    expect(await exists(join(p.dir, 'tongue.lock'))).toBe(false);
+    expect(JSON.parse(await readFile(join(p.dir, '.tongue-staging/messages/de.json'), 'utf8')).home.title).toBe('[de] Hello, {name}!');
+    expect(JSON.parse(await readFile(join(p.dir, '.tongue-staging/tongue.lock'), 'utf8')).version).toBe(2);
+  });
+
+  it('--review pr commits to a new branch, pushes, opens a PR and leaves the working tree alone', async () => {
+    const { mock, url } = await startMock();
+    const p = await project(url);
+    const remote = await mkdtemp(join(tmpdir(), 'tongue-remote-'));
+    const git = (args: string[], cwd = p.dir) => {
+      const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' } });
+      if (r.status !== 0) throw new Error(r.stderr);
+      return r.stdout.trim();
+    };
+    git(['init', '--bare', '-q', remote], remote);
+    git(['init', '-q', '-b', 'main']);
+    git(['add', '-A']);
+    git(['commit', '-qm', 'init']);
+    git(['remote', 'add', 'origin', remote]);
+    const prCalls: Array<{ url: string; body: { head: string; base: string; title: string; body: string }; auth: string | null }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const u = String(input);
+      if (u.startsWith('https://gh.test/')) {
+        prCalls.push({ url: u, body: JSON.parse(String(init?.body)), auth: new Headers(init?.headers).get('authorization') });
+        return new Response(JSON.stringify({ html_url: 'https://github.com/o/r/pull/7' }), { status: 201 });
+      }
+      return fetch(input, init);
+    };
+    const env = { ...p.env, GITHUB_TOKEN: 'ghs_fake', GITHUB_REPOSITORY: 'o/r', GITHUB_API_URL: 'https://gh.test', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+    const s = await runUpdate({ cwd: p.dir, env, ...base, yes: true, reviewMode: 'pr', fetchImpl });
+    expect(s.pr?.url).toBe('https://github.com/o/r/pull/7');
+    expect(prCalls[0]!.url).toBe('https://gh.test/repos/o/r/pulls');
+    expect(prCalls[0]!.auth).toBe('Bearer ghs_fake');
+    expect(prCalls[0]!.body.base).toBe('main');
+    expect(prCalls[0]!.body.body).toContain('| de | `home.title` | added |');
+    expect(git(['rev-parse', '--abbrev-ref', 'HEAD'])).toBe('main');
+    expect(await exists(join(p.dir, 'messages/de.json'))).toBe(false);
+    const files = git(['ls-tree', '-r', '--name-only', s.pr!.branch], remote);
+    expect(files.split('\n')).toEqual(expect.arrayContaining(['messages/de.json', 'messages/fr.json', 'tongue.lock']));
+    expect(mock.state.requests.some((r) => r.path.endsWith('/sync') && (r.body as { mode: string }).mode === 'push')).toBe(false);
+  });
+
+  it('parses GitHub remotes', () => {
+    expect(repoSlugFromRemote('git@github.com:MrLouisWright/next-tongue.git')).toBe('MrLouisWright/next-tongue');
+    expect(repoSlugFromRemote('https://github.com/o/r')).toBe('o/r');
+    expect(repoSlugFromRemote('https://gitlab.com/o/r')).toBeNull();
+  });
+});
+
+describe('batching + concurrency', () => {
+  it('splits by key count and characters', () => {
+    const items = ['aaaa', 'bb', 'cccccc', 'd'].map((source) => ({ source }));
+    expect(makeBatches(items, 2, 100).map((b) => b.length)).toEqual([2, 2]);
+    expect(makeBatches(items, 10, 6).map((b) => b.map((x) => x.source))).toEqual([['aaaa', 'bb'], ['cccccc'], ['d']]);
+  });
+
+  it('translates locales concurrently up to --concurrency, batching per request', async () => {
+    const one = await startMock({ pollsToFinish: 4 });
+    const p1 = await project(one.url, 'batchSize: 1');
+    await runUpdate({ cwd: p1.dir, env: p1.env, ...base, concurrency: 1 });
+    expect(one.mock.state.maxActive).toBe(1);
+    expect(translates(one.mock).length).toBe(4); // 2 keys × 2 locales, 1 key per request
+
+    const two = await startMock({ pollsToFinish: 4 });
+    const p2 = await project(two.url);
+    const s = await runUpdate({ cwd: p2.dir, env: p2.env, ...base, concurrency: 4 });
+    expect(s.translated).toBe(4);
+    expect(two.mock.state.maxActive).toBe(2);
+    expect(translates(two.mock).length).toBe(2);
+  });
+});
+
+describe('server f9a71b9 contract', () => {
+  it('treats expired_token (unknown/redeemed device code) as restart-login', async () => {
+    const { url } = await startMock();
+    const p = await project(url);
+    const fetchImpl: typeof fetch = async (input, init) =>
+      String(input).endsWith('/device/token') ? new Response(JSON.stringify({ error: 'expired_token' }), { status: 400 }) : fetch(input, init);
+    const orig = console.log;
+    console.log = () => {};
+    try {
+      await expect(cmdLogin({ env: p.env, baseURL: url, fetchImpl, noBrowser: true, sleep: async () => {} })).rejects.toThrow(/no longer valid.*tongue login/);
+    } finally {
+      console.log = orig;
+    }
+  });
+
+  it('requests contract scopes, gets llt_ token + echoed scope, ignores extra fields', async () => {
+    const { mock, url } = await startMock();
+    const c = new LoomlocaleClient({ baseURL: url });
+    const code = await c.deviceCode();
+    expect((mock.state.requests.at(-1)!.body as { scope: string }).scope).toBe('projects translate sync');
+    await c.deviceToken(code.device_code);
+    const tok = await c.deviceToken(code.device_code);
+    expect(tok).toMatchObject({ access_token: 'llt_test', scope: 'projects translate sync' });
+    // redeemed → expired_token
+    expect(await c.deviceToken(code.device_code)).toEqual({ error: 'expired_token' });
+    const me = await new LoomlocaleClient({ baseURL: url, token: 'llt_test' }).me();
+    expect(me.user.email).toBe('dev@example.com');
+  });
+
+  it('pushes source entries with their dictionary file', async () => {
+    const { mock, url } = await startMock();
+    const p = await project(url);
+    await runUpdate({ cwd: p.dir, env: p.env, ...base, locale: 'de' });
+    const src = [...mock.state.entries.values()].find((e) => e.locale === 'en' && e.key === 'home.title');
+    expect(src?.file).toBe('messages/en.json');
+    const de = [...mock.state.entries.values()].find((e) => e.locale === 'de');
+    expect(de?.file).toBe('en.json'); // server default file_path for keys without a file
+  });
+});

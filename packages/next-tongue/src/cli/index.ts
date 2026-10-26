@@ -49,6 +49,9 @@ export async function runCli(argv: string[]): Promise<void> {
       review: { type: 'boolean' },
       accept: { type: 'boolean', default: false },
       'max-chars': { type: 'string' },
+      'max-cost': { type: 'string' },
+      concurrency: { type: 'string' },
+      'out-dir': { type: 'string' },
       'base-url': { type: 'string' },
       ci: { type: 'boolean', default: false },
       prefer: { type: 'string' },
@@ -90,6 +93,26 @@ export async function runCli(argv: string[]): Promise<void> {
     process.exitCode = 2;
     return;
   }
+  const maxCost =
+    typeof values['max-cost'] === 'string' ? Number(String(values['max-cost']).replace(/^£/, '')) : undefined;
+  if (maxCost != null && !(Number.isFinite(maxCost) && maxCost >= 0)) {
+    console.error('`--max-cost` must be a non-negative number (GBP)');
+    process.exitCode = 2;
+    return;
+  }
+  const concurrency = typeof values.concurrency === 'string' ? Number(values.concurrency) : undefined;
+  if (concurrency != null && !(Number.isInteger(concurrency) && concurrency >= 1 && concurrency <= 32)) {
+    console.error('`--concurrency` must be an integer from 1 to 32');
+    process.exitCode = 2;
+    return;
+  }
+  // `--review pr` / `--review=pr`: review via pull request (update only).
+  const reviewPr = values.review === 'pr' || (values.review === true && positionals[1] === 'pr');
+  const runExtras = {
+    ...(maxCost != null ? { maxCost } : {}),
+    ...(concurrency != null ? { concurrency } : {}),
+    ...(typeof values['out-dir'] === 'string' ? { outDir: values['out-dir'] } : {}),
+  };
   const interactive =
     values.wizard === true || (process.stdin.isTTY === true && process.stdout.isTTY === true);
 
@@ -310,6 +333,7 @@ export async function runCli(argv: string[]): Promise<void> {
               : {}),
           accept: values.accept === true,
           ...(maxChars != null ? { maxChars } : {}),
+          ...runExtras,
         });
         break;
       case 'update':
@@ -323,6 +347,8 @@ export async function runCli(argv: string[]): Promise<void> {
           retranslate: values.retranslate === true,
           ...(prefer ? { prefer } : {}),
           ...(maxChars != null ? { maxChars } : {}),
+          ...runExtras,
+          ...(reviewPr ? { reviewMode: 'pr' as const } : {}),
         });
         break;
       case 'login':
@@ -429,7 +455,11 @@ Loomlocale (hosted translation; npx next-tongue = guided setup):
   tongue init --wizard              run the guided wizard even without a TTY (answers read line-by-line from stdin)
   tongue logout | whoami [--json]
   tongue link [--project <id|name>] [--create <name>]
-  tongue update [--dry-run] [--ci] [--prefer local|remote] [--locale de] [--keys 'home.*'] [--max-chars N]
+  tongue update [--dry-run] [--ci] [--yes] [--prefer local|remote] [--locale de] [--keys 'home.*']
+                [--max-chars N] [--max-cost GBP] [--concurrency N] [--review pr] [--out-dir DIR] [--json]
+                pull web edits → translate new/changed keys → show diff → write → push
+                caps: cloud.budget, LOOMLOCALE_MAX_CHARS / LOOMLOCALE_MAX_COST (exit 1 when over)
+                interrupted runs resume from tongue.lock.run.json; 429/503 retried with backoff
   tongue status [--json] | push | pull [--prefer local|remote] [--dry-run]
   Global: --base-url <url> (or LOOMLOCALE_API_URL), CI auth via LOOMLOCALE_TOKEN
 

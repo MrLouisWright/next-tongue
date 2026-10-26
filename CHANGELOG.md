@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Breaking
 - Translation runs only through the **Loomlocale** hosted API (default `https://loomlocale.com/api/v1`, configurable via `cloud.baseURL`, `--base-url` or `LOOMLOCALE_API_URL`). The direct OpenAI client, `TONGUE_API_KEY` and all BYO-key options (`translate.baseURL`, `translate.model`, `translate.apiKeyEnv`, `translate.maxTokens`) were removed; configs using them fail with a migration hint. Stay on `next-tongue@0.9` for BYO OpenAI. See [docs/migrating-to-1.0.md](docs/migrating-to-1.0.md).
-- `tongue translate --max-cost/--concurrency` replaced by `--max-chars` (`translate.maxChars`).
+- `--max-cost` is now **GBP per run** (from Loomlocale's estimate), not 0.9's token estimate. `--concurrency` means target locales in flight.
 - `tongue.lock` is now version 2 (adds `$cloud` cursor/project; v1 entries are read as-is).
 
 ### Added
@@ -16,9 +16,18 @@ All notable changes to this project will be documented in this file. The format 
 - Guided wizard (`npx next-tongue` / interactive `tongue init`): detects framework and dictionary folders, source language, multiple JSON/TS dictionaries (per-locale files or folders), searchable target multi-select, character count + cost estimate (PAYG £25 / 1M chars or plan allowance), translation with per-language progress, placeholder/ICU/plural validation, summary. Zero-dependency TUI (ADR 0012 still holds). `tongue init --scaffold` / `--yes` keeps the old file scaffolder.
 - `tongue login` (OAuth device code; token in macOS Keychain / libsecret, fallback `~/.config/loomlocale/credentials.json` 0600), `logout`, `whoami`, `link`.
 - `tongue update` (pull web edits + glossary → lockfile hash diff → translate only new/changed keys → remove deleted keys → push), `--dry-run`, `--ci` (`LOOMLOCALE_TOKEN`), `--prefer local|remote` conflict policy. `tongue status`, `push`, `pull`.
+- **Resilience:** `429`/`503` and dropped connections are retried, honouring `Retry-After`, with exponential backoff and jitter (`cloud.maxRetries`, default 5). A shared pause gate makes all concurrent workers back off together. Translate requests carry a deterministic `Idempotency-Key`. Interrupted runs resume from `tongue.lock.run.json`: recorded jobs are polled again and finished batches are reused without billing again.
+- **Spending caps:** `cloud.budget` (`maxChars`, `maxCostGBP`, `monthlyChars`, `monthlyCostGBP`), `--max-chars` / `--max-cost`, and `LOOMLOCALE_MAX_CHARS` / `LOOMLOCALE_MAX_COST`. They are checked against the server estimate before translating, including the org spend cap (`withinSpendCap` / `allowed`). A run over a cap aborts with exit 1 (`TONGUE_E_BUDGET`). `--dry-run` checks per-run caps locally.
+- **Review:** `tongue update` shows a per-key before/after diff (added/changed/removed; coloured, respects `NO_COLOR`; included in `--json` output) and asks for confirmation (`--yes` skips). `--review pr` commits to a new `tongue/update-*` branch, pushes it and opens a PR via `GITHUB_TOKEN` or `gh` without touching the working tree. `--out-dir` stages dictionaries and the lock instead of overwriting them.
+- **Performance:** keys are batched per request (`cloud.batchSize` 100 / `cloud.batchChars` 20 000), and target locales are translated concurrently (`--concurrency` / `cloud.concurrency`, default 4).
+- **Server f9a71b9 alignment:** `llt_` tokens, contract scope names (`projects translate sync`, echoed in the token response), `expired_token` for unknown/redeemed device codes handled as "restart login", optional `file` on sync entries, unknown response fields ignored.
 - Typed Loomlocale API client and documented contract ([docs/api-contract.md](docs/api-contract.md)); GitHub Action example in `examples/github-action/`.
 
+### Changed
+- **Node 18 is supported** (`engines: >=18`). Signed locale preferences use `globalThis.crypto`, falling back to `node:crypto`'s `webcrypto` (bundler-ignored, so edge builds are unaffected). The CI matrix is Node 18/20/22.
+
 ### Fixed
+- `tongue check` bench: the leaf/branch collision check was O(n²) (31 s → 1.5 s on the 10k-key bench).
 - `loadConfig` cache-busts ESM imports so in-process config edits are picked up.
 - Pre-existing lint errors (`examples/basic`, `fixtures/migrate-next-intl`, `packages/vscode`) that kept CI red on `main`.
 

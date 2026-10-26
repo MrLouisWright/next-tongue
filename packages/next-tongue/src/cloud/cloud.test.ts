@@ -33,14 +33,14 @@ async function project(extra = '', en: Record<string, unknown> = { home: { title
     join(t.dir, 'tongue.config.mjs'),
     `export default {\n  locales: ['en', 'de', 'fr'],\n  defaultLocale: 'en',\n  messages: './messages/{locale}.json',\n  ${extra}\n};\n`,
   );
-  return { ...t, env: { ...t.env, LOOMLOCALE_TOKEN: 'tok_test' } };
+  return { ...t, env: { ...t.env, LOOMLOCALE_TOKEN: 'llt_test' } };
 }
 const quiet = { quiet: true, pollIntervalMs: 1 } as const;
 
 describe('api client', () => {
   it('sends bearer auth and surfaces 401 with a login hint', async () => {
     await expect(new LoomlocaleClient({ baseURL, token: 'nope' }).me()).rejects.toThrow(/401.*tongue login/);
-    const me = await new LoomlocaleClient({ baseURL, token: 'tok_test' }).me();
+    const me = await new LoomlocaleClient({ baseURL, token: 'llt_test' }).me();
     expect(me.plan.paygPerMillionGBP).toBe(25);
   });
   it('refuses authed calls without a token', async () => {
@@ -107,7 +107,7 @@ describe('tongue update', () => {
     expect(de.home.body).toBe('[de] Welcome <b>back</b>');
     const lock = JSON.parse(await readFile(join(p.dir, 'tongue.lock'), 'utf8'));
     expect(lock.$cloud.projectId).toBe('prj_1');
-    expect(JSON.stringify(lock)).not.toContain('tok_test');
+    expect(JSON.stringify(lock)).not.toContain('llt_test');
 
     // change one key, delete one
     await writeFile(join(p.dir, 'messages/en.json'), JSON.stringify({ home: { title: 'Hi, {name}!' } }));
@@ -155,7 +155,7 @@ describe('tongue update', () => {
 
   it('enforces maxChars and requires a linked project', async () => {
     const p = await project(`translate: { maxChars: 10 }, cloud: { projectId: 'prj_1' },`);
-    await expect(runUpdate({ cwd: p.dir, env: p.env, ...quiet })).rejects.toThrow(/over budget/);
+    await expect(runUpdate({ cwd: p.dir, env: p.env, ...quiet })).rejects.toThrow(/Spending cap exceeded/);
     const q = await project();
     await expect(runUpdate({ cwd: q.dir, env: q.env, ...quiet })).rejects.toThrow(/tongue link/);
   });
@@ -178,7 +178,7 @@ describe('account commands', () => {
     try {
       await cmdLogin({ env, noBrowser: true, sleep: async () => {} });
       expect(logs.join('\n')).toContain('ABCD-EFGH');
-      expect(await createCredentialStore(env).get(baseURL)).toBe('tok_test');
+      expect(await createCredentialStore(env).get(baseURL)).toBe('llt_test');
       const me = await cmdWhoami({ env, quiet: true });
       expect(me.user.email).toBe('dev@example.com');
       await cmdLink({ cwd: dir, env, create: 'new-app', quiet: true });

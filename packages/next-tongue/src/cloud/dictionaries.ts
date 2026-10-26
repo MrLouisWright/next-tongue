@@ -168,6 +168,8 @@ export async function writeCatalog(args: {
   set: Flat;
   remove: string[];
   dryRun?: boolean;
+  /** Stage output under this directory (relative to cwd) instead of overwriting dictionaries. */
+  outDir?: string;
 }): Promise<string[]> {
   const { cwd, source, sourceLocale, locale } = args;
   const touched = new Map<string, FileShape>();
@@ -206,7 +208,7 @@ export async function writeCatalog(args: {
   for (const [rel, shape] of touched) {
     written.push(rel);
     if (args.dryRun) continue;
-    const abs = resolveInsideProject(cwd, rel);
+    const abs = resolveInsideProject(cwd, args.outDir ? `${args.outDir.replace(/\/+$/, '')}/${rel.replace(/^\.\//, '')}` : rel);
     await mkdir(dirname(abs), { recursive: true });
     await writeFile(abs, serializeDictionary(shape), 'utf8');
   }

@@ -5,13 +5,18 @@ The runtime (`getT`, `useT`, proxy, compiler, `tongue check/build/extract`) is u
 ## What was removed
 - Direct OpenAI-compatible client and `TONGUE_API_KEY`.
 - `translate.baseURL`, `translate.model`, `translate.apiKeyEnv`, `translate.maxTokens` (config load now fails with a hint if present).
-- `tongue translate --concurrency` and `--max-cost` (use `--max-chars` / `translate.maxChars`).
+- 0.9's token-based `--max-cost` estimate. `--max-cost` now means **GBP per run** from Loomlocale's estimate, and `--concurrency` means target locales in flight. Both work on `tongue update` and `tongue translate`.
 
 ## Steps
 1. Delete the removed `translate.*` keys from `tongue.config.*` (keep `glossary`, `lockfile`, `context`).
 2. `npx tongue login` then `npx tongue link` (adds `cloud.projectId`).
 3. `npx tongue update --dry-run` to see what would be sent; then `npx tongue update`.
 4. In CI replace `TONGUE_API_KEY` with `LOOMLOCALE_TOKEN` and `tongue translate` with `tongue update --ci`.
+
+5. Optional: add a spending cap (`cloud.budget: { maxCostGBP: 5 }`, or `LOOMLOCALE_MAX_COST` in CI) and add `tongue.lock.run.json` (resume state) to `.gitignore`.
+6. Optional: let CI open review PRs with `tongue update --ci --review pr` (see `examples/github-action/loomlocale.yml`).
+
+**Node:** next-tongue supports Node 18+ again (`engines: >=18`). Next.js 16 itself needs Node 20.9+.
 
 Your existing `tongue.lock` is reused: keys already translated (matching source hash) are not re-sent. The lock is upgraded to version 2 on first write.
 

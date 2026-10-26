@@ -102,6 +102,27 @@ export type CloudConfig = {
   baseURL?: string;
   /** Dictionary patterns with `{locale}` (e.g. `./locales/{locale}/*.json`). Defaults to `messages`. */
   files?: string[];
+  /** Spending cap enforced against the estimate before translating (env/flags override per run caps). */
+  budget?: CloudBudget;
+  /** Locales translated in parallel (default 4). `--concurrency` overrides. */
+  concurrency?: number;
+  /** Max keys per translate request (default 100). */
+  batchSize?: number;
+  /** Max source characters per translate request (default 20000). */
+  batchChars?: number;
+  /** Retries on 429/503/network errors with Retry-After + exponential backoff (default 5). */
+  maxRetries?: number;
+};
+
+export type CloudBudget = {
+  /** Max billable characters per run. */
+  maxChars?: number;
+  /** Max estimated cost (GBP) per run. */
+  maxCostGBP?: number;
+  /** Max characters used this billing period, including this run. */
+  monthlyChars?: number;
+  /** Max estimated spend (GBP) this billing period, including this run. */
+  monthlyCostGBP?: number;
 };
 
 export type ResolvedTongueConfig = {

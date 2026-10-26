@@ -5,13 +5,24 @@ export declare function createMockLoomlocale(opts?: {
   glossary?: Record<string, unknown>;
   plan?: Record<string, unknown>;
   breakKeys?: string[];
+  spendCapGBP?: number | null;
+  rateLimit?: { translate?: number; job?: number; retryAfter?: string };
+  dropJobPolls?: number;
+  pollsToFinish?: number;
 }): {
   state: {
-    requests: Array<{ method: string; path: string; body: unknown; auth: string | null }>;
+    requests: Array<{ method: string; path: string; body: unknown; auth: string | null; idempotencyKey: string | null }>;
     webEdits: Array<Record<string, unknown>>;
-    entries: Map<string, unknown>;
+    entries: Map<string, Record<string, unknown>>;
     projects: Array<{ id: string; name: string }>;
     plan: Record<string, unknown>;
+    spendCapGBP: number | null;
+    rateLimit: { translate: number; job: number; retryAfter: string };
+    dropJobPolls: number;
+    pollsToFinish: number;
+    maxActive: number;
+    rateLimited: number;
+    breakKeys: Set<string>;
   };
   listen(port?: number): Promise<string>;
   close(): Promise<void>;

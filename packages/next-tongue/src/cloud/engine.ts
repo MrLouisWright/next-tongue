@@ -2,7 +2,7 @@
  * Translation engine around the Loomlocale API: placeholder masking,
  * glossary, ICU/plural parity checks and the tongue.lock hash ledger.
  */
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { collectArgs } from '../compiler/ast.js';
 import { parseMessage } from '../compiler/parse/icu-parser.js';
@@ -188,6 +188,66 @@ export type TranslateOutcome = {
   billedChars: number;
 };
 
+/** Persisted progress of an interrupted run (`<lockfile>.run.json`, git-ignore it). */
+export type RunState = {
+  version: 1;
+  projectId: string;
+  batches: Record<
+    string,
+    {
+      locale: string;
+      keys: string[];
+      jobId?: string;
+      done?: boolean;
+      results?: Job['results'];
+      errors?: Job['errors'];
+      billedChars?: number;
+    }
+  >;
+};
+
+export function runStatePath(lockPath: string): string {
+  return `${lockPath}.run.json`;
+}
+
+export async function loadRunState(cwd: string, path: string, projectId: string): Promise<RunState> {
+  try {
+    const s = JSON.parse(await readFile(resolveInsideProject(cwd, path), 'utf8')) as RunState;
+    if (s.version === 1 && s.projectId === projectId && s.batches) return s;
+  } catch {
+    /* none */
+  }
+  return { version: 1, projectId, batches: {} };
+}
+
+/** Split items into requests capped by key count and source characters. */
+export function makeBatches<T extends { source: string }>(items: T[], maxKeys = 100, maxChars = 20_000): T[][] {
+  const out: T[][] = [];
+  let cur: T[] = [];
+  let chars = 0;
+  for (const it of items) {
+    const c = countChars(it.source);
+    if (cur.length && (cur.length >= maxKeys || chars + c > maxChars)) {
+      out.push(cur);
+      cur = [];
+      chars = 0;
+    }
+    cur.push(it);
+    chars += c;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+
+/** Run `fn` over `items` with at most `limit` in flight. */
+export async function pool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let i = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (i < items.length) await fn(items[i++]!);
+  });
+  await Promise.all(workers);
+}
+
 export async function translateViaCloud(args: {
   client: LoomlocaleClient;
   projectId: string;
@@ -198,78 +258,144 @@ export async function translateViaCloud(args: {
   meta?: Record<string, KeyMeta>;
   onLocaleStart?: (locale: string, total: number) => void;
   onProgress?: (locale: string, job: Job) => void;
+  /** Called after each batch settles with the number of keys it covered. */
+  onBatchDone?: (locale: string, keys: number) => void;
   pollIntervalMs?: number;
+  /** Locales in flight at once (default 4). */
+  concurrency?: number;
+  batchSize?: number;
+  batchChars?: number;
+  /** Resume state; mutated in place and passed to `persist` after every change. */
+  state?: RunState;
+  persist?: (state: RunState) => Promise<void>;
 }): Promise<TranslateOutcome> {
   const out: TranslateOutcome = { ok: [], failed: [], billedChars: 0 };
   const byLocale = new Map<string, PlanItem[]>();
-  for (const p of args.plan) byLocale.set(p.locale, [...(byLocale.get(p.locale) ?? []), p]);
-
-  for (const [locale, items] of byLocale) {
-    args.onLocaleStart?.(locale, items.length);
-    let pending = items;
-    for (let attempt = 0; attempt < 2 && pending.length; attempt++) {
-      const masks = new Map(pending.map((p) => [p.key, { ...maskIcu(p.source), source: p.source }]));
-      const reqItems: TranslateItem[] = pending.map((p) => {
-        const m = args.meta?.[p.key];
-        return {
-          key: p.key,
-          text: masks.get(p.key)!.masked,
-          ...(m?.description ? { description: m.description } : {}),
-          ...(m?.maxLength != null ? { maxLength: m.maxLength } : {}),
-        };
-      });
-      const started = await args.client.translate(args.projectId, {
-        sourceLocale: args.sourceLocale,
-        targetLocales: [locale],
-        items: reqItems,
-        glossary: args.glossary.terms,
-        ...(args.context ? { context: args.context } : {}),
-        placeholderPattern: '__TONGUE_n__',
-        idempotencyKey: randomUUID(),
-      });
-      const job =
-        started.status === 'queued' || started.status === 'running'
-          ? await args.client.waitForJob(started.id, {
-              ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
-              onProgress: (j) => args.onProgress?.(locale, j),
-            })
-          : started;
-      args.onProgress?.(locale, job);
-      out.billedChars += job.billedChars ?? 0;
-      const retry: PlanItem[] = [];
-      const seen = new Set<string>();
-      for (const r of job.results ?? []) {
-        if (r.locale !== locale) continue;
-        const m = masks.get(r.key);
-        if (!m) continue;
-        seen.add(r.key);
-        const restored = m.restore(r.text.trim());
-        let reason: string | null = null;
-        if (!restored) reason = 'placeholder tokens lost';
-        else {
-          try {
-            validateParity(m.source, restored, locale);
-            checkGlossary(restored, args.glossary, locale, m.source);
-            const max = args.meta?.[r.key]?.maxLength;
-            if (max != null && [...restored].length > max) throw new Error(`over maxLength ${max}`);
-          } catch (err) {
-            reason = err instanceof Error ? err.message : String(err);
-          }
-        }
-        const item = pending.find((p) => p.key === r.key)!;
-        if (reason == null) out.ok.push({ locale, key: r.key, source: m.source, target: restored! });
-        else if (attempt === 0) retry.push(item);
-        else out.failed.push({ locale, key: r.key, reason });
-      }
-      for (const e of job.errors ?? []) {
-        if (e.locale === locale && !seen.has(e.key)) {
-          seen.add(e.key);
-          out.failed.push({ locale, key: e.key, reason: e.message });
-        }
-      }
-      for (const p of pending) if (!seen.has(p.key)) out.failed.push({ locale, key: p.key, reason: `job ${job.status}: no result` });
-      pending = retry;
-    }
+  for (const p of args.plan) {
+    const list = byLocale.get(p.locale);
+    if (list) list.push(p);
+    else byLocale.set(p.locale, [p]);
   }
+  const state = args.state;
+  let saving = Promise.resolve();
+  const persist = () => {
+    if (!state || !args.persist) return Promise.resolve();
+    saving = saving.then(() => args.persist!(state));
+    return saving;
+  };
+  const glossaryHash = sha(JSON.stringify(args.glossary.terms ?? {}));
+
+  const runBatch = async (locale: string, batch: PlanItem[], attempt: number): Promise<PlanItem[]> => {
+    const masks = new Map(batch.map((p) => [p.key, { ...maskIcu(p.source), source: p.source }]));
+    const reqItems: TranslateItem[] = batch.map((p) => {
+      const m = args.meta?.[p.key];
+      return {
+        key: p.key,
+        text: masks.get(p.key)!.masked,
+        ...(m?.description ? { description: m.description } : {}),
+        ...(m?.maxLength != null ? { maxLength: m.maxLength } : {}),
+      };
+    });
+    // Deterministic key: re-running the same work (after a crash) dedupes server-side.
+    const idempotencyKey = sha(
+      JSON.stringify([args.projectId, args.sourceLocale, locale, attempt, args.context ?? '', glossaryHash, reqItems]),
+    ).slice(7, 47);
+    let rec = state?.batches[idempotencyKey];
+    let job: Job | null = null;
+    if (rec?.done) {
+      job = { id: rec.jobId ?? idempotencyKey, status: 'succeeded', progress: { done: batch.length, total: batch.length }, results: rec.results ?? [], errors: rec.errors ?? [], billedChars: 0 };
+    } else {
+      if (rec?.jobId) {
+        try {
+          job = await args.client.waitForJob(rec.jobId, {
+            ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
+            onProgress: (j) => args.onProgress?.(locale, j),
+          });
+        } catch (err) {
+          if (!(err instanceof Error && 'status' in err && (err as { status: number }).status === 404)) throw err;
+          job = null; // job expired server-side → start again
+        }
+      }
+      if (!job) {
+        const started = await args.client.translate(args.projectId, {
+          sourceLocale: args.sourceLocale,
+          targetLocales: [locale],
+          items: reqItems,
+          glossary: args.glossary.terms,
+          ...(args.context ? { context: args.context } : {}),
+          placeholderPattern: '__TONGUE_n__',
+          idempotencyKey,
+        });
+        if (state) {
+          rec = state.batches[idempotencyKey] = { locale, keys: batch.map((b) => b.key), jobId: started.id };
+          await persist();
+        }
+        job =
+          started.status === 'queued' || started.status === 'running'
+            ? await args.client.waitForJob(started.id, {
+                ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
+                onProgress: (j) => args.onProgress?.(locale, j),
+              })
+            : started;
+      }
+      if (state) {
+        state.batches[idempotencyKey] = {
+          locale,
+          keys: batch.map((b) => b.key),
+          jobId: job.id,
+          done: true,
+          results: job.results ?? [],
+          errors: job.errors ?? [],
+          billedChars: job.billedChars ?? 0,
+        };
+        await persist();
+      }
+    }
+    args.onProgress?.(locale, job);
+    out.billedChars += job.billedChars ?? 0;
+    const retry: PlanItem[] = [];
+    const seen = new Set<string>();
+    const byKey = new Map(batch.map((p) => [p.key, p]));
+    for (const r of job.results ?? []) {
+      if (r.locale !== locale) continue;
+      const m = masks.get(r.key);
+      if (!m || seen.has(r.key)) continue;
+      seen.add(r.key);
+      const restored = m.restore(r.text.trim());
+      let reason: string | null = null;
+      if (!restored) reason = 'placeholder tokens lost';
+      else {
+        try {
+          validateParity(m.source, restored, locale);
+          checkGlossary(restored, args.glossary, locale, m.source);
+          const max = args.meta?.[r.key]?.maxLength;
+          if (max != null && [...restored].length > max) throw new Error(`over maxLength ${max}`);
+        } catch (err) {
+          reason = err instanceof Error ? err.message : String(err);
+        }
+      }
+      if (reason == null) out.ok.push({ locale, key: r.key, source: m.source, target: restored! });
+      else if (attempt === 0) retry.push(byKey.get(r.key)!);
+      else out.failed.push({ locale, key: r.key, reason });
+    }
+    for (const e of job.errors ?? []) {
+      if (e.locale === locale && !seen.has(e.key) && byKey.has(e.key)) {
+        seen.add(e.key);
+        out.failed.push({ locale, key: e.key, reason: e.message });
+      }
+    }
+    for (const p of batch) if (!seen.has(p.key)) out.failed.push({ locale, key: p.key, reason: `job ${job.status}: no result` });
+    return retry;
+  };
+
+  await pool([...byLocale.entries()], args.concurrency ?? 4, async ([locale, items]) => {
+    args.onLocaleStart?.(locale, items.length);
+    for (const batch of makeBatches(items, args.batchSize, args.batchChars)) {
+      const retry = await runBatch(locale, batch, 0);
+      if (retry.length) await runBatch(locale, retry, 1);
+      args.onBatchDone?.(locale, batch.length);
+    }
+  });
+  await saving;
   return out;
 }

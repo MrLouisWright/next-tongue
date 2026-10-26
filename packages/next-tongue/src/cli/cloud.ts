@@ -1,10 +1,11 @@
 /** Loomlocale account + project commands: login, logout, whoami, link, status, push, pull. */
 import { TongueError } from '../errors.js';
-import { LoomlocaleClient, type Me, type Project, type SyncEntry } from '../cloud/api.js';
+import { LoomlocaleClient, TOKEN_PREFIX, type Me, type Project, type SyncEntry } from '../cloud/api.js';
 import { createCredentialStore } from '../cloud/credentials.js';
 import { readCatalog, writeCatalog, type Flat } from '../cloud/dictionaries.js';
 import { diffCatalogs, loadLock, lockSection, saveLock, sha } from '../cloud/engine.js';
 import { formatGBP, loadProject, makeClient, openBrowser, resolveBaseURL, writeCloudConfig, type CloudGlobals } from '../cloud/project.js';
+import { sourceFileIndex } from './update.js';
 import { color, createPrompter, type Prompter } from '../cloud/tui.js';
 
 type Sleep = (ms: number) => Promise<void>;
@@ -27,6 +28,9 @@ export async function cmdLogin(opts: CloudGlobals & { noBrowser?: boolean; sleep
     await sleep(interval);
     const r = await client.deviceToken(code.device_code);
     if ('access_token' in r) {
+      if (!r.access_token.startsWith(TOKEN_PREFIX)) {
+        console.warn(color.yellow(`  warning: unexpected token format (Loomlocale tokens start with ${TOKEN_PREFIX})`));
+      }
       const store = opts.store ?? createCredentialStore(env);
       const where = await store.set(baseURL, r.access_token);
       const me = await new LoomlocaleClient({ baseURL, token: r.access_token, ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}) }).me();
@@ -38,7 +42,9 @@ export async function cmdLogin(opts: CloudGlobals & { noBrowser?: boolean; sleep
       interval += 5000;
       continue;
     }
-    throw new TongueError('TONGUE_E_CONFIG', r.error === 'access_denied' ? 'Login was denied.' : 'Login code expired — run `tongue login` again.');
+    if (r.error === 'access_denied') throw new TongueError('TONGUE_E_CONFIG', 'Login was denied on loomlocale.com.');
+    // expired_token also covers unknown or already-redeemed device codes: start over.
+    throw new TongueError('TONGUE_E_CONFIG', 'This login code is no longer valid (expired, or already used). Restart with `tongue login`.');
   }
 }
 
@@ -138,7 +144,11 @@ export async function cmdPush(opts: CloudGlobals): Promise<number> {
   const client = await makeClient(opts, ctx.config);
   const source = await readCatalog(ctx.cwd, ctx.patterns, ctx.sourceLocale);
   const lock = await loadLock(ctx.cwd, ctx.lockPath);
-  const entries: SyncEntry[] = Object.entries(source.flat).map(([k, v]) => ({ key: k, locale: ctx.sourceLocale, text: v, sourceHash: sha(v), origin: 'cli' }));
+  const fileOf = sourceFileIndex(source);
+  const entries: SyncEntry[] = Object.entries(source.flat).map(([k, v]) => {
+    const file = fileOf.get(k);
+    return { key: k, locale: ctx.sourceLocale, text: v, sourceHash: sha(v), origin: 'cli', ...(file ? { file } : {}) };
+  });
   for (const l of ctx.targetLocales) {
     for (const [k, v] of Object.entries((await readCatalog(ctx.cwd, ctx.patterns, l)).flat)) {
       if (k in source.flat && v) entries.push({ key: k, locale: l, text: v, sourceHash: lockSection(lock, l)[k]?.source ?? sha(source.flat[k]!), origin: 'cli' });

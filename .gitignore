@@ -16,3 +16,4 @@ playwright-report/
 test-results/
 .docs-samples/
 *.vsix
+tongue.lock.run.json

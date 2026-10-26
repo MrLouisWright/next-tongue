@@ -3,6 +3,13 @@
 Base URL: `https://loomlocale.com/api/v1` (override: `cloud.baseURL`, `--base-url`, `LOOMLOCALE_API_URL`).
 All bodies are JSON. Authenticated endpoints require `Authorization: Bearer <token>`.
 Errors: non-2xx with `{ "error": "<code>", "message": "<human text>" }`. The CLI special-cases `401` (→ "run tongue login") and `402` (→ allowance exhausted).
+**Forward compatibility:** the client ignores response fields it does not know (e.g. `org` on the token response, `spendCapGBP`/`token` on `/me`), so the server may add fields freely.
+Server reference: Loom-Locale/loomlocale commit `f9a71b9`.
+
+### Retries, rate limits and idempotency
+- On `429` or `503` the client waits for `Retry-After` (delta-seconds or HTTP-date, plus up to 250 ms jitter); without the header it uses exponential backoff with jitter (500 ms × 2ⁿ, capped at 30 s). Dropped connections are retried the same way. Default 5 retries (`cloud.maxRetries`). A `429` pauses **all** concurrent workers until the wait expires.
+- `POST /translate` sends an `Idempotency-Key` header (also `idempotencyKey` in the body). The key is **deterministic** — a hash of project, locales, masked items, context, glossary and attempt — so a retry, or a re-run after a crash, returns the existing job instead of starting (and billing) a new one. **Server requirement:** same key ⇒ same job for at least 24 h.
+- Resume: job ids and finished results are written to `<lockfile>.run.json` (git-ignore it). A re-run polls the recorded job (`GET /jobs/:id`); a `404` there means the job expired and the batch is resubmitted.
 Client: [`packages/next-tongue/src/cloud/api.ts`](../packages/next-tongue/src/cloud/api.ts). Mock: [`scripts/mock-loomlocale.mjs`](../packages/next-tongue/scripts/mock-loomlocale.mjs).
 
 ## Auth — OAuth 2.0 Device Authorization Grant (RFC 8628)
@@ -10,7 +17,7 @@ Client: [`packages/next-tongue/src/cloud/api.ts`](../packages/next-tongue/src/cl
 ### `POST /device/code` (no auth)
 ```json
 // request
-{ "client_id": "next-tongue-cli", "scope": "projects translate sync" }
+{ "client_id": "next-tongue-cli", "scope": "projects translate sync" }   // contract scope names; this is the default
 // 200
 { "device_code": "…", "user_code": "ABCD-EFGH", "verification_uri": "https://loomlocale.com/device",
   "verification_uri_complete": "https://loomlocale.com/device?code=ABCD-EFGH", "expires_in": 900, "interval": 5 }
@@ -21,19 +28,23 @@ Client: [`packages/next-tongue/src/cloud/api.ts`](../packages/next-tongue/src/cl
 // request
 { "client_id": "next-tongue-cli", "device_code": "…", "grant_type": "urn:ietf:params:oauth:grant-type:device_code" }
 // 200
-{ "access_token": "llt_…", "token_type": "Bearer", "expires_in": 7776000, "scope": "projects translate sync" }
+{ "access_token": "llt_…", "token_type": "Bearer", "expires_in": 7776000, "scope": "projects translate sync", "org": { … } }
 // 400 (RFC 8628 §3.5)
 { "error": "authorization_pending" | "slow_down" | "expired_token" | "access_denied" }
 ```
 CLI polls every `interval` s, +5 s on `slow_down`. No refresh token is assumed (long-lived token; re-login on 401).
+- Tokens start with `llt_` (the CLI warns if not). `scope` **echoes the requested scopes**. Extra fields such as `org` are ignored.
+- An **unknown or already-redeemed** `device_code` returns `expired_token`, the same as a timed-out code. The CLI treats this as "restart login" ("This login code is no longer valid (expired, or already used). Restart with `tongue login`.").
 
 ## `GET /me`
 ```json
 { "user": { "id": "u_1", "email": "dev@example.com", "name": "Dev" },
   "org":  { "id": "o_1", "name": "Example Ltd" },
   "plan": { "name": "Starter", "kind": "payg" | "subscription", "charsIncluded": 500000, "charsUsed": 12000,
-            "periodEnd": "2026-11-30T00:00:00Z", "paygPerMillionGBP": 25 } }
+            "periodEnd": "2026-11-30T00:00:00Z", "paygPerMillionGBP": 25 },
+  "spendCapGBP": 50, "token": { … } }        // optional extras; the CLI ignores them
 ```
+Monthly budgets (`cloud.budget.monthlyChars` / `monthlyCostGBP`) use `plan.charsUsed` as usage in the current period; PAYG period spend is estimated as `charsUsed × paygPerMillionGBP / 1e6`.
 
 ## Projects
 `GET /projects` → `{ "projects": Project[] }`
@@ -47,9 +58,13 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 // request
 { "sourceLocale": "en", "targetLocales": ["de","fr"], "items": [{ "key": "home.title", "text": "Hello, {name}!" }] }
 // 200
-{ "chars": 28, "billableChars": 28, "costGBP": 0.0007, "currency": "GBP", "allowanceRemaining": null, "withinAllowance": false }
+{ "chars": 28, "billableChars": 28, "costGBP": 0.0007, "currency": "GBP", "allowanceRemaining": null, "withinAllowance": false,
+  "allowed": true, "withinSpendCap": true, "note": "…" }     // last three optional
 ```
-`chars` = Σ source chars (Unicode code points) × target count. `allowanceRemaining` is `null` for PAYG.
+- `chars` = Σ source chars (Unicode code points) of **unique texts** × target count. **Identical texts are counted once**, so the server estimate can be lower than the CLI's local count (which counts every key).
+- `allowanceRemaining` is `null` for PAYG.
+- Budget check: before translating, the CLI requests one estimate per target locale and sums them, then enforces `cloud.budget` / `--max-chars` / `--max-cost` / env caps. If any estimate has `withinSpendCap: false` (org spend cap) or `allowed: false`, the run aborts with exit 1 and shows `note`. Nothing is translated or billed.
+- `--dry-run` uses the local count and the PAYG rate only (no network).
 
 ## `POST /projects/:id/translate` → job
 ```json
@@ -63,6 +78,7 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 // 202 (or 200 with a finished job)
 { "job": Job }
 ```
+Header: `Idempotency-Key: <same as body idempotencyKey>` (see above). Requests are **batched**: at most `cloud.batchSize` keys (default 100) and `cloud.batchChars` source chars (default 20 000) per request, one target locale per request. Locales run concurrently (`--concurrency` / `cloud.concurrency`, default 4).
 Server must return `__TONGUE_n__` tokens verbatim. The CLI re-validates everything (tokens, ICU args, plural categories, glossary, maxLength) and retries failed keys once in a new job.
 
 ## `GET /jobs/:id`
@@ -82,7 +98,7 @@ CLI polls every 1 s (30 min timeout).
 ```json
 // request
 { "mode": "push" | "pull" | "both", "sourceLocale": "en", "cursor": "c42",
-  "entries": [{ "key": "home.title", "locale": "de", "text": "Hallo, {name}!", "sourceHash": "sha256:…", "origin": "cli" | "machine" }],
+  "entries": [{ "key": "home.title", "locale": "de", "text": "Hallo, {name}!", "sourceHash": "sha256:…", "origin": "cli" | "machine", "file": "messages/en.json" }],
   "deletedKeys": ["old.key"] }
 // 200
 { "cursor": "c43",
@@ -92,6 +108,7 @@ CLI polls every 1 s (30 min timeout).
 - `push` entries include source-locale strings (`locale = sourceLocale`) and targets **with real ICU text** (unmasked).
 - `pull` returns target entries changed on the server since `cursor` (web edits). `sourceHash` = `sha256:<hex>` of the source text the translation belongs to; the CLI ignores entries whose hash no longer matches the local source.
 - `cursor` is opaque, stored in `tongue.lock` under `$cloud.cursor`.
+- `file` (optional, both directions): the source dictionary a key belongs to. The CLI sends it on source entries. Keys created by sync without a `file` get `file_path = <sourceLocale>.json` on the server. Pulled entries may carry `file`; the CLI routes writes by key and source layout, and ignores pulled keys that do not exist in the local source.
 
 ## Contract additions/changes requested from the server (Loom-Locale/loomlocale)
 1. **Device flow**: RFC 8628 error shape on `/device/token` with HTTP 400 (not 200), `client_id` = `next-tongue-cli`.
@@ -100,4 +117,10 @@ CLI polls every 1 s (30 min timeout).
 4. **`/translate`**: `placeholderPattern`, `idempotencyKey`, per-item `description`/`maxLength`, inline `glossary` (merged with project glossary server-side), `context`.
 5. **`/sync`**: single endpoint with `mode`, opaque `cursor`, `sourceHash` per entry, `origin` (`cli`/`machine`/`web`), `deletedKeys` both ways, glossary in every response.
 6. Job results returned inline on `GET /jobs/:id` (no separate results endpoint); large jobs could later add pagination via `results_cursor`.
-7. Errors: `402 { error: "allowance_exhausted" }` when plan/credit is exhausted; `429` with `Retry-After` (CLI currently surfaces it as an error — retry/backoff is a follow-up).
+7. Errors: `402 { error: "allowance_exhausted" }` when plan/credit is exhausted; `429`/`503` with `Retry-After` (now honoured by the CLI with backoff).
+
+### Still needed from the server (1.0 resilience/budget features)
+8. **Idempotency:** honour `Idempotency-Key` on `/translate` (same key → same job, ≥ 24 h) and keep finished jobs readable via `GET /jobs/:id` for ≥ 24 h so interrupted runs can resume without re-billing.
+9. **Rate limits:** send `Retry-After` on every `429`/`503`. Per-org limits should allow ~4 concurrent translate jobs (CLI default concurrency).
+10. **Budget:** keep `allowed` / `withinSpendCap` / `note` on `/estimate`. Consider adding `periodSpendGBP` to `/me` so monthly £ caps don't need to be derived from `charsUsed`.
+11. **Batch limits:** publish the max items/chars per `/translate` request (CLI defaults: 100 keys / 20 000 chars).

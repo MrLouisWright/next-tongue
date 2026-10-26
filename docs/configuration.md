@@ -68,6 +68,11 @@ export default defineConfig({
     projectId: 'prj_123',               // written by `tongue link`
     // files: ['./locales/{locale}/*.json'], // dictionary patterns (default: messages)
     // baseURL: 'https://loomlocale.com/api/v1',
+    // budget: { maxChars: 200_000, maxCostGBP: 5, monthlyChars: 2_000_000, monthlyCostGBP: 50 },
+    // concurrency: 4,      // target locales translated in parallel
+    // batchSize: 100,      // max keys per translate request
+    // batchChars: 20_000,  // max source chars per translate request
+    // maxRetries: 5,       // 429/503/network retries (Retry-After + exponential backoff)
   },
 });
 ```
@@ -99,6 +104,22 @@ export default defineConfig({
 | `strict.unusedIgnore` | `string[]` | `[]` | Full keys or globs (`common.*`) skipped by unused warnings. Prefer catalog `$meta.planned` / `@tongue-ignore` when the key is intentionally reserved — see [Translator workflow](translator-workflow.md#translator-context). |
 | `translate.*` | object | `undefined` | Only read by `tongue translate`. |
 
+### `cloud.*` (Loomlocale)
+
+| Option | Default | Description |
+|---|---|---|
+| `cloud.projectId` | — | Linked project (`tongue link`). |
+| `cloud.baseURL` | `https://loomlocale.com/api/v1` | API base URL (`--base-url` / `LOOMLOCALE_API_URL` override). |
+| `cloud.files` | `[messages]` | Dictionary patterns with `{locale}`. |
+| `cloud.budget.maxChars` | — | Abort a run whose estimate exceeds this many characters (exit 1). |
+| `cloud.budget.maxCostGBP` | — | Abort a run whose estimated cost exceeds this (GBP). |
+| `cloud.budget.monthlyChars` | — | Abort if period usage (`/me` `plan.charsUsed`) + this run would exceed it. |
+| `cloud.budget.monthlyCostGBP` | — | Same, in GBP. |
+| `cloud.concurrency` | `4` | Target locales translated in parallel (`--concurrency`). |
+| `cloud.batchSize` | `100` | Max keys per translate request. |
+| `cloud.batchChars` | `20000` | Max source characters per translate request. |
+| `cloud.maxRetries` | `5` | Retries on 429/503/dropped connections. |
+
 ## `withTongue` and Turbopack / TypeScript
 
 `withTongue(nextConfig)`:
@@ -114,6 +135,9 @@ export default defineConfig({
 |---|---|---|
 | `LOOMLOCALE_TOKEN` | `tongue update` / `translate` / `push` / `pull` | Loomlocale token for CI (overrides `tongue login`) |
 | `LOOMLOCALE_API_URL` | Loomlocale commands | API base URL override |
+| `LOOMLOCALE_MAX_CHARS` | `tongue update` / `translate` | Per-run character cap (overrides `cloud.budget.maxChars`) |
+| `LOOMLOCALE_MAX_COST` | `tongue update` / `translate` | Per-run cost cap in GBP (overrides `cloud.budget.maxCostGBP`) |
+| `NO_COLOR` | CLI | Disable coloured output (diffs, progress) |
 | `TONGUE_DEBUG=1` | `withTongue`, CLI | Verbose compiler logs |
 
 ---

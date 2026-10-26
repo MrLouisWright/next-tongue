@@ -55,13 +55,51 @@ Binary aliases: `tongue` and `next-tongue`. Running `npx next-tongue` with no co
 | `tongue login [--no-browser]` | OAuth device code: prints the code + `loomlocale.com/device`, opens the browser, polls, stores the token (OS keychain, fallback `~/.config/loomlocale/credentials.json`). |
 | `tongue logout` / `tongue whoami [--json]` | Forget the token / show account + plan. |
 | `tongue link [--project <id\|name>] [--create <name>]` | Pick or create a project and write `cloud.projectId` into your config. |
-| `tongue update` | Pull web edits + glossary, diff against `tongue.lock`, translate only new/changed keys, remove deleted keys, push. `--dry-run` (no network), `--ci` (non-interactive, uses `LOOMLOCALE_TOKEN`), `--prefer local\|remote`, `--locale`, `--keys`, `--max-chars`. |
+| `tongue update` | Pull web edits + glossary, diff against `tongue.lock`, translate only new/changed keys, show a per-key diff, write, push. `--dry-run` (no network), `--ci` (non-interactive, uses `LOOMLOCALE_TOKEN`), `--yes`, `--prefer local\|remote`, `--locale`, `--keys`, `--max-chars N`, `--max-cost GBP`, `--concurrency N`, `--review pr`, `--out-dir DIR`, `--json`. |
 | `tongue status [--json]` | Per-locale new/changed/removed counts (exit 1 when out of date). |
 | `tongue push` / `tongue pull [--prefer …]` | Upload all strings / apply web edits only. |
 | `tongue translate` | One-off translation without sync; `--review` writes `*.review.json`, `--accept` applies them (CI defaults to review). |
 
 Global: `--base-url <url>` (or `LOOMLOCALE_API_URL`). See [AI translation](ai-translation.md) and the [API contract](api-contract.md).
-Flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency 4`, `--retranslate` (ignore lock), `--review` (write to `messages/{locale}.review.json` instead of in place; default when `CI=true`), `--accept` (merge reviewed `*.review.json` files into messages and update the lock), `--max-cost N` (estimated-token budget).
+`tongue translate` flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency N`, `--retranslate` (ignore lock), `--review` (write to `messages/{locale}.review.json` instead of in place; default when `CI=true`), `--accept` (merge reviewed `*.review.json` files into messages and update the lock), `--max-chars N`, `--max-cost GBP`.
+
+### `tongue update` in detail
+
+**Review before writing.** After translating, `update` prints every key that will change, grouped by locale:
+
+```
+de
+  + home.title
+      + Hallo, {name}!
+  ~ home.body
+      - Willkommen
+      + Willkommen zurück
+  - old.key
+      - Alt
+1 added, 1 changed, 1 removed
+```
+
+Colour is used only on a TTY and is disabled by `NO_COLOR`. In a terminal you are asked to confirm. `--yes` (or `--ci`) skips the prompt. With `--json` the diff is in the `changes` array of the JSON summary (`{ locale, key, kind: "added"|"changed"|"removed", before?, after? }`). If you decline, nothing is written and the exit code is 1. Finished translations are kept in `tongue.lock.run.json`, so the next run reuses them without billing again.
+
+**Where changes go.**
+- Default: dictionaries and `tongue.lock` are updated in place, then pushed to Loomlocale.
+- `--out-dir .tongue-staging`: dictionaries and the lock are written under that directory (mirroring their paths). Your files are untouched and nothing is pushed.
+- `--review pr`: creates a branch `tongue/update-<timestamp>`, commits only the changed dictionaries and `tongue.lock`, pushes to `origin`, opens a pull request, then switches back to your branch. Your working tree is not modified. The PR body is a Markdown table of the per-key changes. To open the PR, the CLI uses `GITHUB_TOKEN` (or `GH_TOKEN`) with `GITHUB_REPOSITORY` / the `origin` URL (and `GITHUB_API_URL` on GHES); otherwise it uses the `gh` CLI; if neither is available it pushes the branch and prints a message. Translations are not pushed to Loomlocale in this mode; run `tongue push` after merging.
+
+**Spending caps.** Before translating, `update` asks Loomlocale for an estimate and aborts with **exit code 1** (`TONGUE_E_BUDGET`, nothing translated or billed) when a cap would be exceeded:
+
+| Cap | Flag | Env (CI) | Config |
+|---|---|---|---|
+| chars per run | `--max-chars N` | `LOOMLOCALE_MAX_CHARS` | `cloud.budget.maxChars` (legacy `translate.maxChars`) |
+| £ per run | `--max-cost 5` | `LOOMLOCALE_MAX_COST` | `cloud.budget.maxCostGBP` |
+| chars per billing period | — | — | `cloud.budget.monthlyChars` |
+| £ per billing period | — | — | `cloud.budget.monthlyCostGBP` |
+
+Flags beat env, env beats config. An organisation spend cap set on loomlocale.com (`withinSpendCap: false` in the estimate) also aborts the run. `--dry-run` checks per-run caps against the local count (no network).
+
+**Resilience.** `429`/`503` responses and dropped connections are retried, honouring `Retry-After`, with exponential backoff and jitter (`cloud.maxRetries`, default 5). Translate requests carry a deterministic `Idempotency-Key`. Job ids and progress are saved to `tongue.lock.run.json` (add it to `.gitignore`). If a run is interrupted (crash, Ctrl-C, network loss), re-running `tongue update` resumes polling the same jobs and reuses finished batches instead of translating again. The file is deleted when the run completes.
+
+**Performance.** Keys are sent in batches (≤ `cloud.batchSize` keys, default 100, and ≤ `cloud.batchChars` source chars, default 20 000, per request). Target locales are translated concurrently: `--concurrency N` or `cloud.concurrency`, default 4. After a `429`, all workers pause until `Retry-After` expires.
 
 ## `tongue export` / `tongue import` (v0.4)
 XLIFF 2.0 and CSV round-trip for translators. See [Translator workflow](translator-workflow.md).

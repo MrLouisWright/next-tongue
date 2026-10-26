@@ -1,5 +1,10 @@
 # Copy to .github/workflows/translations.yml
-# Translates new/changed keys on every push to main and opens a PR with the result.
+# On every push to main: translate new/changed keys with Loomlocale and open a review PR
+# (`tongue update --review pr`), so a human approves machine translations before they land.
+#
+# Secrets: LOOMLOCALE_TOKEN (llt_…, from `tongue login` / loomlocale.com → Settings → Tokens).
+# GITHUB_TOKEN is provided by Actions; the permissions below let it push a branch and open the PR.
+# Repo setting: Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
 name: Translations
 on:
   push:
@@ -11,6 +16,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: translations
+  cancel-in-progress: false
+
 jobs:
   translate:
     runs-on: ubuntu-latest
@@ -18,15 +27,34 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22   # next-tongue supports Node 18+
       - run: npm ci
-      - name: Translate (Loomlocale)
-        run: npx tongue update --ci --prefer remote
+      - name: Git identity for the review commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      # Hard spending cap for CI: the run aborts with exit 1, before anything is billed, if the
+      # Loomlocale estimate is over the cap. Also settable in tongue.config (cloud.budget).
+      - name: Translate (Loomlocale) and open a review PR
+        run: npx tongue update --ci --prefer remote --review pr --concurrency 4
         env:
           LOOMLOCALE_TOKEN: ${{ secrets.LOOMLOCALE_TOKEN }}
+          LOOMLOCALE_MAX_CHARS: '500000'
+          LOOMLOCALE_MAX_COST: '10'   # GBP per run
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: npx tongue check --reporter github
-      - uses: peter-evans/create-pull-request@v7
-        with:
-          branch: i18n/loomlocale
-          title: 'i18n: update translations'
-          commit-message: 'i18n: update translations via Loomlocale'
+
+  # After the review PR is merged, sync the accepted strings back to Loomlocale.
+  # (Runs on pushes that only touch translations, e.g. merging the tongue/update-* PR.)
+  # sync:
+  #   if: startsWith(github.event.head_commit.message, 'i18n: Loomlocale translations')
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: npm ci
+  #     - run: npx tongue push
+  #       env:
+  #         LOOMLOCALE_TOKEN: ${{ secrets.LOOMLOCALE_TOKEN }}
+  #
+  # Alternative without PRs: stage files for another tool, e.g.
+  #   npx tongue update --ci --out-dir .tongue-staging

@@ -7,6 +7,10 @@ import { TongueError } from '../errors.js';
 export const DEFAULT_BASE_URL = 'https://loomlocale.com/api/v1';
 export const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
 export const CLIENT_ID = 'next-tongue-cli';
+/** Scopes requested at login (contract names). The token response echoes them. */
+export const DEFAULT_SCOPES = 'projects translate sync';
+/** Loomlocale access tokens start with this prefix. */
+export const TOKEN_PREFIX = 'llt_';
 
 export type DeviceCodeResponse = {
   device_code: string;
@@ -44,6 +48,8 @@ export type Me = {
   user: { id: string; email: string; name?: string };
   org: { id: string; name: string };
   plan: Plan;
+  /** Org monthly spend cap set on loomlocale.com (null = none). Optional. */
+  spendCapGBP?: number | null;
 };
 
 export type Project = {
@@ -68,6 +74,11 @@ export type Estimate = {
   currency: 'GBP';
   allowanceRemaining: number | null;
   withinAllowance: boolean;
+  /** Server-side: false when the org may not run this job (e.g. spend cap). Optional. */
+  allowed?: boolean;
+  /** Server-side: false when the job would exceed the org's spend cap. Optional. */
+  withinSpendCap?: boolean;
+  note?: string;
 };
 
 export type GlossaryTerms = Record<
@@ -112,6 +123,8 @@ export type SyncEntry = {
   sourceHash: string;
   updatedAt?: string;
   origin?: 'cli' | 'web' | 'machine';
+  /** Dictionary file the key belongs to (keys created on the web default to `<sourceLocale>.json`). */
+  file?: string;
 };
 
 export type SyncRequest = {
@@ -134,6 +147,8 @@ export type SyncResponse = {
 };
 
 export class ApiError extends Error {
+  /** From Retry-After on 429/503. */
+  retryAfterMs: number | null = null;
   constructor(
     readonly status: number,
     readonly code: string,
@@ -149,15 +164,54 @@ export type ClientOptions = {
   token?: string | null;
   fetchImpl?: typeof fetch;
   userAgent?: string;
+  /** Retries on 429/503/network errors (default 5). */
+  maxRetries?: number;
+  /** Base backoff in ms (default 500); doubled per attempt, full jitter, capped at 30s. */
+  backoffMs?: number;
+  /** Injected for tests. */
+  sleep?: (ms: number) => Promise<void>;
+  random?: () => number;
+  /** Called before each retry wait. */
+  onRetry?: (info: { attempt: number; waitMs: number; status: number; path: string }) => void;
 };
+
+const MAX_BACKOFF_MS = 30_000;
+
+/** Parse Retry-After (delta-seconds or HTTP-date) → ms, or null. */
+export function parseRetryAfter(value: string | null | undefined, now = Date.now()): number | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (/^\d+(\.\d+)?$/.test(v)) return Math.round(Number(v) * 1000);
+  const t = Date.parse(v);
+  return Number.isNaN(t) ? null : Math.max(0, t - now);
+}
+
+/** Exponential backoff with full jitter; Retry-After wins when present (plus small jitter). */
+export function backoffDelay(attempt: number, retryAfterMs: number | null, baseMs = 500, random: () => number = Math.random): number {
+  if (retryAfterMs != null) return Math.min(retryAfterMs + Math.floor(random() * 250), 5 * 60_000);
+  const cap = Math.min(MAX_BACKOFF_MS, baseMs * 2 ** attempt);
+  return Math.floor(cap / 2 + random() * (cap / 2));
+}
 
 export class LoomlocaleClient {
   readonly baseURL: string;
   private readonly token: string | null;
   private readonly fetchImpl: typeof fetch;
   private readonly userAgent: string;
+  readonly maxRetries: number;
+  private readonly backoffMs: number;
+  private readonly sleep: (ms: number) => Promise<void>;
+  private readonly random: () => number;
+  private readonly onRetry: ClientOptions['onRetry'];
+  /** Shared rate-limit gate: concurrent workers wait here after a 429/503. */
+  private pausedUntil = 0;
 
   constructor(opts: ClientOptions = {}) {
+    this.maxRetries = Math.max(0, opts.maxRetries ?? 5);
+    this.backoffMs = opts.backoffMs ?? 500;
+    this.sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    this.random = opts.random ?? Math.random;
+    this.onRetry = opts.onRetry;
     this.baseURL = (opts.baseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.token = opts.token ?? null;
     this.fetchImpl = opts.fetchImpl ?? globalThis.fetch;
@@ -168,11 +222,35 @@ export class LoomlocaleClient {
     method: 'GET' | 'POST',
     path: string,
     body?: unknown,
-    opts: { auth?: boolean; allowError?: boolean } = {},
+    opts: { auth?: boolean; allowError?: boolean; headers?: Record<string, string>; retry?: boolean } = {},
+  ): Promise<{ status: number; data: T }> {
+    for (let attempt = 0; ; attempt++) {
+      const wait = this.pausedUntil - Date.now();
+      if (wait > 0) await this.sleep(wait);
+      try {
+        return await this.requestOnce<T>(method, path, body, opts);
+      } catch (err) {
+        const retryable =
+          opts.retry !== false && err instanceof ApiError && (err.status === 429 || err.status === 503 || err.status === 0) && err.code !== 'timeout';
+        if (!retryable || attempt >= this.maxRetries) throw err;
+        const waitMs = backoffDelay(attempt, (err as ApiError).retryAfterMs ?? null, this.backoffMs, this.random);
+        if ((err as ApiError).status !== 0) this.pausedUntil = Math.max(this.pausedUntil, Date.now() + waitMs);
+        this.onRetry?.({ attempt: attempt + 1, waitMs, status: (err as ApiError).status, path });
+        await this.sleep(waitMs);
+      }
+    }
+  }
+
+  private async requestOnce<T>(
+    method: 'GET' | 'POST',
+    path: string,
+    body: unknown,
+    opts: { auth?: boolean; allowError?: boolean; headers?: Record<string, string> },
   ): Promise<{ status: number; data: T }> {
     const headers: Record<string, string> = {
       accept: 'application/json',
       'user-agent': this.userAgent,
+      ...opts.headers,
     };
     if (body !== undefined) headers['content-type'] = 'application/json';
     if (opts.auth !== false) {
@@ -203,6 +281,12 @@ export class LoomlocaleClient {
         data = { error: 'invalid_json', message: text.slice(0, 200) };
       }
     }
+    if (res.status === 429 || res.status === 503) {
+      const d = data as { error?: string; message?: string };
+      const e = new ApiError(res.status, d.error ?? (res.status === 429 ? 'rate_limited' : 'unavailable'), `Loomlocale API ${method} ${path} → ${res.status} ${d.message ?? 'rate limited / unavailable'} (retries exhausted)`);
+      e.retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
+      throw e;
+    }
     if (!res.ok && !opts.allowError) {
       const d = data as { error?: string; message?: string; error_description?: string };
       const code = d.error ?? `http_${res.status}`;
@@ -213,7 +297,7 @@ export class LoomlocaleClient {
   }
 
   deviceCode(): Promise<DeviceCodeResponse> {
-    return this.request<DeviceCodeResponse>('POST', '/device/code', { client_id: CLIENT_ID, scope: 'projects translate sync' }, { auth: false }).then((r) => r.data);
+    return this.request<DeviceCodeResponse>('POST', '/device/code', { client_id: CLIENT_ID, scope: DEFAULT_SCOPES }, { auth: false }).then((r) => r.data);
   }
 
   async deviceToken(deviceCode: string): Promise<DeviceTokenSuccess | DeviceTokenError> {
@@ -221,7 +305,7 @@ export class LoomlocaleClient {
       'POST',
       '/device/token',
       { client_id: CLIENT_ID, device_code: deviceCode, grant_type: DEVICE_GRANT },
-      { auth: false, allowError: true },
+      { auth: false, allowError: true, retry: false },
     );
     if (r.status >= 500) throw new ApiError(r.status, 'server_error', `device/token → ${r.status}`);
     return r.data;
@@ -244,7 +328,10 @@ export class LoomlocaleClient {
   }
 
   translate(projectId: string, req: TranslateRequest): Promise<Job> {
-    return this.request<{ job: Job }>('POST', `/projects/${encodeURIComponent(projectId)}/translate`, req).then((r) => r.data.job);
+    // Idempotency-Key header (and body field) lets retries/resumes return the same job.
+    return this.request<{ job: Job }>('POST', `/projects/${encodeURIComponent(projectId)}/translate`, req, {
+      headers: { 'idempotency-key': req.idempotencyKey },
+    }).then((r) => r.data.job);
   }
 
   job(id: string): Promise<Job> {
@@ -266,7 +353,7 @@ export class LoomlocaleClient {
     id: string,
     opts: { intervalMs?: number; timeoutMs?: number; onProgress?: (job: Job) => void; sleep?: (ms: number) => Promise<void> } = {},
   ): Promise<Job> {
-    const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    const sleep = opts.sleep ?? this.sleep;
     const deadline = Date.now() + (opts.timeoutMs ?? 30 * 60_000);
     for (;;) {
       const job = await this.job(id);
