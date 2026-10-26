@@ -1,6 +1,6 @@
 # Loomlocale API contract (as assumed by next-tongue 1.0)
 
-Base URL: `https://loomlocale.com/api/v1` (override: `cloud.baseURL`, `--base-url`, `LOOMLOCALE_API_URL`).
+Base URL: `https://www.loomlocale.com/api/v1` (override: `cloud.baseURL`, `--base-url`, `LOOMLOCALE_API_URL`).
 All bodies are JSON. Authenticated endpoints require `Authorization: Bearer <token>`.
 Errors: non-2xx with the **flat envelope** `{ "error": "<code>", "message": "<human text>", "details"?: {…}, "request_id": "…" }`, where `error` is a string code. Defensively, the client also accepts a nested `{ "error": { "code", "message", "details", "request_id" } }`. Error messages include `(request id …)` when present. The CLI special-cases `401` (→ "run tongue login"), `402` (`insufficient_credit` → top-up link and **exit code 4**; `card_required` → card setup link and exit code 4; `spend_cap_reached` → `TONGUE_E_BUDGET`, exit 1; see below), `409` and `413` (see `/translate`).
 **Forward compatibility:** the client ignores response fields it does not know (e.g. `org` on the token response, `spendCapGBP`/`token` on `/me`), so the server may add fields freely.
@@ -19,8 +19,8 @@ Client: [`packages/next-tongue/src/cloud/api.ts`](../packages/next-tongue/src/cl
 // request
 { "client_id": "next-tongue-cli", "scope": "projects translate sync" }   // contract scope names; this is the default
 // 200
-{ "device_code": "…", "user_code": "ABCD-EFGH", "verification_uri": "https://loomlocale.com/device",
-  "verification_uri_complete": "https://loomlocale.com/device?code=ABCD-EFGH", "expires_in": 900, "interval": 5 }
+{ "device_code": "…", "user_code": "ABCD-EFGH", "verification_uri": "https://www.loomlocale.com/device",
+  "verification_uri_complete": "https://www.loomlocale.com/device?code=ABCD-EFGH", "expires_in": 900, "interval": 5 }
 ```
 
 ### `POST /device/token` (no auth)

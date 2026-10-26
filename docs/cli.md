@@ -59,7 +59,7 @@ Binary aliases: `tongue` and `next-tongue`. Running `npx next-tongue` with no co
 | Command | What it does |
 |---|---|
 | `tongue init` | Interactive wizard (TTY). `--scaffold`, `--yes`, `--locales`… keep the classic Next.js scaffolder. |
-| `tongue login [--no-browser]` | OAuth device code: prints the code + `loomlocale.com/device`, opens the browser, polls, stores the token (OS keychain, fallback `~/.config/loomlocale/credentials.json`). |
+| `tongue login [--no-browser]` | OAuth device code: prints the code + `https://www.loomlocale.com/device`, opens the browser, polls, stores the token (OS keychain, fallback `~/.config/loomlocale/credentials.json`). |
 | `tongue logout` / `tongue whoami [--json]` | Forget the token / show account + plan. |
 | `tongue link [--project <id\|name>] [--create <name>]` | Pick or create a project and write `cloud.projectId` into your config. |
 | `tongue update` | Pull web edits + glossary, diff against `tongue.lock`, translate only new/changed keys, show a per-key diff, write, push. `--dry-run` (no network), `--ci` (non-interactive, uses `LOOMLOCALE_TOKEN`), `--yes`, `--prefer local\|remote`, `--locale`, `--keys`, `--max-chars N`, `--max-cost GBP`, `--concurrency N`, `--review pr`, `--out-dir DIR`, `--json`. |

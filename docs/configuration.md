@@ -67,7 +67,7 @@ export default defineConfig({
   cloud: {
     projectId: 'prj_123',               // written by `tongue link`
     // files: ['./locales/{locale}/*.json'], // dictionary patterns (default: messages)
-    // baseURL: 'https://loomlocale.com/api/v1',
+    // baseURL: 'https://www.loomlocale.com/api/v1',
     // budget: { maxChars: 200_000, maxCostGBP: 5, monthlyChars: 2_000_000, monthlyCostGBP: 50 },
     // concurrency: 4,      // target locales translated in parallel
     // batchSize: 100,      // lower the max keys per translate request (server limit: 1000)
@@ -109,7 +109,7 @@ export default defineConfig({
 | Option | Default | Description |
 |---|---|---|
 | `cloud.projectId` | — | Linked project (`tongue link`). |
-| `cloud.baseURL` | `https://loomlocale.com/api/v1` | API base URL (`--base-url` / `LOOMLOCALE_API_URL` override). |
+| `cloud.baseURL` | `https://www.loomlocale.com/api/v1` | API base URL (`--base-url` / `LOOMLOCALE_API_URL` override). |
 | `cloud.files` | `[messages]` | Dictionary patterns with `{locale}`. |
 | `cloud.budget.maxChars` | — | Abort a run whose estimate exceeds this many characters (exit 1). |
 | `cloud.budget.maxCostGBP` | — | Abort a run whose estimated cost exceeds this (GBP). |

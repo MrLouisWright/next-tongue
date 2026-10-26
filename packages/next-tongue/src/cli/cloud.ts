@@ -1,6 +1,6 @@
 /** Loomlocale account + project commands: login, logout, whoami, link, status, push, pull. */
 import { TongueError } from '../errors.js';
-import { LoomlocaleClient, TOKEN_PREFIX, allowanceLines, creditExpiryWarning, lowCreditHint, type Me, type Project, type SyncEntry } from '../cloud/api.js';
+import { LoomlocaleClient, TOKEN_PREFIX, allowanceLines, DEVICE_PAGE_URL, creditExpiryWarning, lowCreditHint, type Me, type Project, type SyncEntry } from '../cloud/api.js';
 import { createCredentialStore } from '../cloud/credentials.js';
 import { readCatalog, writeCatalog, type Flat } from '../cloud/dictionaries.js';
 import { diffCatalogs, loadLock, lockSection, saveLock, sha } from '../cloud/engine.js';
@@ -16,8 +16,9 @@ export async function cmdLogin(opts: CloudGlobals & { noBrowser?: boolean; sleep
   const baseURL = resolveBaseURL(opts);
   const client = new LoomlocaleClient({ baseURL, ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}) });
   const code = await client.deviceCode();
-  const url = code.verification_uri_complete ?? code.verification_uri;
-  console.log(`\n  ${color.bold('Log in to Loomlocale')}\n\n  1. Open ${color.cyan(code.verification_uri)}\n  2. Enter code ${color.bold(color.yellow(code.user_code))}\n`);
+  const page = code.verification_uri || DEVICE_PAGE_URL;
+  const url = code.verification_uri_complete || page;
+  console.log(`\n  ${color.bold('Log in to Loomlocale')}\n\n  1. Open ${color.cyan(page)}\n  2. Enter code ${color.bold(color.yellow(code.user_code))}\n`);
   if (!opts.noBrowser && openBrowser(url, env)) console.log(color.dim('  (opened your browser)'));
   console.log(color.dim('  Waiting for approval…'));
   const sleep = opts.sleep ?? realSleep;

@@ -598,3 +598,18 @@ describe('free allowance: card_required + /me allowance fields', () => {
     }
   });
 });
+
+describe('default API base', () => {
+  it('is the www host, and the overrides still win in order', async () => {
+    const { DEFAULT_BASE_URL } = await import('./api.js');
+    const { resolveBaseURL } = await import('./project.js');
+    expect(DEFAULT_BASE_URL).toBe('https://www.loomlocale.com/api/v1');
+    expect((await import('./api.js')).DEVICE_PAGE_URL).toBe('https://www.loomlocale.com/device');
+    expect(resolveBaseURL({ env: {} })).toBe('https://www.loomlocale.com/api/v1');
+    expect(new (await import('./api.js')).LoomlocaleClient({}).baseURL).toBe('https://www.loomlocale.com/api/v1');
+    const cfg = { cloud: { baseURL: 'https://cfg.test/api/v1/' } } as never;
+    expect(resolveBaseURL({ env: {} }, cfg)).toBe('https://cfg.test/api/v1');
+    expect(resolveBaseURL({ env: { LOOMLOCALE_API_URL: 'https://env.test/v1' } }, cfg)).toBe('https://env.test/v1');
+    expect(resolveBaseURL({ baseURL: 'https://flag.test/v1', env: { LOOMLOCALE_API_URL: 'https://env.test/v1' } }, cfg)).toBe('https://flag.test/v1');
+  });
+});

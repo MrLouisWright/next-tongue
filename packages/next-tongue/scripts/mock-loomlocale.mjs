@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /**
+ * Production base: https://www.loomlocale.com/api/v1 (this mock serves the same /api/v1 paths).
  * Mock Loomlocale API (docs/api-contract.md) for tests and the tarball smoke test.
  * `node scripts/mock-loomlocale.mjs [port]` prints `MOCK_URL=<base>` when ready.
  * "Translations" prefix the masked source with `[<locale>] ` so tokens survive.

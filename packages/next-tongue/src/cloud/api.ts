@@ -4,7 +4,9 @@
  */
 import { TongueError } from '../errors.js';
 
-export const DEFAULT_BASE_URL = 'https://loomlocale.com/api/v1';
+export const DEFAULT_BASE_URL = 'https://www.loomlocale.com/api/v1';
+/** Device-login page, used when the server omits verification_uri. */
+export const DEVICE_PAGE_URL = 'https://www.loomlocale.com/device';
 export const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code';
 export const CLIENT_ID = 'next-tongue-cli';
 /** Scopes requested at login (contract names). The token response echoes them. */

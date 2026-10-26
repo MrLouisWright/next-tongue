@@ -27,7 +27,7 @@ export default {
   cloud: {
     projectId: 'prj_…',                       // written by `tongue link`
     files: ['./locales/{locale}/*.json'],     // optional: extra/other dictionary layouts (JSON or TS)
-    // baseURL: 'https://loomlocale.com/api/v1',
+    // baseURL: 'https://www.loomlocale.com/api/v1',
   },
 };
 ```

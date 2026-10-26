@@ -98,7 +98,7 @@ export type TongueConfig = {
 
 export type CloudConfig = {
   projectId?: string;
-  /** API base URL. Default https://loomlocale.com/api/v1 (env LOOMLOCALE_API_URL overrides). */
+  /** API base URL. Default https://www.loomlocale.com/api/v1 (env LOOMLOCALE_API_URL overrides). */
   baseURL?: string;
   /** Dictionary patterns with `{locale}` (e.g. `./locales/{locale}/*.json`). Defaults to `messages`. */
   files?: string[];
