@@ -32,13 +32,7 @@ export function flattenMessages(
       }
       Object.assign(out, flattenMessages(value as NestedMessages, full));
     } else if (typeof value === 'string') {
-      const child = Object.keys(out).find((k) => k.startsWith(`${full}.`));
-      if (child) {
-        throw new TongueError(
-          'TONGUE_E_BUILD',
-          `Key "${full}" collides with nested key "${child}" — the same path cannot be a leaf and a branch. Rename one side.`,
-        );
-      }
+      // Leaf/branch clashes across siblings are caught by the final O(n) pass.
       out[full] = value;
     } else {
       throw new TongueError(
@@ -53,15 +47,20 @@ export function flattenMessages(
 
 /** Flat catalogs (e.g. after source merge) must not mix `email` and `email.x`. */
 export function assertNoLeafBranchCollisions(flat: FlatMessages): void {
+  // O(n · depth): check each key's ancestor paths against the leaf set (was O(n²)).
   const keys = Object.keys(flat);
-  for (const key of keys) {
-    for (const other of keys) {
-      if (other.length > key.length && other.startsWith(`${key}.`)) {
+  const leaves = new Set(keys);
+  for (const other of keys) {
+    let i = other.indexOf('.');
+    while (i !== -1) {
+      const key = other.slice(0, i);
+      if (leaves.has(key)) {
         throw new TongueError(
           'TONGUE_E_BUILD',
           `Key "${key}" collides with nested key "${other}" — never use the same segment as both a leaf and a branch (e.g. contact.email + contact.email.autoSubject). Rename the group or the leaf.`,
         );
       }
+      i = other.indexOf('.', i + 1);
     }
   }
 }

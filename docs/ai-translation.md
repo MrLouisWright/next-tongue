@@ -1,60 +1,50 @@
-# AI translation
+# AI translation (Loomlocale)
 
-> **Status: implemented (pre-release).** Ships with v0.5. Names may still change before v1.0. See [ROADMAP](../ROADMAP.md).
+next-tongue 1.0 translates through the [Loomlocale](https://loomlocale.com) hosted API. There is no API key to manage: you log in once and the CLI stores a token.
 
-`tongue translate` is a built-in, **optional** workflow: you bring your own key to any OpenAI-compatible Chat Completions endpoint (OpenAI, Azure OpenAI, OpenRouter, Together, Groq, xAI, Mistral, local Ollama/LM Studio/vLLM, …). There is no next-tongue service, no account, no telemetry.
-
-## Configure
-
-```ts
-translate: {
-  baseURL: 'https://api.openai.com/v1',
-  model: 'gpt-4.1-mini',
-  apiKeyEnv: 'TONGUE_API_KEY',
-  glossary: './tongue.glossary.json',
-  lockfile: './tongue.lock',
-  context: 'Consumer banking app. Friendly, concise. Informal "du" in German.',
-}
+```bash
+npx next-tongue            # guided wizard: detect → pick languages → estimate → translate
+# or step by step
+npx tongue login
+npx tongue link
+npx tongue update
 ```
-Local example: `baseURL: 'http://localhost:11434/v1', model: 'qwen2.5:14b'` (key may be any string).
 
-## Glossary
+## How a run works
+1. **Pull** web edits and the project glossary (`POST /projects/:id/sync`, `mode: "pull"`).
+2. **Diff** every source key against `tongue.lock` (sha256 of source + target). Only *new*, *changed* or *missing* keys are sent. Targets you edited by hand are never overwritten.
+3. **Translate**: ICU args and tags are masked as `__TONGUE_n__` tokens before upload; each result is unmasked and must pass arg parity, plural-category, glossary and `$meta.maxLength` checks (one automatic retry; failures are reported and exit 1).
+4. **Remove** keys deleted from the source in every target dictionary.
+5. **Push** sources + results so the web editor stays in sync; the lock stores the sync cursor.
 
-```json
-{
-  "terms": {
-    "Workspace": { "de": "Workspace", "fr": "Espace de travail", "note": "Product term" },
-    "next-tongue": { "doNotTranslate": true }
-  }
-}
+## Configuration
+```js
+export default {
+  locales: ['en', 'de', 'fr'],
+  defaultLocale: 'en',
+  messages: './messages/{locale}.json',
+  translate: { glossary: './glossary.json', context: 'B2B invoicing app', maxChars: 200000 },
+  cloud: {
+    projectId: 'prj_…',                       // written by `tongue link`
+    files: ['./locales/{locale}/*.json'],     // optional: extra/other dictionary layouts (JSON or TS)
+    // baseURL: 'https://loomlocale.com/api/v1',
+  },
+};
 ```
-Terms are injected into the prompt; after translation, `tongue translate` verifies glossary terms appear and flags violations.
 
-## Lockfile (`tongue.lock`)
+Dictionaries can be one file per locale (`messages/en.json`), per-locale folders (`locales/en/*.json`, file name = first key segment) or TS modules exporting a static object literal (`export default { … } as const`).
 
-Commit it. Per locale and key it records a hash of the **source** text, a hash of the **target** text, model and timestamp:
-```json
-{ "version": 1, "de": { "home.title": { "source": "sha256:…", "target": "sha256:…", "model": "gpt-4.1-mini", "at": "2026-10-14T10:00:00Z" } } }
-```
-- Source changed → key is **stale**: `tongue check` flags it as outdated (`stale`, severity `strict.stale`), `tongue translate` retranslates it and `tongue export --missing-only` includes it ([#42](https://github.com/MrLouisWright/next-tongue/issues/42)). Hashes are SHA-256 via `node:crypto`.
-- Target changed by a human (hash differs) → treated as **human-edited** and never overwritten unless `--retranslate`.
+## Pricing
+Billable characters = source characters × target languages. Pay-as-you-go is **£25 per 1M characters**; plan allowances are consumed first. The wizard and `tongue update --dry-run` print an estimate before anything is sent.
 
-## Translator context
-`$meta` (description, screenshot link, `maxLength`) is included in prompts; outputs longer than `maxLength` are retried once, then reported. See [Translator workflow](translator-workflow.md#translator-context).
+## Conflicts
+If a string was edited both locally and on loomlocale.com, interactive runs ask which to keep; `--ci` fails unless `--prefer local|remote` is given.
 
-## Placeholder protection and budgets
-Before sending, `{args}` and tags are masked with opaque tokens and restored afterwards; a restored output that changes them is rejected. `translate.maxTokens` / `--max-cost` cap spend per run, and in CI (`CI=true`) `--review` is the default. Requests use global `fetch` only ([ADR 0012](adr/0012-zero-dependencies.md)).
+## CI
+Set `LOOMLOCALE_TOKEN` (create one at loomlocale.com → Settings → Tokens) and run `npx tongue update --ci`. See [`examples/github-action/loomlocale.yml`](../examples/github-action/loomlocale.yml).
 
-## Safety guarantees (acceptance criteria for v0.5)
+## Review flow
+`tongue translate --review` (default in CI) writes `<locale>.review.json` next to your dictionaries; `tongue translate --accept` applies them and updates the lock.
 
-- Every LLM output is parsed as ICU and compared with the source: args, tags and plural categories (per target-locale CLDR rules) must match, otherwise it is retried once, then reported and skipped.
-- Only messages and descriptions are sent; never source code, env, or file paths beyond key names.
-- `--dry-run` shows the plan and estimated tokens without calling the API.
-- The API key is read from the env var only and never written to disk or logs.
-
-## Workflow suggestion
-
-`tongue translate --review` in a PR → humans review `*.review.json` → `tongue translate --accept` merges them.
-
----
-[Docs index](README.md) · [API reference](api-reference.md) · [Roadmap](../ROADMAP.md)
+## Still want BYO OpenAI?
+Stay on `next-tongue@0.9` — see [Migrating to 1.0](migrating-to-1.0.md).

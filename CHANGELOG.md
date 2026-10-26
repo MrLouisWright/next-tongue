@@ -4,8 +4,23 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.0.0] — unreleased
+
+### Breaking
+- Translation runs only through the **Loomlocale** hosted API (default `https://loomlocale.com/api/v1`, configurable via `cloud.baseURL`, `--base-url` or `LOOMLOCALE_API_URL`). The direct OpenAI client, `TONGUE_API_KEY` and all BYO-key options (`translate.baseURL`, `translate.model`, `translate.apiKeyEnv`, `translate.maxTokens`) were removed; configs using them fail with a migration hint. Stay on `next-tongue@0.9` for BYO OpenAI. See [docs/migrating-to-1.0.md](docs/migrating-to-1.0.md).
+- `tongue translate --max-cost/--concurrency` replaced by `--max-chars` (`translate.maxChars`).
+- `tongue.lock` is now version 2 (adds `$cloud` cursor/project; v1 entries are read as-is).
+
 ### Added
-- (none yet)
+- `next-tongue` bin alias (`npx next-tongue`), `tongue --version`.
+- Guided wizard (`npx next-tongue` / interactive `tongue init`): detects framework and dictionary folders, source language, multiple JSON/TS dictionaries (per-locale files or folders), searchable target multi-select, character count + cost estimate (PAYG £25 / 1M chars or plan allowance), translation with per-language progress, placeholder/ICU/plural validation, summary. Zero-dependency TUI (ADR 0012 still holds). `tongue init --scaffold` / `--yes` keeps the old file scaffolder.
+- `tongue login` (OAuth device code; token in macOS Keychain / libsecret, fallback `~/.config/loomlocale/credentials.json` 0600), `logout`, `whoami`, `link`.
+- `tongue update` (pull web edits + glossary → lockfile hash diff → translate only new/changed keys → remove deleted keys → push), `--dry-run`, `--ci` (`LOOMLOCALE_TOKEN`), `--prefer local|remote` conflict policy. `tongue status`, `push`, `pull`.
+- Typed Loomlocale API client and documented contract ([docs/api-contract.md](docs/api-contract.md)); GitHub Action example in `examples/github-action/`.
+
+### Fixed
+- `loadConfig` cache-busts ESM imports so in-process config edits are picked up.
+- Pre-existing lint errors (`examples/basic`, `fixtures/migrate-next-intl`, `packages/vscode`) that kept CI red on `main`.
 
 ## [0.9.18] — 2026-10-22
 

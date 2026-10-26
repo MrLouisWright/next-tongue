@@ -57,15 +57,17 @@ export default defineConfig({
     length: 'warn',                     // target longer than $meta.maxLength (v0.4)
   },
 
-  // CLI: tongue translate (see ai-translation.md)
+  // CLI: tongue update / translate via Loomlocale (see ai-translation.md)
   translate: {
-    baseURL: 'https://api.openai.com/v1', // any OpenAI-compatible endpoint
-    model: 'gpt-4.1-mini',
-    apiKeyEnv: 'TONGUE_API_KEY',        // name of the env var; the key is never stored in config
     glossary: './tongue.glossary.json',
     lockfile: './tongue.lock',
     context: 'A B2B invoicing app. Formal tone (Sie in German).',
-    maxTokens: 50_000,                  // estimated-token budget per run (also --max-cost)
+    maxChars: 200_000,                  // billable-character budget per run (also --max-chars)
+  },
+  cloud: {
+    projectId: 'prj_123',               // written by `tongue link`
+    // files: ['./locales/{locale}/*.json'], // dictionary patterns (default: messages)
+    // baseURL: 'https://loomlocale.com/api/v1',
   },
 });
 ```
@@ -110,7 +112,8 @@ export default defineConfig({
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `TONGUE_API_KEY` (configurable) | `tongue translate` | LLM API key |
+| `LOOMLOCALE_TOKEN` | `tongue update` / `translate` / `push` / `pull` | Loomlocale token for CI (overrides `tongue login`) |
+| `LOOMLOCALE_API_URL` | Loomlocale commands | API base URL override |
 | `TONGUE_DEBUG=1` | `withTongue`, CLI | Verbose compiler logs |
 
 ---

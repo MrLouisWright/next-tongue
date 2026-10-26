@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
-import { access, readFile } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { resolveConfig } from './validate.js';
 import type { ResolvedTongueConfig, TongueConfig } from './types.js';
@@ -59,6 +59,14 @@ export async function loadConfig(
   const configPath = await resolveConfigPath(cwd, options.configPath);
 
   let mod: { default?: TongueConfig } & TongueConfig;
+  // Cache-bust ESM imports so edits (tongue link / wizard / watch) are seen in-process.
+  let bust = '';
+  try {
+    const st = await stat(configPath);
+    bust = `?v=${st.mtimeMs}-${st.size}`;
+  } catch {
+    /* resolveConfigPath already validated existence */
+  }
   try {
     if (configPath.endsWith('.ts') || configPath.endsWith('.mts')) {
       // Prefer jiti if present (devDependency of the app); else Node type-stripping.
@@ -69,10 +77,10 @@ export async function loadConfig(
         const jiti = jitiMod.createJiti(import.meta.url);
         mod = (await jiti.import(configPath)) as typeof mod;
       } catch {
-        mod = (await import(pathToFileURL(configPath).href)) as typeof mod;
+        mod = (await import(pathToFileURL(configPath).href + bust)) as typeof mod;
       }
     } else {
-      mod = (await import(pathToFileURL(configPath).href)) as typeof mod;
+      mod = (await import(pathToFileURL(configPath).href + bust)) as typeof mod;
     }
   } catch (err) {
     throw new TongueError(

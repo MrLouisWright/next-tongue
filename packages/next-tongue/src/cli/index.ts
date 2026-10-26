@@ -8,6 +8,11 @@ import { cmdInit } from './init.js';
 import { cmdExport, cmdImport } from './export-import.js';
 import { cmdReport, parseMaxBytes } from './report.js';
 import { cmdTranslate } from './translate.js';
+import { runUpdate } from './update.js';
+import { runWizard } from './wizard.js';
+import { cmdLink, cmdLogin, cmdLogout, cmdPull, cmdPush, cmdStatus, cmdWhoami } from './cloud.js';
+import { ApiError } from '../cloud/api.js';
+import type { CloudGlobals } from '../cloud/project.js';
 import { cmdMigrate } from './migrate.js';
 
 export async function runCli(argv: string[]): Promise<void> {
@@ -43,14 +48,55 @@ export async function runCli(argv: string[]): Promise<void> {
       // No default: undefined = not passed (CI defaults to review).
       review: { type: 'boolean' },
       accept: { type: 'boolean', default: false },
-      concurrency: { type: 'string' },
-      'max-cost': { type: 'string' },
+      'max-chars': { type: 'string' },
+      'base-url': { type: 'string' },
+      ci: { type: 'boolean', default: false },
+      prefer: { type: 'string' },
+      project: { type: 'string' },
+      create: { type: 'string' },
+      'no-browser': { type: 'boolean', default: false },
+      wizard: { type: 'boolean', default: false },
+      scaffold: { type: 'boolean', default: false },
+      version: { type: 'boolean', short: 'v', default: false },
     },
     allowPositionals: true,
     strict: false,
   });
 
   const command = positionals[0];
+
+  if (values.version && !command) {
+    console.log(await readVersion());
+    return;
+  }
+  const g: CloudGlobals = {
+    ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
+    ...(typeof values.config === 'string' ? { config: values.config } : {}),
+    ...(typeof values['base-url'] === 'string' ? { baseURL: values['base-url'] } : {}),
+    json: values.json === true,
+    quiet: values.quiet === true,
+  };
+  const preferRaw = typeof values.prefer === 'string' ? values.prefer : undefined;
+  if (preferRaw != null && preferRaw !== 'local' && preferRaw !== 'remote') {
+    console.error(`Invalid --prefer ${JSON.stringify(preferRaw)} (expected local|remote)`);
+    process.exitCode = 2;
+    return;
+  }
+  const prefer = preferRaw as 'local' | 'remote' | undefined;
+  const maxChars =
+    typeof values['max-chars'] === 'string' ? Number(values['max-chars']) : undefined;
+  if (maxChars != null && !(Number.isFinite(maxChars) && maxChars >= 0)) {
+    console.error('`--max-chars` must be a non-negative number');
+    process.exitCode = 2;
+    return;
+  }
+  const interactive =
+    values.wizard === true || (process.stdin.isTTY === true && process.stdout.isTTY === true);
+
+  if (!command && !values.help && interactive) {
+    await runWizard({ ...g, noBrowser: values['no-browser'] === true });
+    return;
+  }
 
   if (!command || values.help) {
     printHelp();
@@ -113,6 +159,18 @@ export async function runCli(argv: string[]): Promise<void> {
         break;
       }
       case 'init': {
+        const scaffoldFlags =
+          values.scaffold === true ||
+          values.yes === true ||
+          values['dry-run'] === true ||
+          typeof values.locales === 'string' ||
+          typeof values.prefix === 'string' ||
+          typeof values.proxy === 'string' ||
+          values.export === true;
+        if (!scaffoldFlags && interactive) {
+          await runWizard({ ...g, noBrowser: values['no-browser'] === true });
+          break;
+        }
         const prefixRaw =
           typeof values.prefix === 'string' ? values.prefix : undefined;
         const prefix =
@@ -239,8 +297,7 @@ export async function runCli(argv: string[]): Promise<void> {
       }
       case 'translate':
         await cmdTranslate({
-          ...(typeof values.cwd === 'string' ? { cwd: values.cwd } : {}),
-          ...(typeof values.config === 'string' ? { config: values.config } : {}),
+          ...g,
           ...(typeof values.locale === 'string' ? { locale: values.locale } : {}),
           ...(typeof values.keys === 'string' ? { keys: values.keys } : {}),
           dryRun: values['dry-run'] === true,
@@ -252,14 +309,46 @@ export async function runCli(argv: string[]): Promise<void> {
               ? { review: false }
               : {}),
           accept: values.accept === true,
-          ...(typeof values.concurrency === 'string'
-            ? { concurrency: Number(values.concurrency) || 2 }
-            : {}),
-          ...(typeof values['max-cost'] === 'string'
-            ? { maxCost: Number(values['max-cost']) || 0 }
-            : {}),
-          quiet: values.quiet === true,
+          ...(maxChars != null ? { maxChars } : {}),
         });
+        break;
+      case 'update':
+        await runUpdate({
+          ...g,
+          ...(typeof values.locale === 'string' ? { locale: values.locale } : {}),
+          ...(typeof values.keys === 'string' ? { keys: values.keys } : {}),
+          dryRun: values['dry-run'] === true,
+          ci: values.ci === true,
+          yes: values.yes === true,
+          retranslate: values.retranslate === true,
+          ...(prefer ? { prefer } : {}),
+          ...(maxChars != null ? { maxChars } : {}),
+        });
+        break;
+      case 'login':
+        await cmdLogin({ ...g, noBrowser: values['no-browser'] === true });
+        break;
+      case 'logout':
+        await cmdLogout(g);
+        break;
+      case 'whoami':
+        await cmdWhoami(g);
+        break;
+      case 'link':
+        await cmdLink({
+          ...g,
+          ...(typeof values.project === 'string' ? { project: values.project } : {}),
+          ...(typeof values.create === 'string' ? { create: values.create } : {}),
+        });
+        break;
+      case 'status':
+        await cmdStatus(g);
+        break;
+      case 'push':
+        await cmdPush(g);
+        break;
+      case 'pull':
+        await cmdPull({ ...g, ...(prefer ? { prefer } : {}), dryRun: values['dry-run'] === true });
         break;
       case 'migrate': {
         const from = positionals[1] ?? 'next-intl';
@@ -282,6 +371,11 @@ export async function runCli(argv: string[]): Promise<void> {
     if (err instanceof TongueError) {
       console.error(`${err.code}: ${err.message}`);
       process.exitCode = err.code === 'TONGUE_E_CONFIG' ? 2 : 1;
+      return;
+    }
+    if (err instanceof ApiError) {
+      console.error(`TONGUE_E_API: ${err.message}`);
+      process.exitCode = 1;
       return;
     }
     throw err;
@@ -308,6 +402,14 @@ async function cmdBuild(opts: {
   }
 }
 
+async function readVersion(): Promise<string> {
+  const { readFile } = await import('node:fs/promises');
+  const pkg = JSON.parse(
+    await readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+  ) as { version: string };
+  return pkg.version;
+}
+
 function printHelp(): void {
   console.log(`next-tongue CLI
 
@@ -319,7 +421,18 @@ Usage:
   tongue export --format xliff|csv [--locale de] [--out ./translations] [--missing-only]
   tongue import <file.xlf|file.csv> [--dry-run]
   tongue report [--json] [--max-bytes 4kb]
-  tongue translate [--locale de] [--keys 'home.*'] [--dry-run] [--review] [--accept] [--retranslate] [--max-cost N]
+  tongue translate [--locale de] [--keys 'home.*'] [--dry-run] [--review] [--accept] [--retranslate] [--max-chars N]
+
+Loomlocale (hosted translation; npx next-tongue = guided setup):
+  tongue init                       interactive wizard (use --scaffold/--yes for file scaffolding only)
+  tongue login [--no-browser]       device-code login; token in OS keychain (fallback ~/.config/loomlocale)
+  tongue init --wizard              run the guided wizard even without a TTY (answers read line-by-line from stdin)
+  tongue logout | whoami [--json]
+  tongue link [--project <id|name>] [--create <name>]
+  tongue update [--dry-run] [--ci] [--prefer local|remote] [--locale de] [--keys 'home.*'] [--max-chars N]
+  tongue status [--json] | push | pull [--prefer local|remote] [--dry-run]
+  Global: --base-url <url> (or LOOMLOCALE_API_URL), CI auth via LOOMLOCALE_TOKEN
+
   tongue migrate next-intl [--dry-run] [--json] [--out report.json]
 
 Exit codes: 0 ok, 1 check/build failures, 2 usage/config error

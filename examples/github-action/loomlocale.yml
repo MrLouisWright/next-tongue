@@ -1,0 +1,32 @@
+# Copy to .github/workflows/translations.yml
+# Translates new/changed keys on every push to main and opens a PR with the result.
+name: Translations
+on:
+  push:
+    branches: [main]
+    paths: ['messages/**', 'locales/**', 'tongue.config.*', 'glossary.json']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Translate (Loomlocale)
+        run: npx tongue update --ci --prefer remote
+        env:
+          LOOMLOCALE_TOKEN: ${{ secrets.LOOMLOCALE_TOKEN }}
+      - run: npx tongue check --reporter github
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: i18n/loomlocale
+          title: 'i18n: update translations'
+          commit-message: 'i18n: update translations via Loomlocale'

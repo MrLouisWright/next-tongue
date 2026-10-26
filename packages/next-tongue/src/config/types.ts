@@ -81,16 +81,27 @@ export type TongueConfig = {
     stale?: StrictLevel;
     length?: StrictLevel;
   };
+  /**
+   * Translation options (1.0: translations run through the Loomlocale API;
+   * BYO OpenAI `baseURL` / `model` / `apiKeyEnv` were removed — stay on 0.9 for those).
+   */
   translate?: {
-    baseURL?: string;
-    model?: string;
-    apiKeyEnv?: string;
     glossary?: string;
     lockfile?: string;
     context?: string;
-    /** Soft cap on estimated prompt+completion tokens for a run. */
-    maxTokens?: number;
+    /** Refuse runs whose billable characters (source chars × targets) exceed this. */
+    maxChars?: number;
   };
+  /** Loomlocale cloud project link, written by `tongue link` / the wizard. */
+  cloud?: CloudConfig;
+};
+
+export type CloudConfig = {
+  projectId?: string;
+  /** API base URL. Default https://loomlocale.com/api/v1 (env LOOMLOCALE_API_URL overrides). */
+  baseURL?: string;
+  /** Dictionary patterns with `{locale}` (e.g. `./locales/{locale}/*.json`). Defaults to `messages`. */
+  files?: string[];
 };
 
 export type ResolvedTongueConfig = {
@@ -132,4 +143,5 @@ export type ResolvedTongueConfig = {
     length: StrictLevel;
   };
   translate: TongueConfig['translate'];
+  cloud: CloudConfig;
 };

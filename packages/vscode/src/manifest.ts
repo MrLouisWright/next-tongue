@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 

@@ -1,6 +1,6 @@
 # CLI
 
-> **Status: pre-release.** `tongue build`, `check`, `extract`, `init`, `export`/`import`, `report`, and `translate` are implemented. See [ROADMAP](../ROADMAP.md).
+> **Status: 1.0.** `tongue build`, `check`, `extract`, `init`, `export`/`import`, `report`, and `translate` are implemented. See [ROADMAP](../ROADMAP.md).
 
 Binary: `tongue` (via `npx tongue` or a package.json script). Every command reads `tongue.config.ts`, supports `--config <path>`, `--cwd <dir>`, `--json` (machine-readable output) and `--quiet`. Exit codes: `0` ok, `1` check failures, `2` usage/config error.
 
@@ -46,8 +46,21 @@ Flags: `--locale de`, `--reporter pretty|json|github` (`github` emits workflow a
 - run: npx tongue check --reporter github
 ```
 
-## `tongue translate`
-Fills missing/stale target messages using an LLM. See [AI translation](ai-translation.md).
+## Loomlocale commands (1.0)
+Binary aliases: `tongue` and `next-tongue`. Running `npx next-tongue` with no command in a terminal starts the guided wizard (non-TTY: prints help, exit 2).
+
+| Command | What it does |
+|---|---|
+| `tongue init` | Interactive wizard (TTY). `--scaffold`, `--yes`, `--locales`… keep the classic Next.js scaffolder. |
+| `tongue login [--no-browser]` | OAuth device code: prints the code + `loomlocale.com/device`, opens the browser, polls, stores the token (OS keychain, fallback `~/.config/loomlocale/credentials.json`). |
+| `tongue logout` / `tongue whoami [--json]` | Forget the token / show account + plan. |
+| `tongue link [--project <id\|name>] [--create <name>]` | Pick or create a project and write `cloud.projectId` into your config. |
+| `tongue update` | Pull web edits + glossary, diff against `tongue.lock`, translate only new/changed keys, remove deleted keys, push. `--dry-run` (no network), `--ci` (non-interactive, uses `LOOMLOCALE_TOKEN`), `--prefer local\|remote`, `--locale`, `--keys`, `--max-chars`. |
+| `tongue status [--json]` | Per-locale new/changed/removed counts (exit 1 when out of date). |
+| `tongue push` / `tongue pull [--prefer …]` | Upload all strings / apply web edits only. |
+| `tongue translate` | One-off translation without sync; `--review` writes `*.review.json`, `--accept` applies them (CI defaults to review). |
+
+Global: `--base-url <url>` (or `LOOMLOCALE_API_URL`). See [AI translation](ai-translation.md) and the [API contract](api-contract.md).
 Flags: `--locale de,fr`, `--keys 'home.*'`, `--dry-run`, `--yes`, `--concurrency 4`, `--retranslate` (ignore lock), `--review` (write to `messages/{locale}.review.json` instead of in place; default when `CI=true`), `--accept` (merge reviewed `*.review.json` files into messages and update the lock), `--max-cost N` (estimated-token budget).
 
 ## `tongue export` / `tongue import` (v0.4)

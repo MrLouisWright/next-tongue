@@ -63,6 +63,15 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
     throw new TongueError('TONGUE_E_CONFIG', 'Config must be an object');
   }
 
+  const legacy = ['baseURL', 'model', 'apiKeyEnv', 'maxTokens'].filter(
+    (k) => input.translate != null && k in (input.translate as Record<string, unknown>),
+  );
+  if (legacy.length) {
+    throw new TongueError(
+      'TONGUE_E_CONFIG',
+      `\`translate.${legacy.join('`, `translate.')}\` were removed in next-tongue 1.0 (BYO OpenAI keys are no longer supported; translations run through Loomlocale). Remove them and run \`tongue login\`, or stay on next-tongue@0.9. See docs/migrating-to-1.0.md.`,
+    );
+  }
   const locales = input.locales;
   if (!Array.isArray(locales) || locales.length === 0) {
     throw new TongueError('TONGUE_E_CONFIG', '`locales` must be a non-empty array');
@@ -184,5 +193,6 @@ export function resolveConfig(input: TongueConfig): ResolvedTongueConfig {
       length: input.strict?.length ?? 'warn',
     },
     translate: input.translate,
+    cloud: input.cloud ?? {},
   };
 }
