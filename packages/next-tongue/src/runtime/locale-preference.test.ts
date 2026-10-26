@@ -57,3 +57,20 @@ describe('locale preference HMAC (#48)', () => {
     ).toBe('de');
   });
 });
+
+describe('Node 18 (no global crypto)', () => {
+  it('falls back to node:crypto webcrypto and produces the same signature', async () => {
+    const withGlobal = await signLocalePreference('de', SECRET, { exp: 2_000_000_000 });
+    const desc = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+    Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true, writable: true });
+    try {
+      expect((globalThis as { crypto?: unknown }).crypto).toBeUndefined();
+      const without = await signLocalePreference('de', SECRET, { exp: 2_000_000_000 });
+      expect(without).toBe(withGlobal);
+      expect(await verifyLocalePreference(without, SECRET)).toBe('de');
+    } finally {
+      if (desc) Object.defineProperty(globalThis, 'crypto', desc);
+      else delete (globalThis as { crypto?: unknown }).crypto;
+    }
+  });
+});

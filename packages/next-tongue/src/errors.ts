@@ -8,6 +8,8 @@ export type TongueErrorCode =
   | 'TONGUE_E_IO'
   | 'TONGUE_E_BUILD'
   | 'TONGUE_E_NO_PROVIDER'
+  /** Run would exceed the configured Loomlocale spending cap (exit 1). */
+  | 'TONGUE_E_BUDGET'
   /** Call-site loader did not rewrite `t()` / `t.dynamic()` (not a missing TongueProvider). */
   | 'TONGUE_E_NOT_REWRITTEN';
 

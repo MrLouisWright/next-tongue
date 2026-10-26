@@ -24,7 +24,7 @@ Next.js 16 made Cache Components and Partial Prerendering (PPR) the way to build
 
 ## Positioning
 
-> next-tongue is a Next.js 16–only i18n library that compiles ICU messages ahead of time and works with Turbopack, the default bundler. Client components ship only the messages they actually call. The locale comes from route params, never from headers, so translated pages stay in the static shell under Cache Components. It is in beta (0.9). Size and speed claims ship with reproducible benchmarks against next-intl (with precompile) and Paraglide.
+> next-tongue is a Next.js 16–only i18n library that compiles ICU messages ahead of time and works with Turbopack, the default bundler. Client components ship only the messages they actually call. The locale comes from route params, never from headers, so translated pages stay in the static shell under Cache Components. It is at 1.0. Size and speed claims ship with reproducible benchmarks against next-intl (with precompile) and Paraglide.
 
 We make no claims about runtime speed or "only the active locale on the client" until the [v0.1 benchmark](https://github.com/MrLouisWright/next-tongue/issues/25) is published. See the [critical review](docs/review.md).
 
@@ -32,7 +32,7 @@ We make no claims about runtime speed or "only the active locale on the client" 
 
 1. **Build time over run time.** If it can be parsed, validated, typed or tree-shaken at build time, it is. ([ADR 0001](docs/adr/0001-compile-messages-at-build-time.md))
 2. **The locale is a route param.** Only `proxy.ts` touches headers and cookies, so every translated scope can be cached and prerendered. ([ADR 0002](docs/adr/0002-locale-from-params-only.md))
-3. **Standards, not lock-in.** ICU MessageFormat, plain JSON files, any OpenAI-compatible model, MIT license.
+3. **Standards, not lock-in.** ICU MessageFormat, plain JSON files, MIT license. Optional hosted machine translation via [Loomlocale](https://loomlocale.com).
 4. **Next.js-native, nothing else.** Next.js 16+ App Router only, latest minor supported, with a nightly canary run. ([ADR 0006](docs/adr/0006-nextjs-16-only.md), [ADR 0011](docs/adr/0011-supported-next-versions.md))
 5. **Zero dependencies.** Nothing beyond the `next` and `react` peers, at runtime, build time or in the CLI. ([ADR 0012](docs/adr/0012-zero-dependencies.md))
 
@@ -55,7 +55,7 @@ We make no claims about runtime speed or "only the active locale on the client" 
 - **Dev overlay** — a dev-only panel with the current locale, missing keys and the messages sent to the client; click a string to jump to its key. Stripped from production.
 - **Fully typed** — keys, namespaces and ICU arguments (`{count, plural, ...}` → `count: number`) are checked by TypeScript.
 - **One API across the App Router** — server components, client components, server actions, `generateMetadata` with hreflang, translated OG images and emails, locale-aware `Link` / `redirect` / `useRouter`, and typed translated validation errors (`translateIssues`, schema-agnostic).
-- **CLI (Node built-ins only)** — `tongue build`, `tongue init`, `tongue extract`, `tongue check` (CI gate for missing / unused / mismatched keys, plus `lang`/`dir` and bidi checks) and `tongue translate` (bring your own LLM key via any OpenAI-compatible endpoint, with glossary and lockfile).
+- **CLI (Node built-ins only)** — `tongue build`, `tongue init`, `tongue extract`, `tongue check` (CI gate for missing / unused / mismatched keys, plus `lang`/`dir` and bidi checks) and Loomlocale-powered translation: `npx next-tongue` (guided wizard), `tongue login`, `tongue link`, `tongue update` (incremental, lockfile-diffed, with glossary, placeholder and ICU parity checks). BYO OpenAI keys remain on 0.9 — see [Migrating to 1.0](docs/migrating-to-1.0.md).
 - **Hydration-safe dates** — an explicit `timeZone` in config (default `'UTC'`). The server's default zone is never used, and per-user zones are scoped to dynamic boundaries ([ADR 0008](docs/adr/0008-explicit-time-zone.md)).
 - **Fast proxy at any locale count** — locale matching tables are precomputed at build time; the target is < 1 ms p50 with 150 locales.
 - **Monorepo-ready** — shared message packages in pnpm workspaces, with portable generated types.
@@ -185,6 +185,7 @@ Also available as a [GitHub wiki](https://github.com/MrLouisWright/next-tongue/w
 | v0.3 | CLI `check`/`extract`/`init`, dev overlay, `LocaleSwitcher`, translated validation errors, OG images and emails |
 | v0.4 | Localized pathnames, domains, `prefix: 'never'`, monorepo, build-time DB/CMS `sources`, XLIFF/CSV, translator context, stale detection, a11y/bidi checks, `tongue report` |
 | v0.5 | `tongue translate` (BYO LLM, glossary, lockfile) |
+| v1.0 | Loomlocale hosted translation: wizard, login/link/update/status/push/pull; BYO-key engines removed |
 | v0.9 | Beta: API freeze, root-params decision ([#24](https://github.com/MrLouisWright/next-tongue/issues/24)) |
 | v1.0 | Stable, [semver / deprecation / support policy](docs/versioning.md) |
 | v1.1 | VS Code extension, per-user preferred language helper |

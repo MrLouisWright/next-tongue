@@ -6,6 +6,7 @@ export default async function Page({
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- migrate fixture input
   const { locale } = await params;
   const tServer = await getTranslations('home');
   return <Client title={tServer('title')} />;

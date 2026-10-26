@@ -4,8 +4,37 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.0.0] — unreleased
+
+### Breaking
+- Translation runs only through the **Loomlocale** hosted API (default `https://loomlocale.com/api/v1`, configurable via `cloud.baseURL`, `--base-url` or `LOOMLOCALE_API_URL`). The direct OpenAI client, `TONGUE_API_KEY` and all BYO-key options (`translate.baseURL`, `translate.model`, `translate.apiKeyEnv`, `translate.maxTokens`) were removed; configs using them fail with a migration hint. Stay on `next-tongue@0.9` for BYO OpenAI. See [docs/migrating-to-1.0.md](docs/migrating-to-1.0.md).
+- `--max-cost` is now **GBP per run** (from Loomlocale's estimate), not 0.9's token estimate. `--concurrency` means target locales in flight.
+- `tongue.lock` is now version 2 (adds `$cloud` cursor/project; v1 entries are read as-is).
+
 ### Added
-- (none yet)
+- `next-tongue` bin alias (`npx next-tongue`), `tongue --version`.
+- Guided wizard (`npx next-tongue` / interactive `tongue init`): detects framework and dictionary folders, source language, multiple JSON/TS dictionaries (per-locale files or folders), searchable target multi-select, character count + cost estimate (PAYG £25 / 1M chars or plan allowance), translation with per-language progress, placeholder/ICU/plural validation, summary. Zero-dependency TUI (ADR 0012 still holds). `tongue init --scaffold` / `--yes` keeps the old file scaffolder.
+- `tongue login` (OAuth device code; token in macOS Keychain / libsecret, fallback `~/.config/loomlocale/credentials.json` 0600), `logout`, `whoami`, `link`.
+- `tongue update` (pull web edits + glossary → lockfile hash diff → translate only new/changed keys → remove deleted keys → push), `--dry-run`, `--ci` (`LOOMLOCALE_TOKEN`), `--prefer local|remote` conflict policy. `tongue status`, `push`, `pull`.
+- **Resilience:** `429`/`503` and dropped connections are retried, honouring `Retry-After`, with exponential backoff and jitter (`cloud.maxRetries`, default 5). A shared pause gate makes all concurrent workers back off together. Translate requests carry a deterministic `Idempotency-Key`. Interrupted runs resume from `tongue.lock.run.json`: recorded jobs are polled again and finished batches are reused without billing again.
+- **Spending caps:** `cloud.budget` (`maxChars`, `maxCostGBP`, `monthlyChars`, `monthlyCostGBP`), `--max-chars` / `--max-cost`, and `LOOMLOCALE_MAX_CHARS` / `LOOMLOCALE_MAX_COST`. They are checked against the server estimate before translating, including the org spend cap (`withinSpendCap` / `allowed`). A run over a cap aborts with exit 1 (`TONGUE_E_BUDGET`). `--dry-run` checks per-run caps locally.
+- **Review:** `tongue update` shows a per-key before/after diff (added/changed/removed; coloured, respects `NO_COLOR`; included in `--json` output) and asks for confirmation (`--yes` skips). `--review pr` commits to a new `tongue/update-*` branch, pushes it and opens a PR via `GITHUB_TOKEN` or `gh` without touching the working tree. `--out-dir` stages dictionaries and the lock instead of overwriting them.
+- **Performance:** keys are batched per request within the server's published limits (`cloud.batchSize` / `cloud.batchChars` can lower them), and target locales are translated concurrently (`--concurrency` / `cloud.concurrency`, default 4).
+- **Server f9a71b9 alignment:** `llt_` tokens, contract scope names (`projects translate sync`, echoed in the token response), `expired_token` for unknown/redeemed device codes handled as "restart login", optional `file` on sync entries, unknown response fields ignored.
+- **Server 83d98cb alignment (requests 8–11):** a `409` for a reused `Idempotency-Key` is retried once with a fresh key. A `413 payload_too_large` splits the batch and retries the halves. Batch caps come from `/me` `limits` (fallback 1000 items / 200 000 source chars / 50 locales). Monthly £ caps use `plan.periodSpendGBP` when present.
+- **Prepaid credits (forward-compatible):** optional `creditBalanceGBP` on `/me` (shown by `whoami`) and on the estimate (printed with the run cost). A `402 insufficient_credit` prints the balance (`details.balanceGBP`), the amount needed and the top-up URL (fallback `https://loomlocale.com/dashboard/billing`), then exits with the new **exit code 4** without retrying. Credits expire 12 months after purchase: if `nextExpiry` (+ `nextExpiryGBP`, or the variants listed in the API contract) on `/me` or the estimate falls within 30 days, `whoami`, `update` and the wizard print a one-line warning.
+- **Default API base is now `https://www.loomlocale.com/api/v1`** (www host). `--base-url`, `LOOMLOCALE_API_URL` and `cloud.baseURL` still override it. The device-login page is `https://www.loomlocale.com/device` (used when the server omits `verification_uri`).
+- **Free allowance needs a card:** `402 card_required` (`details.setupUrl`) prints the message, the card setup URL (fallback `https://loomlocale.com/dashboard/billing`) and the request id, exits 4 with no retry, and keeps finished batches so the re-run resumes. Optional `/me` fields `cardOnFile`, `freeAllowanceClaimed`, `cardSetupUrl` (only while unclaimed), `allowanceType` (`once | monthly`) and `allowanceRemaining`: `whoami` and `status` print a one-line add-a-card hint while the allowance is unclaimed, plus the allowance remaining (`status --json` includes them under `account`).
+- **Prepaid credits contract:** errors are read from the flat envelope (`{ error: "<code>", message, details, request_id }`; a nested `error` object is also accepted), and messages include the `request_id`. `402 insufficient_credit` shows the amount needed, the balance and `topUpUrl`, then exits 4. `/me`: `plan.kind` is `free | credits | subscription`, plus `credit.creditLots` / `credit.lowCredit` (low-credit hint) and `nextExpiry` (`{ expiresAt, amountGBP }`). Estimate: `withinCredit` / `creditRequiredGBP` / `creditBalanceGBP` are used and summed across locales, and a shortfall aborts before translating with exit 4. The deprecated `withinSpendCap` is only read when `withinCredit` is absent. `402 spend_cap_reached` (a job's `maxCostGBP`) is reported as `TONGUE_E_BUDGET`, exit 1.
+- Typed Loomlocale API client and documented contract ([docs/api-contract.md](docs/api-contract.md)); GitHub Action example in `examples/github-action/`.
+
+### Changed
+- **Node 18 is supported** (`engines: >=18`). Signed locale preferences use `globalThis.crypto`, falling back to `node:crypto`'s `webcrypto` (bundler-ignored, so edge builds are unaffected). The CI matrix is Node 18/20/22.
+
+### Fixed
+- `tongue check` bench: the leaf/branch collision check was O(n²) (31 s → 1.5 s on the 10k-key bench).
+- `loadConfig` cache-busts ESM imports so in-process config edits are picked up.
+- Pre-existing lint errors (`examples/basic`, `fixtures/migrate-next-intl`, `packages/vscode`) that kept CI red on `main`.
 
 ## [0.9.18] — 2026-10-22
 

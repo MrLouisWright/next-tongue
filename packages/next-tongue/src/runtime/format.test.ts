@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createFormat, isSanctionedUnit } from './format.js';
 
+// Some ICU builds (e.g. Node 18) render `ar` with Arabic-Indic digits.
+const asciiDigits = (s: string) =>
+  s
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x660))
+    .replace(/[\u06f0-\u06f9]/g, (d) => String(d.charCodeAt(0) - 0x6f0));
+
 describe('createFormat', () => {
   it('formats numbers and dates with explicit timeZone', () => {
     const f = createFormat({ locale: 'en', timeZone: 'UTC' });
@@ -82,9 +88,9 @@ describe('Format helpers (#45)', () => {
     for (const locale of locales) {
       const f = createFormat({ locale, timeZone: 'UTC' });
       const km = f.unit(5, 'kilometer', { unitDisplay: 'short' });
-      expect(km).toMatch(/5/);
+      expect(asciiDigits(km)).toMatch(/5/);
       const speed = f.unit(100, 'kilometer-per-hour');
-      expect(speed).toMatch(/100/);
+      expect(asciiDigits(speed)).toMatch(/100/);
     }
     const en = createFormat({ locale: 'en', timeZone: 'UTC' }).unit(
       5,

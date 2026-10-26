@@ -1,12 +1,12 @@
 {
   "name": "next-tongue",
-  "version": "0.9.18",
-  "description": "Compiler-first, type-safe i18n for the Next.js 16 App Router",
+  "version": "1.0.0",
+  "description": "Compiler-first, type-safe i18n for the Next.js 16 App Router, with hosted AI translation via Loomlocale",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   },
   "repository": {
     "type": "git",
@@ -26,7 +26,9 @@
     "icu",
     "turbopack",
     "app-router",
-    "typescript"
+    "typescript",
+    "loomlocale",
+    "translation"
   ],
   "files": [
     "dist",
@@ -35,7 +37,8 @@
     "LICENSE"
   ],
   "bin": {
-    "tongue": "bin/tongue.js"
+    "tongue": "bin/tongue.js",
+    "next-tongue": "bin/tongue.js"
   },
   "publishConfig": {
     "access": "public"

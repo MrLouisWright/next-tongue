@@ -1,6 +1,7 @@
 # 0005. AI translation is BYO key, OpenAI-compatible, CLI-only
 
-- Status: Accepted
+- Status: Superseded
+- Superseded by [ADR 0014](0014-loomlocale-hosted-translation.md) in 1.0 (BYO keys stay on 0.9).
 - Date: 2026-10-14
 
 ## Context

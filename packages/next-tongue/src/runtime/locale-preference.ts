@@ -5,6 +5,25 @@
 
 const enc = new TextEncoder();
 
+let subtlePromise: Promise<SubtleCrypto> | undefined;
+
+/**
+ * Web Crypto `subtle`: the global on Node ≥ 20, edge and browsers; on Node 18
+ * (no global `crypto`) fall back to `node:crypto`'s `webcrypto`. The import is
+ * only reached when the global is missing (never on edge) and is hidden from
+ * bundlers so edge/client builds don't try to resolve `node:crypto`.
+ */
+function getSubtle(): Promise<SubtleCrypto> {
+  const g = (globalThis as { crypto?: Crypto }).crypto;
+  if (g?.subtle) return Promise.resolve(g.subtle);
+  return (subtlePromise ??= (async () => {
+    const id = 'node:crypto';
+    const mod = (await import(/* webpackIgnore: true */ /* @vite-ignore */ id)) as { webcrypto?: Crypto };
+    if (!mod.webcrypto?.subtle) throw new Error('next-tongue: Web Crypto is not available in this runtime');
+    return mod.webcrypto.subtle;
+  })());
+}
+
 function toBase64Url(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   let s = '';
@@ -36,7 +55,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
 }
 
 async function importHmacKey(secret: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
+  return (await getSubtle()).importKey(
     'raw',
     enc.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
@@ -47,7 +66,7 @@ async function importHmacKey(secret: string): Promise<CryptoKey> {
 
 async function hmacSign(secret: string, data: string): Promise<string> {
   const key = await importHmacKey(secret);
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data));
+  const sig = await (await getSubtle()).sign('HMAC', key, enc.encode(data));
   return toBase64Url(sig);
 }
 

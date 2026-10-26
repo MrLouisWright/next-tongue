@@ -57,15 +57,22 @@ export default defineConfig({
     length: 'warn',                     // target longer than $meta.maxLength (v0.4)
   },
 
-  // CLI: tongue translate (see ai-translation.md)
+  // CLI: tongue update / translate via Loomlocale (see ai-translation.md)
   translate: {
-    baseURL: 'https://api.openai.com/v1', // any OpenAI-compatible endpoint
-    model: 'gpt-4.1-mini',
-    apiKeyEnv: 'TONGUE_API_KEY',        // name of the env var; the key is never stored in config
     glossary: './tongue.glossary.json',
     lockfile: './tongue.lock',
     context: 'A B2B invoicing app. Formal tone (Sie in German).',
-    maxTokens: 50_000,                  // estimated-token budget per run (also --max-cost)
+    maxChars: 200_000,                  // billable-character budget per run (also --max-chars)
+  },
+  cloud: {
+    projectId: 'prj_123',               // written by `tongue link`
+    // files: ['./locales/{locale}/*.json'], // dictionary patterns (default: messages)
+    // baseURL: 'https://www.loomlocale.com/api/v1',
+    // budget: { maxChars: 200_000, maxCostGBP: 5, monthlyChars: 2_000_000, monthlyCostGBP: 50 },
+    // concurrency: 4,      // target locales translated in parallel
+    // batchSize: 100,      // lower the max keys per translate request (server limit: 1000)
+    // batchChars: 20_000,  // lower the max source chars per request (server limit: 200 000)
+    // maxRetries: 5,       // 429/503/network retries (Retry-After + exponential backoff)
   },
 });
 ```
@@ -97,6 +104,22 @@ export default defineConfig({
 | `strict.unusedIgnore` | `string[]` | `[]` | Full keys or globs (`common.*`) skipped by unused warnings. Prefer catalog `$meta.planned` / `@tongue-ignore` when the key is intentionally reserved — see [Translator workflow](translator-workflow.md#translator-context). |
 | `translate.*` | object | `undefined` | Only read by `tongue translate`. |
 
+### `cloud.*` (Loomlocale)
+
+| Option | Default | Description |
+|---|---|---|
+| `cloud.projectId` | — | Linked project (`tongue link`). |
+| `cloud.baseURL` | `https://www.loomlocale.com/api/v1` | API base URL (`--base-url` / `LOOMLOCALE_API_URL` override). |
+| `cloud.files` | `[messages]` | Dictionary patterns with `{locale}`. |
+| `cloud.budget.maxChars` | — | Abort a run whose estimate exceeds this many characters (exit 1). |
+| `cloud.budget.maxCostGBP` | — | Abort a run whose estimated cost exceeds this (GBP). |
+| `cloud.budget.monthlyChars` | — | Abort if period usage (`/me` `plan.charsUsed`) + this run would exceed it. |
+| `cloud.budget.monthlyCostGBP` | — | Same, in GBP (uses `/me` `plan.periodSpendGBP` when the server sends it, else derived from `charsUsed`). |
+| `cloud.concurrency` | `4` | Target locales translated in parallel (`--concurrency`). |
+| `cloud.batchSize` | server limit (1000) | Max keys per translate request; clamped to `/me` `limits`. |
+| `cloud.batchChars` | server limit (200 000) | Max source characters per translate request; clamped to `/me` `limits`. |
+| `cloud.maxRetries` | `5` | Retries on 429/503/dropped connections. |
+
 ## `withTongue` and Turbopack / TypeScript
 
 `withTongue(nextConfig)`:
@@ -110,7 +133,11 @@ export default defineConfig({
 
 | Variable | Used by | Purpose |
 |---|---|---|
-| `TONGUE_API_KEY` (configurable) | `tongue translate` | LLM API key |
+| `LOOMLOCALE_TOKEN` | `tongue update` / `translate` / `push` / `pull` | Loomlocale token for CI (overrides `tongue login`) |
+| `LOOMLOCALE_API_URL` | Loomlocale commands | API base URL override |
+| `LOOMLOCALE_MAX_CHARS` | `tongue update` / `translate` | Per-run character cap (overrides `cloud.budget.maxChars`) |
+| `LOOMLOCALE_MAX_COST` | `tongue update` / `translate` | Per-run cost cap in GBP (overrides `cloud.budget.maxCostGBP`) |
+| `NO_COLOR` | CLI | Disable coloured output (diffs, progress) |
 | `TONGUE_DEBUG=1` | `withTongue`, CLI | Verbose compiler logs |
 
 ---

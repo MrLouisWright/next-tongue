@@ -1,6 +1,6 @@
 import { redirect as nextRedirect } from 'next/navigation';
 
-const locales = ['en', 'de'] as const;
+export const locales = ['en', 'de'] as const;
 const defaultLocale = 'en';
 
 /** Locale-aware redirect for Server Actions (createNavigation is client-only). */
