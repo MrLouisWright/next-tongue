@@ -11,7 +11,7 @@ import { cmdTranslate } from './translate.js';
 import { runUpdate } from './update.js';
 import { runWizard } from './wizard.js';
 import { cmdLink, cmdLogin, cmdLogout, cmdPull, cmdPush, cmdStatus, cmdWhoami } from './cloud.js';
-import { ApiError } from '../cloud/api.js';
+import { ApiError, isBillingActionError } from '../cloud/api.js';
 import type { CloudGlobals } from '../cloud/project.js';
 import { cmdMigrate } from './migrate.js';
 
@@ -407,8 +407,8 @@ export async function runCli(argv: string[]): Promise<void> {
     }
     if (err instanceof ApiError) {
       console.error(`TONGUE_E_API: ${err.message}`);
-      // 4 = insufficient prepaid credit (top up and re-run); other API errors 1.
-      process.exitCode = err.status === 402 && err.code === 'insufficient_credit' ? 4 : 1;
+      // 4 = billing action needed (insufficient credit / card required); other API errors 1.
+      process.exitCode = isBillingActionError(err) ? 4 : 1;
       return;
     }
     throw err;

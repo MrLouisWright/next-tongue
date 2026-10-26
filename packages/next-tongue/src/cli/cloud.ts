@@ -1,6 +1,6 @@
 /** Loomlocale account + project commands: login, logout, whoami, link, status, push, pull. */
 import { TongueError } from '../errors.js';
-import { LoomlocaleClient, TOKEN_PREFIX, creditExpiryWarning, lowCreditHint, type Me, type Project, type SyncEntry } from '../cloud/api.js';
+import { LoomlocaleClient, TOKEN_PREFIX, allowanceLines, creditExpiryWarning, lowCreditHint, type Me, type Project, type SyncEntry } from '../cloud/api.js';
 import { createCredentialStore } from '../cloud/credentials.js';
 import { readCatalog, writeCatalog, type Flat } from '../cloud/dictionaries.js';
 import { diffCatalogs, loadLock, lockSection, saveLock, sha } from '../cloud/engine.js';
@@ -69,6 +69,7 @@ export async function cmdWhoami(opts: CloudGlobals): Promise<Me> {
   if (warn) console.error(color.yellow(warn));
   const low = opts.json ? null : lowCreditHint(me);
   if (low) console.error(color.yellow(low));
+  if (!opts.json) for (const line of allowanceLines(me)) console.log(line.startsWith('Add a card') ? color.yellow(line) : line);
   return me;
 }
 
@@ -128,8 +129,17 @@ export async function cmdStatus(opts: CloudGlobals): Promise<void> {
     cursor: lock.$cloud?.cursor ?? null,
     locales: rows,
   };
+  // Account hints (optional: skipped when not logged in or offline; no retries).
+  let me: Me | null = null;
+  try {
+    const client = await makeClient({ ...opts, clientOptions: { ...opts.clientOptions, maxRetries: 0 } }, ctx.config, true);
+    me = await client.me();
+  } catch {
+    me = null;
+  }
+  const account = me ? { allowanceRemaining: me.allowanceRemaining ?? null, allowanceType: me.allowanceType ?? null, freeAllowanceClaimed: me.freeAllowanceClaimed ?? null, cardSetupUrl: me.cardSetupUrl ?? null } : null;
   if (opts.json) {
-    console.log(JSON.stringify(status));
+    console.log(JSON.stringify({ ...status, account }));
     return;
   }
   console.log(`${color.bold('Loomlocale')} project: ${status.project ?? color.yellow('not linked (tongue link)')}`);
@@ -138,6 +148,7 @@ export async function cmdStatus(opts: CloudGlobals): Promise<void> {
     const clean = !r.new && !r.changed && !r.removed;
     console.log(`  ${r.locale.padEnd(8)} ${clean ? color.green('up to date') : `${r.new} new · ${r.changed} changed · ${r.removed} removed`}${r.localEdits ? color.dim(` · ${r.localEdits} local edit(s)`) : ''}`);
   }
+  for (const line of allowanceLines(me)) console.log(line.startsWith('Add a card') ? color.yellow(line) : line);
   if (rows.some((r) => r.new || r.changed || r.removed)) process.exitCode = 1;
 }
 

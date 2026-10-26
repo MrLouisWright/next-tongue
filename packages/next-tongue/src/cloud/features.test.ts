@@ -5,12 +5,12 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createMockLoomlocale } from '../../scripts/mock-loomlocale.mjs';
-import { ApiError, LoomlocaleClient, aggregateEstimates, backoffDelay, creditExpiry, creditExpiryWarning, lowCreditHint, normalizeErrorBody, parseRetryAfter } from './api.js';
+import { ApiError, LoomlocaleClient, aggregateEstimates, allowanceLines, cardRequiredError, isBillingActionError, backoffDelay, creditExpiry, creditExpiryWarning, lowCreditHint, normalizeErrorBody, parseRetryAfter } from './api.js';
 import { enforceBudget, resolveBudget } from './budget.js';
 import { makeBatches } from './engine.js';
 import { runUpdate } from '../cli/update.js';
 import { runCli } from '../cli/index.js';
-import { cmdLogin, cmdWhoami, describePlan } from '../cli/cloud.js';
+import { cmdLogin, cmdStatus, cmdWhoami, describePlan } from '../cli/cloud.js';
 import { buildChanges, renderChanges, repoSlugFromRemote } from '../cli/review.js';
 import { createLinePrompter } from './tui.js';
 import { TongueError } from '../errors.js';
@@ -519,6 +519,82 @@ describe('prepaid credits contract (flat error envelope, withinCredit, plan kind
     } finally {
       spy.mockRestore();
       out.mockRestore();
+    }
+  });
+});
+
+describe('free allowance: card_required + /me allowance fields', () => {
+  it('402 card_required prints message, setupUrl and request id, is not retried, exits 4, and a re-run resumes', async () => {
+    const { mock, url } = await startMock({ cardRequired: { setupUrl: 'https://loomlocale.test/card', afterTranslates: 1 } });
+    const p = await project(url);
+    const err = (await runUpdate({ cwd: p.dir, env: p.env, ...base, concurrency: 1 }).catch((e: unknown) => e)) as ApiError;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.code).toBe('card_required');
+    expect(isBillingActionError(err)).toBe(true);
+    expect(err.message).toMatch(/^Add a card to claim your free 50,000-character allowance\. .*Add a card at https:\/\/loomlocale\.test\/card and re-run.*\(request id req_\d+\)$/);
+    expect(translates(mock).length).toBe(2); // 1 ok + 1 card_required, no retry
+    expect(await exists(join(p.dir, 'tongue.lock.run.json'))).toBe(true);
+    // CLI exit code 4
+    const saved = { ...process.env };
+    Object.assign(process.env, p.env, { NO_COLOR: '1' });
+    const errs: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => void errs.push(a.join(' ')));
+    const prevExit = process.exitCode;
+    try {
+      await runCli(['update', '--yes', '--quiet', '--cwd', p.dir]);
+      expect(process.exitCode).toBe(4);
+      expect(errs.join('\n')).toMatch(/https:\/\/loomlocale\.test\/card.*request id/);
+    } finally {
+      spy.mockRestore();
+      process.exitCode = prevExit;
+      for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+      Object.assign(process.env, saved);
+    }
+    // Card added → re-run resumes: the finished locale is reused, only the missing one is sent.
+    mock.state.cardRequired = null;
+    const before = translates(mock).length;
+    const s = await runUpdate({ cwd: p.dir, env: p.env, ...base, concurrency: 1 });
+    expect(s.resumed).toBe(true);
+    expect(s.translated).toBe(4);
+    expect(translates(mock).length - before).toBe(1);
+  });
+
+  it('falls back to the billing page when setupUrl is missing', () => {
+    expect(cardRequiredError({}).message).toMatch(/Add a card at https:\/\/loomlocale\.com\/dashboard\/billing/);
+  });
+
+  it('allowanceLines is tolerant of missing fields', () => {
+    expect(allowanceLines(null)).toEqual([]);
+    expect(allowanceLines({})).toEqual([]);
+    expect(allowanceLines({ freeAllowanceClaimed: false, cardSetupUrl: 'https://s/u', allowanceType: 'once', allowanceRemaining: 0 })).toEqual([
+      'Add a card to claim your free one-time 50,000-character allowance: https://s/u',
+      'Allowance remaining: 0 chars (one-time allowance)',
+    ]);
+    expect(allowanceLines({ freeAllowanceClaimed: true, allowanceType: 'monthly', allowanceRemaining: 12345 })).toEqual(['Allowance remaining: 12,345 chars (monthly allowance)']);
+    expect(allowanceLines({ allowanceRemaining: 'x' as never })).toEqual([]);
+  });
+
+  it('whoami and status show the unclaimed-allowance hint and allowance remaining', async () => {
+    const { url } = await startMock({ account: { cardOnFile: false, freeAllowanceClaimed: false, cardSetupUrl: 'https://loomlocale.test/card', allowanceType: 'once', allowanceRemaining: 50000 } });
+    const p = await project(url);
+    const lines: string[] = [];
+    const log = vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => void lines.push(a.join(' ')));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const prevExit = process.exitCode;
+    try {
+      const me = await cmdWhoami({ cwd: p.dir, env: p.env, ...noSleepGlobals });
+      expect(me.freeAllowanceClaimed).toBe(false);
+      await cmdStatus({ cwd: p.dir, env: p.env, ...noSleepGlobals });
+      const out = lines.join('\n');
+      expect(out.match(/Add a card to claim your free one-time 50,000-character allowance: https:\/\/loomlocale\.test\/card/g)?.length).toBe(2);
+      expect(out.match(/Allowance remaining: 50,000 chars \(one-time allowance\)/g)?.length).toBe(2);
+      lines.length = 0;
+      await cmdStatus({ cwd: p.dir, env: p.env, json: true, ...noSleepGlobals });
+      expect(JSON.parse(lines[0]!).account).toMatchObject({ allowanceRemaining: 50000, freeAllowanceClaimed: false });
+    } finally {
+      log.mockRestore();
+      err.mockRestore();
+      process.exitCode = prevExit;
     }
   });
 });

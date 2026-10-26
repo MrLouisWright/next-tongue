@@ -11,7 +11,7 @@
  * Prepaid credits (plan.kind free|credits|subscription; estimate withinCredit/creditRequiredGBP): creditBalanceGBP on /me + estimate, 402 insufficient_credit.
  * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
  * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
- * nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate).
+ * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate).
  */
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -44,6 +44,8 @@ export function createMockLoomlocale(opts = {}) {
     creditBalanceGBP: opts.creditBalanceGBP,
     insufficientCredit: opts.insufficientCredit ?? null,
     translateSizes: [],
+    cardRequired: opts.cardRequired ?? null, // { setupUrl?, afterTranslates? }
+    account: opts.account ?? {}, // spread into /me: cardOnFile, freeAllowanceClaimed, cardSetupUrl, allowanceType, allowanceRemaining
     nestedErrors: opts.nestedErrors ?? false,
     spendCapReached: opts.spendCapReached ?? false,
     lowCredit: opts.lowCredit,
@@ -97,7 +99,7 @@ export function createMockLoomlocale(opts = {}) {
     if (req.method === 'GET' && path === '/me') {
       return json(res, 200, { user: { id: 'u_1', email: 'dev@example.com', name: 'Dev' }, org: { id: 'o_1', name: 'Example Ltd' }, plan: state.plan, spendCapGBP: state.spendCapGBP, ...(state.limits ? { limits: state.limits } : {}), ...(state.creditBalanceGBP !== undefined
         ? { creditBalanceGBP: state.creditBalanceGBP, credit: { creditBalanceGBP: state.creditBalanceGBP, lowCredit: state.lowCredit ?? (state.creditBalanceGBP ?? 0) < 1, creditLots: [], topUpUrl: 'https://loomlocale.test/top-up' } }
-        : {}), ...state.creditExpiry, token: { prefix: 'llt_', scope: 'projects translate sync' } });
+        : {}), ...state.creditExpiry, ...state.account, token: { prefix: 'llt_', scope: 'projects translate sync' } });
     }
     if (path === '/projects' && req.method === 'GET') return json(res, 200, { projects: state.projects });
     if (path === '/projects' && req.method === 'POST') {
@@ -130,6 +132,10 @@ export function createMockLoomlocale(opts = {}) {
           state.rateLimit.translate--;
           return tooMany(res);
         }
+        if (state.cardRequired && (state.cardRequired.afterTranslates ?? 0) <= 0) {
+          return fail(res, 402, 'card_required', 'Add a card to claim your free 50,000-character allowance.', { setupUrl: state.cardRequired.setupUrl ?? 'https://loomlocale.test/billing/card' });
+        }
+        if (state.cardRequired) state.cardRequired.afterTranslates--;
         if (state.insufficientCredit) {
           const bal = state.creditBalanceGBP ?? 0;
           return fail(res, 402, 'insufficient_credit', `Not enough prepaid credit: this job needs £1.5000, balance is £${bal.toFixed(2)}.`, { requiredGBP: 1.5, balanceGBP: bal, creditBalanceGBP: bal, ...(state.insufficientCredit.topUpUrl !== null ? { topUpUrl: state.insufficientCredit.topUpUrl ?? 'https://loomlocale.test/billing/top-up' } : {}) });

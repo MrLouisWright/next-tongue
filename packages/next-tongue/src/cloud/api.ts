@@ -82,6 +82,13 @@ export type Me = {
     topUpUrl?: string;
     [k: string]: unknown;
   } | null;
+  /** Free workspaces: a card on file unlocks a one-time allowance. All optional. */
+  cardOnFile?: boolean;
+  freeAllowanceClaimed?: boolean;
+  /** Only sent while the free allowance is unclaimed. */
+  cardSetupUrl?: string | null;
+  allowanceType?: 'once' | 'monthly' | (string & {});
+  allowanceRemaining?: number | null;
   /** Published batch/rate limits. Optional. */
   limits?: Limits;
   /** Prepaid credit balance (upcoming). Optional. */
@@ -272,6 +279,38 @@ export function insufficientCreditError(a: { requiredGBP?: number | undefined; b
   return e;
 }
 
+export const CARD_SETUP_FALLBACK_URL = 'https://loomlocale.com/dashboard/billing';
+
+/** `402 card_required`: free workspace must add a card to claim its one-time allowance. CLI exit code 4. */
+export function cardRequiredError(a: { message?: string | undefined; setupUrl?: string | undefined; requestId?: string | undefined }): ApiError {
+  const url = a.setupUrl ?? CARD_SETUP_FALLBACK_URL;
+  const rid = a.requestId ? ` (request id ${a.requestId})` : '';
+  const msg = (a.message ?? 'A card is required to claim the free allowance').replace(/\.?\s*$/, '');
+  const e = new ApiError(402, 'card_required', `${msg}. Nothing more was translated. Add a card at ${url} and re-run (finished batches are kept).${rid}`);
+  e.topUpUrl = url;
+  e.requestId = a.requestId ?? null;
+  return e;
+}
+
+/** Exit code 4: billing action needed (insufficient credit, card required). */
+export function isBillingActionError(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status === 402 && (err.code === 'insufficient_credit' || err.code === 'card_required');
+}
+
+/** Lines for whoami/status: unclaimed free allowance hint + allowance remaining. */
+export function allowanceLines(me: Pick<Me, 'cardOnFile' | 'freeAllowanceClaimed' | 'cardSetupUrl' | 'allowanceType' | 'allowanceRemaining'> | null | undefined): string[] {
+  if (!me) return [];
+  const out: string[] = [];
+  if (me.freeAllowanceClaimed === false) {
+    out.push(`Add a card to claim your free one-time 50,000-character allowance: ${me.cardSetupUrl ?? CARD_SETUP_FALLBACK_URL}`);
+  }
+  if (typeof me.allowanceRemaining === 'number' && Number.isFinite(me.allowanceRemaining)) {
+    const kind = me.allowanceType === 'once' ? 'one-time ' : me.allowanceType === 'monthly' ? 'monthly ' : '';
+    out.push(`Allowance remaining: ${me.allowanceRemaining.toLocaleString('en-GB')} chars (${kind}allowance)`.replace(' ()', ''));
+  }
+  return out;
+}
+
 const gbpPrecise = (n: number) => `£${n !== 0 && Math.abs(n) < 0.01 ? n.toFixed(4) : n.toFixed(2)}`;
 
 /** Sums per-locale estimates. Credit: required amounts add up, so the sum is checked against the balance. */
@@ -452,6 +491,12 @@ export class LoomlocaleClient {
       const d = normalizeErrorBody(data);
       const code = d.error ?? `http_${res.status}`;
       const rid = d.request_id ? ` (request id ${d.request_id})` : '';
+      if (res.status === 402 && code === 'card_required') {
+        const det = (d.details ?? {}) as { setupUrl?: string; cardSetupUrl?: string };
+        const e = cardRequiredError({ message: d.message, setupUrl: det.setupUrl ?? det.cardSetupUrl, requestId: d.request_id });
+        e.details = d.details;
+        throw e;
+      }
       if (res.status === 402 && code === 'insufficient_credit') {
         const det = (d.details ?? {}) as { topUpUrl?: string; top_up_url?: string; balanceGBP?: number; creditBalanceGBP?: number; requiredGBP?: number };
         const e = insufficientCreditError({

@@ -2,7 +2,7 @@
 
 Base URL: `https://loomlocale.com/api/v1` (override: `cloud.baseURL`, `--base-url`, `LOOMLOCALE_API_URL`).
 All bodies are JSON. Authenticated endpoints require `Authorization: Bearer <token>`.
-Errors: non-2xx with the **flat envelope** `{ "error": "<code>", "message": "<human text>", "details"?: {…}, "request_id": "…" }`, where `error` is a string code. Defensively, the client also accepts a nested `{ "error": { "code", "message", "details", "request_id" } }`. Error messages include `(request id …)` when present. The CLI special-cases `401` (→ "run tongue login"), `402` (`insufficient_credit` → top-up link and **exit code 4**; `spend_cap_reached` → `TONGUE_E_BUDGET`, exit 1; see below), `409` and `413` (see `/translate`).
+Errors: non-2xx with the **flat envelope** `{ "error": "<code>", "message": "<human text>", "details"?: {…}, "request_id": "…" }`, where `error` is a string code. Defensively, the client also accepts a nested `{ "error": { "code", "message", "details", "request_id" } }`. Error messages include `(request id …)` when present. The CLI special-cases `401` (→ "run tongue login"), `402` (`insufficient_credit` → top-up link and **exit code 4**; `card_required` → card setup link and exit code 4; `spend_cap_reached` → `TONGUE_E_BUDGET`, exit 1; see below), `409` and `413` (see `/translate`).
 **Forward compatibility:** the client ignores response fields it does not know (e.g. `org` on the token response, `spendCapGBP`/`token` on `/me`), so the server may add fields freely.
 Server reference: Loom-Locale/loomlocale commits `f9a71b9`, `83d98cb` (requests 8–11).
 
@@ -57,6 +57,7 @@ CLI polls every `interval` s, +5 s on `slow_down`. No refresh token is assumed (
 
 ### Credit expiry
 Prepaid credits expire 12 months after purchase. `/me` and `/estimate` may carry:
+- **Free allowance (all optional):** `cardOnFile: boolean`, `freeAllowanceClaimed: boolean`, `cardSetupUrl: string` (only while unclaimed), `allowanceType: "once" | "monthly"`, `allowanceRemaining: number` (characters). When `freeAllowanceClaimed === false`, `whoami` and `status` print `Add a card to claim your free one-time 50,000-character allowance: <cardSetupUrl>` (falling back to the billing page), and they print `Allowance remaining: N chars (one-time|monthly allowance)` when `allowanceRemaining` is a number. Missing or malformed fields are ignored.
 - **Server shape (Loom-Locale/loomlocale credits):** `nextExpiry: { expiresAt, amountGBP, expiringSoon }` (null when there are no lots). The CLI reads `expiresAt` and `amountGBP`.
 - Also accepted, defensively: `nextExpiry` as an ISO string with the amount in `nextExpiryGBP`, `expiringGBP` or `creditExpiringGBP`.
 - Also accepted: the date as `date` or `at` inside the object.
@@ -101,6 +102,7 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 ```
 Header: `Idempotency-Key: <same as body idempotencyKey>` (see above). Requests are **batched**, one target locale per request, within the server's `limits.translate` from `/me` (default 1000 items / 200 000 source chars). `cloud.batchSize` / `cloud.batchChars` can only lower these caps.
 - `413 payload_too_large`: the CLI splits the batch in half and retries each half (recursively). A single key that is still too large is reported as failed for that locale.
+- `402 card_required`: `{ "error": "card_required", "message": "…", "details": { "setupUrl": "https://…" }, "request_id": "…" }`. A free workspace must add a card to claim its one-time 50,000-character allowance. The CLI prints `<message>. Nothing more was translated. Add a card at <setupUrl> and re-run (finished batches are kept). (request id …)` and exits with **code 4**, with no retry. `details.cardSetupUrl` is also accepted, and the fallback is `https://loomlocale.com/dashboard/billing`. Finished batches stay in the run state, so the re-run resumes.
 - `402 insufficient_credit`: `{ "error": "insufficient_credit", "message": "…", "details": { "requiredGBP": 1.5, "balanceGBP": 0.2, "creditBalanceGBP": 0.2, "topUpUrl": "https://…" }, "request_id": "…" }`. The CLI prints `Insufficient Loomlocale credit: this run needs £1.50, balance is £0.20. Nothing more was translated. Top up at <topUpUrl> and re-run. (request id …)` and exits with **code 4**, with no retry. `details.balanceGBP` is preferred over `details.creditBalanceGBP`. If `topUpUrl` is missing, it falls back to `https://loomlocale.com/dashboard/billing`. Finished batches stay in the run state, so the re-run resumes.
 - `402 spend_cap_reached` now only means the job's own `maxCostGBP` was exceeded. The CLI reports it as `TONGUE_E_BUDGET` (spending cap exceeded, exit 1). The org-wide monthly spend cap was replaced by prepaid credit.
 
