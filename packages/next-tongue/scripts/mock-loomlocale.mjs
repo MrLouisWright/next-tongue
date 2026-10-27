@@ -12,7 +12,8 @@
  * Prepaid credits (plan.kind free|credits|subscription; estimate withinCredit/creditRequiredGBP): creditBalanceGBP on /me + estimate, 402 insufficient_credit.
  * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
  * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
- * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate).
+ * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate), stuckJobs, failJobs {error, message}.
+ * Estimate: allowanceRemaining is the allowance before the run; billableChars = chars beyond it.
  */
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -50,7 +51,9 @@ export function createMockLoomlocale(opts = {}) {
     nestedErrors: opts.nestedErrors ?? false,
     spendCapReached: opts.spendCapReached ?? false,
     lowCredit: opts.lowCredit,
-    creditExpiry: opts.creditExpiry ?? {}, // e.g. { nextExpiry: '2026-11-20', nextExpiryGBP: 12.5 }
+    creditExpiry: opts.creditExpiry ?? {},
+    stuckJobs: opts.stuckJobs ?? false, // jobs stay queued forever (progress 0)
+    failJobs: opts.failJobs ?? null, // { error, message }: jobs finish as failed with this reason // e.g. { nextExpiry: '2026-11-20', nextExpiryGBP: 12.5 }
   };
   const tooMany = (res) => {
     state.rateLimited++;
@@ -118,9 +121,11 @@ export function createMockLoomlocale(opts = {}) {
         const chars = [...unique].reduce((n, t) => n + [...t].length, 0) * body.targetLocales.length;
         const left = state.plan.kind === 'payg' || state.plan.kind === 'credits' ? null : state.plan.charsIncluded - state.plan.charsUsed;
         const within = left != null && chars <= left;
-        const costGBP = within ? 0 : Math.round((chars / 1e6) * state.plan.paygPerMillionGBP * 100) / 100;
+        // Partial cover: the allowance pays for what it can, the rest is billable (allowanceRemaining is before this run).
+        const billableChars = left == null ? chars : Math.max(0, chars - Math.max(0, left));
+        const costGBP = within ? 0 : Math.round((billableChars / 1e6) * state.plan.paygPerMillionGBP * 100) / 100;
         const withinSpendCap = state.spendCapGBP == null || costGBP <= state.spendCapGBP;
-        return json(res, 200, { chars, billableChars: within ? 0 : chars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, ...(state.creditBalanceGBP != null
+        return json(res, 200, { chars, billableChars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, ...(state.creditBalanceGBP != null
           ? (() => {
               // Prepaid: withinCredit is authoritative; withinSpendCap is its deprecated alias.
               const withinCredit = costGBP <= state.creditBalanceGBP;
@@ -199,6 +204,11 @@ export function createMockLoomlocale(opts = {}) {
       const j = state.jobs.get(m[1]);
       if (!j) return json(res, 404, { error: 'not_found' });
       j.polls++;
+      if (state.stuckJobs) return json(res, 200, { job: { id: j.job.id, status: 'queued', progress: { done: 0, total: j.job.progress.total } } });
+      if (state.failJobs) {
+        state.active.delete(j.job.id);
+        return json(res, 200, { job: { id: j.job.id, status: 'failed', progress: { done: 0, total: j.job.progress.total }, results: [], errors: [], error: state.failJobs.error ?? 'provider_error', message: state.failJobs.message ?? 'Upstream translation provider failed' } });
+      }
       if (j.polls >= state.pollsToFinish) state.active.delete(j.job.id);
       if (j.polls < state.pollsToFinish) return json(res, 200, { job: { id: j.job.id, status: 'running', progress: { done: Math.floor(j.job.progress.total / 2), total: j.job.progress.total } } });
       return json(res, 200, { job: j.job });

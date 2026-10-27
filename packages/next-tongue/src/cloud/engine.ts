@@ -8,7 +8,7 @@ import { collectArgs } from '../compiler/ast.js';
 import { parseMessage } from '../compiler/parse/icu-parser.js';
 import { checkPluralCategories } from '../compiler/validate/plurals.js';
 import { resolveInsideProject } from '../cli/safe-path.js';
-import { ApiError, DEFAULT_TRANSLATE_LIMITS } from './api.js';
+import { ApiError, DEFAULT_TRANSLATE_LIMITS, jobErrorMessage } from './api.js';
 import type { GlossaryTerms, Job, LoomlocaleClient, TranslateItem } from './api.js';
 
 export function sha(text: string): string {
@@ -260,8 +260,14 @@ export async function translateViaCloud(args: {
   onLocaleStart?: (locale: string, total: number) => void;
   onProgress?: (locale: string, job: Job) => void;
   /** Called after each batch settles with the number of keys it covered. */
-  onBatchDone?: (locale: string, keys: number) => void;
+  onBatchDone?: (locale: string, keys: number, info?: { resumed: boolean }) => void;
   pollIntervalMs?: number;
+  /** Overall per-job polling limit (default 30 min). */
+  jobTimeoutMs?: number;
+  /** Give up on a job whose status/progress has not changed for this long (default 10 min). */
+  jobStallTimeoutMs?: number;
+  /** Called before polling a job recorded by an interrupted run. */
+  onResumeJob?: (locale: string, jobId: string) => void;
   /** Locales in flight at once (default 4). */
   concurrency?: number;
   batchSize?: number;
@@ -288,6 +294,14 @@ export async function translateViaCloud(args: {
   };
   const glossaryHash = sha(JSON.stringify(args.glossary.terms ?? {}));
 
+  const waitOpts = (locale: string) => ({
+    ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
+    ...(args.jobTimeoutMs != null ? { timeoutMs: args.jobTimeoutMs } : {}),
+    ...(args.jobStallTimeoutMs != null ? { stallTimeoutMs: args.jobStallTimeoutMs } : {}),
+    onProgress: (j: Job) => args.onProgress?.(locale, j),
+  });
+  const resumedBatches = new Set<string>();
+
   const runBatch = async (locale: string, batch: PlanItem[], attempt: number): Promise<PlanItem[]> => {
     const masks = new Map(batch.map((p) => [p.key, { ...maskIcu(p.source), source: p.source }]));
     const reqItems: TranslateItem[] = batch.map((p) => {
@@ -306,14 +320,13 @@ export async function translateViaCloud(args: {
     let rec = state?.batches[idempotencyKey];
     let job: Job | null = null;
     if (rec?.done) {
+      if (attempt === 0) resumedBatches.add(batch.map((b) => b.key).join('\0'));
       job = { id: rec.jobId ?? idempotencyKey, status: 'succeeded', progress: { done: batch.length, total: batch.length }, results: rec.results ?? [], errors: rec.errors ?? [], billedChars: 0 };
     } else {
       if (rec?.jobId) {
         try {
-          job = await args.client.waitForJob(rec.jobId, {
-            ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
-            onProgress: (j) => args.onProgress?.(locale, j),
-          });
+          args.onResumeJob?.(locale, rec.jobId);
+          job = await args.client.waitForJob(rec.jobId, waitOpts(locale));
         } catch (err) {
           if (!(err instanceof Error && 'status' in err && (err as { status: number }).status === 404)) throw err;
           job = null; // job expired server-side → start again
@@ -351,10 +364,7 @@ export async function translateViaCloud(args: {
         }
         job =
           started.status === 'queued' || started.status === 'running'
-            ? await args.client.waitForJob(started.id, {
-                ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
-                onProgress: (j) => args.onProgress?.(locale, j),
-              })
+            ? await args.client.waitForJob(started.id, waitOpts(locale))
             : started;
       }
       if (state) {
@@ -403,7 +413,8 @@ export async function translateViaCloud(args: {
         out.failed.push({ locale, key: e.key, reason: e.message });
       }
     }
-    for (const p of batch) if (!seen.has(p.key)) out.failed.push({ locale, key: p.key, reason: `job ${job.status}: no result` });
+    const serverReason = jobErrorMessage(job);
+    for (const p of batch) if (!seen.has(p.key)) out.failed.push({ locale, key: p.key, reason: `job ${job.status}${serverReason ? `: ${serverReason}` : ': no result'}` });
     return retry;
   };
 
@@ -414,7 +425,7 @@ export async function translateViaCloud(args: {
     for (const batch of makeBatches(items, maxItems, maxChars)) {
       const retry = await runBatch(locale, batch, 0);
       if (retry.length) await runBatch(locale, retry, 1);
-      args.onBatchDone?.(locale, batch.length);
+      args.onBatchDone?.(locale, batch.length, { resumed: resumedBatches.has(batch.map((b) => b.key).join('\0')) });
     }
   });
   await saving;

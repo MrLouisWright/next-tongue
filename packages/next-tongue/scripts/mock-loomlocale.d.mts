@@ -20,6 +20,8 @@ export declare function createMockLoomlocale(opts?: {
   lowCredit?: boolean;
   cardRequired?: { setupUrl?: string; afterTranslates?: number } | null;
   account?: Record<string, unknown>;
+  stuckJobs?: boolean;
+  failJobs?: { error?: string; message?: string } | null;
 }): {
   state: {
     requests: Array<{ method: string; path: string; body: unknown; auth: string | null; idempotencyKey: string | null }>;
@@ -46,6 +48,9 @@ export declare function createMockLoomlocale(opts?: {
     cardRequired: { setupUrl?: string; afterTranslates?: number } | null;
     account: Record<string, unknown>;
     translateSizes: number[];
+    stuckJobs: boolean;
+    failJobs: { error?: string; message?: string } | null;
+    jobs: Map<string, { hash: string; polls: number; job: Record<string, unknown> }>;
   };
   listen(port?: number): Promise<string>;
   close(): Promise<void>;

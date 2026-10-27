@@ -5,7 +5,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { TongueError } from '../errors.js';
-import { ApiError, aggregateEstimates, creditExpiry, creditExpiryWarning, localCostGBP, lowCreditHint, translateLimits, type Estimate, type Me, type SyncEntry } from '../cloud/api.js';
+import { ApiError, JobTimeoutError, aggregateEstimates, jobErrorMessage, creditExpiry, creditExpiryWarning, localCostGBP, lowCreditHint, translateLimits, type Estimate, type Me, type SyncEntry } from '../cloud/api.js';
 import { flatten, readCatalog, writeCatalog, type Catalog, type Flat } from '../cloud/dictionaries.js';
 import {
   countChars,
@@ -210,6 +210,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
 
   // GET /me is fetched at most once (limits, monthly spend); failures fall back to defaults.
   let lastEstimate: Estimate | null = null;
+  let runEstimate: ReturnType<typeof aggregateEstimates> | null = null;
   let mePromise: Promise<Me | null> | null = null;
   const getMe = () => (mePromise ??= client ? client.me().catch(() => null) : Promise.resolve(null));
 
@@ -220,6 +221,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       [...byLocale].map(([l, items]) => client.estimate(projectId, { sourceLocale: ctx.sourceLocale, targetLocales: [l], items: items.map((p) => ({ key: p.key, text: p.source })) })),
     );
     const est = aggregateEstimates(ests);
+    runEstimate = est;
     lastEstimate = ests.find((e) => creditExpiry(e)) ?? null;
     if (typeof est.creditBalanceGBP === 'number' && !opts.quiet && !opts.json)
       log(color.dim(`  prepaid credit balance: ${formatGBP(est.creditBalanceGBP)} (this run ~${formatGBP(est.creditRequiredGBP ?? est.costGBP)})`));
@@ -233,14 +235,27 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     const statePath = runStatePath(ctx.lockPath);
     const state = await loadRunState(ctx.cwd, statePath, projectId);
     summary.resumed = Object.keys(state.batches).length > 0;
-    if (summary.resumed) log(color.dim(`  resuming interrupted run (${Object.keys(state.batches).length} batch(es) recorded in ${statePath})`));
+    // Keys already finished by the interrupted run count towards progress straight away.
+    const planned = new Set(plan.map((p) => `${p.locale}\0${p.key}`));
+    const recs = Object.values(state.batches);
+    const doneKeys = new Set<string>();
+    for (const b of recs) if (b.done) for (const k of b.keys) if (planned.has(`${b.locale}\0${k}`)) doneKeys.add(`${b.locale}\0${k}`);
+    const pendingJobs = recs.filter((b) => !b.done && b.jobId).length;
+    if (summary.resumed)
+      log(
+        color.dim(
+          `  resuming interrupted run (${recs.length} batch(es) recorded in ${statePath}: ${doneKeys.size}/${plan.length} key(s) already done${pendingJobs ? `, ${pendingJobs} job(s) to check` : ''})`,
+        ),
+      );
     const { writeFile: wf } = await import('node:fs/promises');
     const concurrency = opts.concurrency ?? ctx.config.cloud.concurrency ?? 4;
     let bar: Progress | null = opts.quiet || opts.json ? null : (opts.prompter ?? createPrompter([])).progress(`${ctx.sourceLocale} → ${locales.join(', ')}`, plan.length);
+    if (bar && doneKeys.size) bar.tick(doneKeys.size, 'already done (resumed)');
     const me = await getMe();
     const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(lastEstimate);
     if (expiryWarn && !opts.json) console.error(color.yellow(expiryWarn));
-    const low = lowCreditHint(me);
+    // Only warn about low credit when this run actually needs credit (not when the allowance covers it).
+    const low = lowCreditHint(me, runEstimate ?? { chars: summary.plannedChars });
     if (low && !opts.json) console.error(color.yellow(low));
     const limits = translateLimits(me);
     const result = await translateViaCloud({
@@ -250,7 +265,13 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       ...(ctx.config.cloud.batchChars != null ? { batchChars: ctx.config.cloud.batchChars } : {}),
       state,
       persist: (st) => wf(resolveInsideProject(ctx.cwd, statePath), `${JSON.stringify(st)}\n`, 'utf8'),
-      onBatchDone: (_l, n) => bar?.tick(n),
+      onBatchDone: (_l, n, info) => {
+        if (!info?.resumed) bar?.tick(n);
+      },
+      onResumeJob: (l, id) => {
+        if (!bar) log(color.dim(`  checking recorded job ${id} (${l})`));
+      },
+      ...jobTimeouts(opts, env),
       client,
       projectId,
       sourceLocale: ctx.sourceLocale,
@@ -260,9 +281,18 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       meta,
       ...(opts.pollIntervalMs != null ? { pollIntervalMs: opts.pollIntervalMs } : {}),
       onProgress: (l, job) => {
-        if (bar) bar.tick(0, `${l} ${job.status} ${job.progress.done}/${job.progress.total}`);
+        const reason = job.status === 'failed' ? jobErrorMessage(job) : null;
+        const detail = `${l} ${job.status}${job.progress ? ` ${job.progress.done}/${job.progress.total}` : ''} · ${job.id}${reason ? ` — ${reason}` : ''}`;
+        if (bar) bar.tick(0, detail);
+        if (job.status === 'failed' && !opts.json) console.error(color.red(`  Loomlocale job ${job.id} (${l}) failed${reason ? `: ${reason}` : ''}`));
       },
-    }).catch(mapSpendCap);
+    })
+      .catch((err: unknown) => {
+        bar?.done(color.yellow('translation interrupted'));
+        bar = null;
+        throw err;
+      })
+      .catch(mapSpendCap);
     (bar as Progress | null)?.done();
     bar = null;
     summary.billedChars = result.billedChars;
@@ -429,8 +459,22 @@ export async function acceptReviews(opts: CloudGlobals): Promise<number> {
   return n;
 }
 
+/** Job polling limits from options or `LOOMLOCALE_JOB_TIMEOUT` / `LOOMLOCALE_JOB_STALL_TIMEOUT` (seconds). */
+function jobTimeouts(opts: UpdateOptions, env: NodeJS.ProcessEnv): { jobTimeoutMs?: number; jobStallTimeoutMs?: number } {
+  const sec = (v: string | undefined) => (v && Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) * 1000 : undefined);
+  const t = opts.jobTimeoutMs ?? sec(env.LOOMLOCALE_JOB_TIMEOUT);
+  const st = opts.jobStallTimeoutMs ?? sec(env.LOOMLOCALE_JOB_STALL_TIMEOUT);
+  return { ...(t != null ? { jobTimeoutMs: t } : {}), ...(st != null ? { jobStallTimeoutMs: st } : {}) };
+}
+
 /** `402 spend_cap_reached` now only means a job's own `maxCostGBP` was exceeded: report it as a budget error. */
 function mapSpendCap(err: unknown): never {
+  if (err instanceof JobTimeoutError) {
+    throw new TongueError(
+      'TONGUE_E_JOB_TIMEOUT',
+      `${err.message} Finished batches are saved in the run state, so re-running \`tongue update\` resumes where this stopped. If the job stays ${err.lastStatus}, check https://www.loomlocale.com/dashboard for its status, raise LOOMLOCALE_JOB_TIMEOUT (seconds), or delete the run-state file (<lockfile>.run.json) to start fresh.`,
+    );
+  }
   if (err instanceof ApiError && err.code === 'spend_cap_reached') {
     throw new TongueError('TONGUE_E_BUDGET', `Spending cap exceeded — ${err.message}. Raise --max-cost / cloud.budget.maxCostGBP or narrow the run.`);
   }

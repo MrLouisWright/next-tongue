@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.0.1] — Unreleased
+
+### Fixed
+- **Interactive prompts:** multi-select (and other raw-mode prompts) no longer leave duplicated, truncated header lines (`◆ Target languages (type to search… en` repeated) when moving or toggling. Each frame is measured in terminal cells at the current width (wide characters, wrapped lines, resizes) and rows are truncated to the terminal width so they never soft-wrap; the cursor is hidden while a prompt is open. Raw mode is restored to its previous state, buffered input is drained, and keypresses during the translation progress bar are swallowed, so raw escape codes (`^[[B^[[A`) no longer leak into the terminal.
+- **Estimate wording:** the wizard now uses the server's figures (`chars`, `billableChars`, `costGBP`, `allowanceRemaining`). "Included in your plan" reports the chars the run uses and the allowance left *after* the run (previously the run was not subtracted, and the text read "…left after this run would be…"). A run only partly covered by the allowance now says so ("30,931 of 41,968 chars covered by your allowance; estimated cost £0.28 for the remaining 11,037 billable chars"). When the server's (deduplicated) count differs from the local count, both are shown.
+- **Low-credit hint:** `Loomlocale credit is low (£x)` is no longer shown by `update` or the wizard when the run is covered by the allowance and needs no prepaid credit (e.g. Free plans at £0.00). `whoami` still shows it.
+- **Resume / job polling:** progress counts keys already finished by an interrupted run straight away, and the resume line says how many are done and how many recorded jobs are being checked. The progress line shows each job's state (`queued` / `running` / `failed`, id and server progress); a failed job prints the server's error message (`error` / `message` on the job). A job whose status and progress do not change for 10 minutes (or that exceeds the 30-minute limit) now stops with `TONGUE_E_JOB_TIMEOUT` and a hint to re-run (the run state is kept) instead of waiting silently. Limits: `LOOMLOCALE_JOB_TIMEOUT` / `LOOMLOCALE_JOB_STALL_TIMEOUT` (seconds).
+
+### Internal
+- Mock server: partial allowance cover in `/estimate` (`billableChars` = chars beyond `allowanceRemaining`), `stuckJobs` and `failJobs` knobs.
+
 ## [1.0.0] — 2026-10-26
 
 ### Breaking
