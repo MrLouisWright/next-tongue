@@ -10,6 +10,12 @@
 
 </div>
 
+<p align="center">
+  <a href="https://www.loomlocale.com/?utm_source=github&utm_medium=readme&utm_campaign=next-tongue">
+    <img src="https://www.loomlocale.com/brand/powered-by-loomlocale-dark@2x.png" width="640" alt="Powered by Loomlocale: weave your app into every language. 50K free characters at loomlocale.com">
+  </a>
+</p>
+
 > [!NOTE]
 > **Beta 0.9 (API freeze).** Install with `npm install next-tongue`. Public surfaces are frozen per [API freeze](docs/api-freeze.md). Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
 

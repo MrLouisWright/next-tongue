@@ -5,6 +5,12 @@
 [![npm](https://img.shields.io/npm/v/next-tongue.svg)](https://www.npmjs.com/package/next-tongue)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
+<p align="center">
+  <a href="https://www.loomlocale.com/?utm_source=github&utm_medium=readme&utm_campaign=next-tongue">
+    <img src="https://www.loomlocale.com/brand/powered-by-loomlocale-dark@2x.png" width="640" alt="Powered by Loomlocale: weave your app into every language. 50K free characters at loomlocale.com">
+  </a>
+</p>
+
 > **Beta 0.9** — public API is frozen. See [API freeze](https://github.com/MrLouisWright/next-tongue/blob/main/docs/api-freeze.md).
 
 ## Install
