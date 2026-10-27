@@ -11,7 +11,7 @@
   </a>
 </p>
 
-> **Beta 0.9** — public API is frozen. See [API freeze](https://github.com/MrLouisWright/next-tongue/blob/main/docs/api-freeze.md).
+> **Stable 1.0** — public API follows semver. See [API freeze](https://github.com/MrLouisWright/next-tongue/blob/main/docs/api-freeze.md).
 
 ## Install
 

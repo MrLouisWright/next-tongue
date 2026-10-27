@@ -4,7 +4,8 @@
 
 **Compiler-first, type-safe i18n for the Next.js 16 App Router. Works with Turbopack, keeps the locale in route params, zero dependencies beyond `next` and `react`.**
 
-![status: beta 0.9](https://img.shields.io/badge/status-beta%200.9-yellow)
+[![npm](https://img.shields.io/npm/v/next-tongue.svg)](https://www.npmjs.com/package/next-tongue)
+![status: stable 1.0](https://img.shields.io/badge/status-stable%201.0-brightgreen)
 ![license: MIT](https://img.shields.io/badge/license-MIT-blue)
 ![Next.js 16](https://img.shields.io/badge/Next.js-16-black)
 
@@ -17,7 +18,7 @@
 </p>
 
 > [!NOTE]
-> **Beta 0.9 (API freeze).** Install with `npm install next-tongue`. Public surfaces are frozen per [API freeze](docs/api-freeze.md). Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
+> **Stable 1.0.** Install with `npm install next-tongue`. Public surfaces follow semver per [API freeze](docs/api-freeze.md). Feedback welcome in [issues](https://github.com/MrLouisWright/next-tongue/issues) and the [ADRs](docs/adr).
 
 ## Why
 
@@ -144,7 +145,7 @@ Honest, feature-level comparison as of October 2026. next-tongue's column is **p
 
 | | next-tongue (planned) | next-intl | Paraglide JS 2 | gt-next | next-international | Lingui |
 |---|---|---|---|---|---|---|
-| Status | beta 0.9 | mature, very active | stable, active | active, company-backed | unmaintained since Oct 2024 | mature, active |
+| Status | stable 1.0 | mature, very active | stable, active | active, company-backed | unmaintained since Oct 2024 | mature, active |
 | Approach | build-time compiler (codegen + per-file loader) | runtime catalogs; experimental `messages.precompile` compiles ICU at build time | build-time compiler | runtime + AI translation service; experimental compiler | runtime catalogs | macros + compiled catalogs |
 | Works with Turbopack (its compiler) | goal | yes (loader) | Next plugin requires `--webpack` | auto-injection is webpack-only ([docs](https://generaltranslation.com/docs/react/nextjs/config)) | n/a | SWC plugin, pinned to Next's `swc_core` |
 | Next.js App Router routing helpers | yes (`proxy.ts`, Link, redirect) | yes | generic middleware + `localizeUrl` | yes | yes | no (bring your own) |

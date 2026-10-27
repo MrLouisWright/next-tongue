@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-10-27
+
+### Docs
+- Added the "Powered by Loomlocale" banner to the README (shown on npm).
+- README status updated from "Beta 0.9" to stable 1.0 (badge, note and comparison table).
+
 ## [1.0.1] — 2026-10-27
 
 ### Fixed
