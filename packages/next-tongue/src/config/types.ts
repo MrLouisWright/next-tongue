@@ -104,7 +104,7 @@ export type CloudConfig = {
   files?: string[];
   /** Spending cap enforced against the estimate before translating (env/flags override per run caps). */
   budget?: CloudBudget;
-  /** Locales translated in parallel (default 4). `--concurrency` overrides. */
+  /** Locales translated in parallel (default: all). `--concurrency` overrides. */
   concurrency?: number;
   /** Max keys per translate request (default 100). */
   batchSize?: number;

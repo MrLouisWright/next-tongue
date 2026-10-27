@@ -8,7 +8,7 @@ import { collectArgs } from '../compiler/ast.js';
 import { parseMessage } from '../compiler/parse/icu-parser.js';
 import { checkPluralCategories } from '../compiler/validate/plurals.js';
 import { resolveInsideProject } from '../cli/safe-path.js';
-import { ApiError, DEFAULT_TRANSLATE_LIMITS, jobErrorMessage } from './api.js';
+import { ApiError, DEFAULT_TRANSLATE_LIMITS, JobTimeoutError, jobErrorMessage } from './api.js';
 import type { GlossaryTerms, Job, LoomlocaleClient, TranslateItem } from './api.js';
 
 export function sha(text: string): string {
@@ -249,6 +249,151 @@ export async function pool<T>(items: T[], limit: number, fn: (item: T) => Promis
   await Promise.all(workers);
 }
 
+/**
+ * Polls all active jobs together: one round of concurrent `GET /jobs/:id` immediately when the first
+ * job is registered, then every `intervalMs` (default 1 s). Per-job overall and stall timeouts as in
+ * `waitForJob`. A 404 or other error rejects only that job's waiter.
+ */
+export class JobPoller {
+  private readonly waiting = new Map<string, Array<{ onJob: (j: Job) => void; resolve: (j: Job) => void; reject: (e: unknown) => void }>>();
+  private readonly seen = new Map<string, { start: number; sig: string; changed: number }>();
+  private running = false;
+  constructor(
+    private readonly client: Pick<LoomlocaleClient, 'job'>,
+    private readonly opts: { intervalMs?: number; timeoutMs?: number; stallTimeoutMs?: number; onRound?: () => void; now?: () => number; sleep?: (ms: number) => Promise<void> } = {},
+  ) {}
+
+  wait(id: string, onJob: (j: Job) => void = () => {}): Promise<Job> {
+    return new Promise<Job>((resolve, reject) => {
+      const list = this.waiting.get(id) ?? [];
+      list.push({ onJob, resolve, reject });
+      this.waiting.set(id, list);
+      if (!this.running) {
+        // Defer one macrotask so jobs registered together share the first (immediate) round.
+        this.running = true;
+        setImmediate(() => void this.loop());
+      }
+    });
+  }
+
+  private async loop(): Promise<void> {
+    this.running = true;
+    const now = this.opts.now ?? Date.now;
+    const sleep = this.opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+    const timeout = this.opts.timeoutMs ?? 30 * 60_000;
+    const stall = this.opts.stallTimeoutMs ?? 10 * 60_000;
+    try {
+      while (this.waiting.size) {
+        const ids = [...this.waiting.keys()];
+        await Promise.all(
+          ids.map(async (id) => {
+            const settle = (fn: (w: { resolve: (j: Job) => void; reject: (e: unknown) => void }) => void) => {
+              const ws = this.waiting.get(id) ?? [];
+              this.waiting.delete(id);
+              this.seen.delete(id);
+              for (const w of ws) fn(w);
+            };
+            let job: Job;
+            try {
+              job = await this.client.job(id);
+            } catch (err) {
+              settle((w) => w.reject(err));
+              return;
+            }
+            const t = now();
+            for (const w of this.waiting.get(id) ?? []) w.onJob(job);
+            if (job.status !== 'queued' && job.status !== 'running') return settle((w) => w.resolve(job));
+            const sig = `${job.status}:${job.progress?.done ?? 0}`;
+            const s = this.seen.get(id) ?? { start: t, sig, changed: t };
+            if (s.sig !== sig) {
+              s.sig = sig;
+              s.changed = t;
+            }
+            this.seen.set(id, s);
+            if (t - s.start >= timeout) return settle((w) => w.reject(new JobTimeoutError(id, job.status, t - s.start, 'timeout')));
+            if (t - s.changed >= stall) return settle((w) => w.reject(new JobTimeoutError(id, job.status, t - s.start, 'stalled')));
+          }),
+        );
+        this.opts.onRound?.();
+        if (this.waiting.size) await sleep(this.opts.intervalMs ?? 1000);
+      }
+    } finally {
+      this.running = false;
+    }
+  }
+}
+
+/**
+ * Overall progress across all of a run's jobs. done = Σ progress.done of every job on every poll
+ * (whatever its status) + keys finished by an interrupted run; total = Σ progress.total, falling back
+ * to the batch size for jobs that report none, plus items not yet submitted.
+ */
+export class RunProgress {
+  private readonly slots = new Map<string, { locale: string; done: number; total: number; status: string; error: string | null }>();
+  private readonly items = new Map<string, number>();
+  private readonly resumed = new Map<string, number>();
+  constructor(readonly locales: string[], plan: Array<{ locale: string }>, resumedKeys: Iterable<string> = []) {
+    for (const l of locales) this.items.set(l, 0);
+    for (const p of plan) this.items.set(p.locale, (this.items.get(p.locale) ?? 0) + 1);
+    for (const k of resumedKeys) {
+      const l = k.split('\0')[0]!;
+      this.resumed.set(l, (this.resumed.get(l) ?? 0) + 1);
+    }
+  }
+  update(locale: string, job: Job, info: { slot: string; batchSize: number }): void {
+    const total = job.progress?.total && job.progress.total > 0 ? job.progress.total : info.batchSize;
+    const finished = job.status === 'succeeded' || job.status === 'partial';
+    const done = Math.min(total, finished ? total : Math.max(0, job.progress?.done ?? 0));
+    this.slots.set(info.slot, { locale, done, total, status: job.status, error: job.status === 'failed' ? jobErrorMessage(job) : null });
+  }
+  locale(l: string): { done: number; total: number; status: string; error: string | null; batchSize: number } {
+    let done = this.resumed.get(l) ?? 0;
+    let total = done;
+    let started = 0;
+    let status = 'queued';
+    let error: string | null = null;
+    let any = false;
+    let allFinal = true;
+    for (const s of this.slots.values()) {
+      if (s.locale !== l) continue;
+      any = true;
+      done += s.done;
+      total += s.total;
+      started += s.total;
+      if (s.status === 'failed') {
+        status = 'failed';
+        error ??= s.error;
+      } else if (status !== 'failed' && s.status === 'running') status = 'running';
+      if (s.status === 'queued' || s.status === 'running') allFinal = false;
+    }
+    const items = this.items.get(l) ?? 0;
+    const unstarted = Math.max(0, items - (this.resumed.get(l) ?? 0) - started);
+    total += unstarted;
+    if (status !== 'failed' && any && allFinal && unstarted === 0) status = 'done';
+    if (!any && done > 0 && unstarted === 0) status = 'done';
+    return { done, total, status, error, batchSize: items };
+  }
+  overall(): { done: number; total: number } {
+    let done = 0;
+    let total = 0;
+    for (const l of this.locales) {
+      const x = this.locale(l);
+      done += x.done;
+      total += x.total;
+    }
+    return { done, total };
+  }
+  /** `de 556/599 · fr failed: …`, failed languages first so truncation keeps them visible. */
+  segments(): string[] {
+    const segs = this.locales.map((l) => {
+      const x = this.locale(l);
+      const text = x.status === 'failed' ? `${l} failed${x.error ? `: ${x.error}` : ''} ${x.done}/${x.total}` : `${l}${x.status === 'queued' && x.done === 0 ? ' queued' : ''} ${x.done}/${x.total}`;
+      return { failed: x.status === 'failed', text };
+    });
+    return [...segs.filter((s) => s.failed), ...segs.filter((s) => !s.failed)].map((s) => s.text);
+  }
+}
+
 export async function translateViaCloud(args: {
   client: LoomlocaleClient;
   projectId: string;
@@ -258,7 +403,10 @@ export async function translateViaCloud(args: {
   context?: string;
   meta?: Record<string, KeyMeta>;
   onLocaleStart?: (locale: string, total: number) => void;
-  onProgress?: (locale: string, job: Job) => void;
+  /** Every poll of every job (and the job returned by translate). `slot` identifies the batch; retries (attempt 1) are not reported. */
+  onProgress?: (locale: string, job: Job, info: { slot: string; batchSize: number }) => void;
+  /** After each round of polling all active jobs together. */
+  onPollRound?: () => void;
   /** Called after each batch settles with the number of keys it covered. */
   onBatchDone?: (locale: string, keys: number, info?: { resumed: boolean }) => void;
   pollIntervalMs?: number;
@@ -268,7 +416,7 @@ export async function translateViaCloud(args: {
   jobStallTimeoutMs?: number;
   /** Called before polling a job recorded by an interrupted run. */
   onResumeJob?: (locale: string, jobId: string) => void;
-  /** Locales in flight at once (default 4). */
+  /** Locales in flight at once (default: all). */
   concurrency?: number;
   batchSize?: number;
   batchChars?: number;
@@ -294,11 +442,11 @@ export async function translateViaCloud(args: {
   };
   const glossaryHash = sha(JSON.stringify(args.glossary.terms ?? {}));
 
-  const waitOpts = (locale: string) => ({
+  const poller = new JobPoller(args.client, {
     ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
     ...(args.jobTimeoutMs != null ? { timeoutMs: args.jobTimeoutMs } : {}),
     ...(args.jobStallTimeoutMs != null ? { stallTimeoutMs: args.jobStallTimeoutMs } : {}),
-    onProgress: (j: Job) => args.onProgress?.(locale, j),
+    ...(args.onPollRound ? { onRound: args.onPollRound } : {}),
   });
   const resumedBatches = new Set<string>();
 
@@ -317,6 +465,9 @@ export async function translateViaCloud(args: {
     const idempotencyKey = sha(
       JSON.stringify([args.projectId, args.sourceLocale, locale, attempt, args.context ?? '', glossaryHash, reqItems]),
     ).slice(7, 47);
+    const report = (j: Job) => {
+      if (attempt === 0) args.onProgress?.(locale, j, { slot: idempotencyKey, batchSize: batch.length });
+    };
     let rec = state?.batches[idempotencyKey];
     let job: Job | null = null;
     if (rec?.done) {
@@ -326,7 +477,7 @@ export async function translateViaCloud(args: {
       if (rec?.jobId) {
         try {
           args.onResumeJob?.(locale, rec.jobId);
-          job = await args.client.waitForJob(rec.jobId, waitOpts(locale));
+          job = await poller.wait(rec.jobId, (j) => report(j));
         } catch (err) {
           if (!(err instanceof Error && 'status' in err && (err as { status: number }).status === 404)) throw err;
           job = null; // job expired server-side → start again
@@ -362,10 +513,8 @@ export async function translateViaCloud(args: {
           rec = state.batches[idempotencyKey] = { locale, keys: batch.map((b) => b.key), jobId: started.id };
           await persist();
         }
-        job =
-          started.status === 'queued' || started.status === 'running'
-            ? await args.client.waitForJob(started.id, waitOpts(locale))
-            : started;
+        report(started);
+        job = started.status === 'queued' || started.status === 'running' ? await poller.wait(started.id, (j) => report(j)) : started;
       }
       if (state) {
         state.batches[idempotencyKey] = {
@@ -380,7 +529,7 @@ export async function translateViaCloud(args: {
         await persist();
       }
     }
-    args.onProgress?.(locale, job);
+    if (!rec?.done || !resumedBatches.has(batch.map((b) => b.key).join('\0'))) report(job);
     out.billedChars += job.billedChars ?? 0;
     const retry: PlanItem[] = [];
     const seen = new Set<string>();
@@ -418,7 +567,8 @@ export async function translateViaCloud(args: {
     return retry;
   };
 
-  await pool([...byLocale.entries()], args.concurrency ?? 4, async ([locale, items]) => {
+  // Jobs for all languages are created in parallel by default (the server queues/limits them; 429s back off).
+  await pool([...byLocale.entries()], args.concurrency ?? byLocale.size, async ([locale, items]) => {
     args.onLocaleStart?.(locale, items.length);
     const maxItems = Math.min(args.batchSize ?? Infinity, args.limits?.maxItems ?? DEFAULT_TRANSLATE_LIMITS.maxItems);
     const maxChars = Math.min(args.batchChars ?? Infinity, args.limits?.maxSourceChars ?? DEFAULT_TRANSLATE_LIMITS.maxSourceChars);

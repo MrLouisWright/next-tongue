@@ -18,6 +18,7 @@ import {
   mergeGlossary,
   saveLock,
   sha,
+  RunProgress,
   translateViaCloud,
   type KeyMeta,
   type PlanItem,
@@ -248,9 +249,20 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
         ),
       );
     const { writeFile: wf } = await import('node:fs/promises');
-    const concurrency = opts.concurrency ?? ctx.config.cloud.concurrency ?? 4;
-    let bar: Progress | null = opts.quiet || opts.json ? null : (opts.prompter ?? createPrompter([])).progress(`${ctx.sourceLocale} → ${locales.join(', ')}`, plan.length);
-    if (bar && doneKeys.size) bar.tick(doneKeys.size, 'already done (resumed)');
+    const concurrency = opts.concurrency ?? ctx.config.cloud.concurrency;
+    const runLocales = locales.filter((l) => plan.some((p) => p.locale === l));
+    const progress = new RunProgress(runLocales, plan, doneKeys);
+    const label = runLocales.length > 3 ? `${ctx.sourceLocale} → ${runLocales.length} languages` : `${ctx.sourceLocale} → ${runLocales.join(', ')}`;
+    let bar: Progress | null = opts.quiet || opts.json ? null : (opts.prompter ?? createPrompter([])).progress(label, plan.length);
+    let shownDone = 0;
+    const redraw = () => {
+      if (!bar) return;
+      const o = progress.overall();
+      if (bar.set) bar.set(o.done, o.total, progress.segments());
+      else if (o.done > shownDone) bar.tick(o.done - shownDone, progress.segments().join(' · '));
+      shownDone = Math.max(shownDone, o.done);
+    };
+    redraw(); // 0/total (or resumed/total) straight away
     const me = await getMe();
     const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(lastEstimate);
     if (expiryWarn && !opts.json) console.error(color.yellow(expiryWarn));
@@ -259,15 +271,13 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     if (low && !opts.json) console.error(color.yellow(low));
     const limits = translateLimits(me);
     const result = await translateViaCloud({
-      concurrency,
+      ...(concurrency != null ? { concurrency } : {}),
       limits,
       ...(ctx.config.cloud.batchSize != null ? { batchSize: ctx.config.cloud.batchSize } : {}),
       ...(ctx.config.cloud.batchChars != null ? { batchChars: ctx.config.cloud.batchChars } : {}),
       state,
       persist: (st) => wf(resolveInsideProject(ctx.cwd, statePath), `${JSON.stringify(st)}\n`, 'utf8'),
-      onBatchDone: (_l, n, info) => {
-        if (!info?.resumed) bar?.tick(n);
-      },
+      onPollRound: redraw,
       onResumeJob: (l, id) => {
         if (!bar) log(color.dim(`  checking recorded job ${id} (${l})`));
       },
@@ -280,10 +290,10 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       ...(ctx.config.translate?.context ? { context: ctx.config.translate.context } : {}),
       meta,
       ...(opts.pollIntervalMs != null ? { pollIntervalMs: opts.pollIntervalMs } : {}),
-      onProgress: (l, job) => {
+      onProgress: (l, job, info) => {
+        progress.update(l, job, info);
+        if (job.status !== 'queued' && job.status !== 'running') redraw();
         const reason = job.status === 'failed' ? jobErrorMessage(job) : null;
-        const detail = `${l} ${job.status}${job.progress ? ` ${job.progress.done}/${job.progress.total}` : ''} · ${job.id}${reason ? ` — ${reason}` : ''}`;
-        if (bar) bar.tick(0, detail);
         if (job.status === 'failed' && !opts.json) console.error(color.red(`  Loomlocale job ${job.id} (${l}) failed${reason ? `: ${reason}` : ''}`));
       },
     })

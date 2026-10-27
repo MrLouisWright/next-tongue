@@ -1,6 +1,6 @@
 {
   "name": "next-tongue",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Compiler-first, type-safe i18n for the Next.js 16 App Router, with hosted AI translation via Loomlocale",
   "license": "MIT",
   "type": "module",

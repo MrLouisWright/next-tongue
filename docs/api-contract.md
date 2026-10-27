@@ -107,7 +107,7 @@ Header: `Idempotency-Key: <same as body idempotencyKey>` (see above). Requests a
 - `402 insufficient_credit`: `{ "error": "insufficient_credit", "message": "…", "details": { "requiredGBP": 1.5, "balanceGBP": 0.2, "creditBalanceGBP": 0.2, "topUpUrl": "https://…" }, "request_id": "…" }`. The CLI prints `Insufficient Loomlocale credit: this run needs £1.50, balance is £0.20. Nothing more was translated. Top up at <topUpUrl> and re-run. (request id …)` and exits with **code 4**, with no retry. `details.balanceGBP` is preferred over `details.creditBalanceGBP`. If `topUpUrl` is missing, it falls back to `https://www.loomlocale.com/dashboard/billing`. Finished batches stay in the run state, so the re-run resumes.
 - `402 spend_cap_reached` now only means the job's own `maxCostGBP` was exceeded. The CLI reports it as `TONGUE_E_BUDGET` (spending cap exceeded, exit 1). The org-wide monthly spend cap was replaced by prepaid credit.
 
-Locales run concurrently (`--concurrency` / `cloud.concurrency`, default 4).
+Locales run concurrently (`--concurrency` / `cloud.concurrency`; default: all target locales at once). All active jobs are polled together (first poll immediately, then ~1 s). Overall progress = Σ `progress.done` over the run's jobs on every poll (any status); total = Σ `progress.total`, falling back to items × languages. Assumes the server reports `progress.total` from creation and updates `progress.done` while running (server 6a2917e).
 Server must return `__TONGUE_n__` tokens verbatim. The CLI re-validates everything (tokens, ICU args, plural categories, glossary, maxLength) and retries failed keys once in a new job.
 
 ## `GET /jobs/:id`

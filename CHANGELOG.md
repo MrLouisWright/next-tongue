@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.0.3] — Unreleased
+
+### Fixed
+- **Progress across all jobs:** the overall bar no longer sits at `0/2396` while a language job is running. Overall done is the sum of `progress.done` over all of the run's jobs on every poll, whatever their status (plus keys finished by an interrupted run). Total is the sum of `progress.total`, falling back to items × languages.
+- **Per-language line:** the progress line shows every language, e.g. `de 556/599 · fr 540/599 · es queued 0/599`. It is fitted to the terminal width with `+N more`, and failed languages (with the server error) are listed first so they stay visible.
+- **Parallel jobs and joint polling:** jobs for all languages are created in parallel by default (`--concurrency` / `cloud.concurrency` can still limit this). The bar is drawn at `0/total` straight away, and all active jobs are polled together, the first round immediately and then about every 1 s. Resume counting and the 1.0.1 stall/overall timeouts (`TONGUE_E_JOB_TIMEOUT`) are unchanged.
+
+### Internal
+- Mock server: `queuedPolls` (queued jobs report their real total) and `progressPerPoll` (first batch of 10 strings, then +N per poll), matching Loom-Locale/loomlocale 6a2917e.
+
 ## [1.0.2] — 2026-10-27
 
 ### Docs

@@ -30,7 +30,27 @@ export interface Prompter {
   progress(label: string, total: number): Progress;
 }
 
-export type Progress = { tick(n?: number, detail?: string): void; done(message?: string): void };
+export type Progress = {
+  tick(n?: number, detail?: string): void;
+  /** Absolute update: overall done/total plus per-item segments (e.g. one per language), fitted to the width. */
+  set?(done: number, total: number, segments?: string[]): void;
+  done(message?: string): void;
+};
+
+/**
+ * Join segments with ` · ` within `max` cells. Segments that do not fit are replaced by `+N more`;
+ * callers put the ones that must stay visible (failed) first.
+ */
+export function fitSegments(segments: string[], max: number): string {
+  const sep = ' · ';
+  const all = segments.join(sep);
+  if (displayWidth(all) <= max) return all;
+  for (let n = segments.length - 1; n >= 1; n--) {
+    const s = `${segments.slice(0, n).join(sep)}${sep}+${segments.length - n} more`;
+    if (displayWidth(s) <= max) return s;
+  }
+  return truncateToWidth(segments[0] ?? '', Math.max(1, max));
+}
 
 export class CancelledError extends Error {
   constructor() {
@@ -135,11 +155,15 @@ function drainInput(input: TtyInput): void {
 function progressBar(label: string, total: number, interactive: boolean): Progress {
   let done = 0;
   const width = 24;
+  let segs: string[] | null = null;
   const render = (detail = '') => {
-    const pct = total ? done / total : 1;
+    const pct = total ? Math.min(1, done / total) : 1;
     const filled = Math.round(pct * width);
-    const line = `${color.cyan('◆')} ${label} ${color.green('█'.repeat(filled))}${color.dim('░'.repeat(width - filled))} ${done}/${total} ${color.dim(detail)}`;
-    if (interactive) process.stdout.write(`\r\x1b[2K${truncateToWidth(line, (process.stdout.columns || 80) - 1)}`);
+    const head = `${color.cyan('◆')} ${label} ${color.green('█'.repeat(filled))}${color.dim('░'.repeat(width - filled))} ${done}/${total}`;
+    const cols = (process.stdout.columns || 80) - 1;
+    const tail = segs ? fitSegments(segs, Math.max(10, cols - displayWidth(head) - 1)) : detail;
+    const line = `${head} ${color.dim(tail)}`;
+    if (interactive) process.stdout.write(`\r\x1b[2K${truncateToWidth(line, cols)}`);
   };
   const restoreInput = interactive ? swallowInput() : () => {};
   render();
@@ -147,6 +171,12 @@ function progressBar(label: string, total: number, interactive: boolean): Progre
     tick(n = 1, detail) {
       done = Math.min(total, done + n);
       render(detail);
+    },
+    set(d, t, segments) {
+      total = Math.max(0, t);
+      done = Math.max(0, Math.min(total, d));
+      segs = segments ?? null;
+      render();
     },
     done(message) {
       restoreInput();
