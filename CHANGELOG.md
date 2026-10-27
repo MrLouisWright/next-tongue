@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [1.0.3] — Unreleased
 
+### Changed
+
+- `tongue update` now ends with a success summary (`✔ Done — translated 5,980 strings into N languages in 2m 14s`): per-language counts, allowance/credit used, files written, and a next-step hint. The per-key diff is collapsed by default to a line per locale (first few keys + "and N more"). Use `--verbose`/`--diff` for the full listing. `--json` output is unchanged and `NO_COLOR` is respected.
+
 ### Fixed
 - **Progress across all jobs:** the overall bar no longer sits at `0/2396` while a language job is running. Overall done is the sum of `progress.done` over all of the run's jobs on every poll, whatever their status (plus keys finished by an interrupted run). Total is the sum of `progress.total`, falling back to items × languages.
 - **Per-language line:** the progress line shows every language, e.g. `de 556/599 · fr 540/599 · es queued 0/599`. It is fitted to the terminal width with `+N more`, and failed languages (with the server error) are listed first so they stay visible.
