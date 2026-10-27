@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
-## [1.0.4] — Unreleased
+## [1.0.4] — 2026-10-27
 
 ### Fixed
 
