@@ -18,6 +18,7 @@ import {
   mergeGlossary,
   saveLock,
   sha,
+  RunProgress,
   translateViaCloud,
   type KeyMeta,
   type PlanItem,
@@ -25,7 +26,7 @@ import {
 import { formatGBP, loadProject, makeClient, type CloudGlobals, type ProjectContext } from '../cloud/project.js';
 import { color, createPrompter, type Prompter, type Progress } from '../cloud/tui.js';
 import { enforceBudget, hasBudget, resolveBudget } from '../cloud/budget.js';
-import { buildChanges, changesMarkdown, renderChanges, startReviewBranch, summarizeChanges, type KeyChange } from './review.js';
+import { buildChanges, changesMarkdown, renderChanges, renderChangesSummary, startReviewBranch, summarizeChanges, type KeyChange } from './review.js';
 import { resolveInsideProject } from './safe-path.js';
 
 export type UpdateOptions = CloudGlobals & {
@@ -49,6 +50,8 @@ export type UpdateOptions = CloudGlobals & {
   reviewMode?: 'pr';
   /** Stage dictionaries + lock under this directory instead of overwriting them. */
   outDir?: string;
+  /** Print the full per-key diff (`--verbose` / `--diff`); collapsed by default. */
+  verbose?: boolean;
   prompter?: Prompter;
 };
 
@@ -112,6 +115,7 @@ async function loadMeta(ctx: ProjectContext, source: Catalog): Promise<Record<st
 }
 
 export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
+  const startedAt = Date.now();
   const env = opts.env ?? process.env;
   const ci = opts.ci === true || env.CI === 'true';
   const log = (...a: unknown[]) => {
@@ -248,9 +252,20 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
         ),
       );
     const { writeFile: wf } = await import('node:fs/promises');
-    const concurrency = opts.concurrency ?? ctx.config.cloud.concurrency ?? 4;
-    let bar: Progress | null = opts.quiet || opts.json ? null : (opts.prompter ?? createPrompter([])).progress(`${ctx.sourceLocale} → ${locales.join(', ')}`, plan.length);
-    if (bar && doneKeys.size) bar.tick(doneKeys.size, 'already done (resumed)');
+    const concurrency = opts.concurrency ?? ctx.config.cloud.concurrency;
+    const runLocales = locales.filter((l) => plan.some((p) => p.locale === l));
+    const progress = new RunProgress(runLocales, plan, doneKeys);
+    const label = runLocales.length > 3 ? `${ctx.sourceLocale} → ${runLocales.length} languages` : `${ctx.sourceLocale} → ${runLocales.join(', ')}`;
+    let bar: Progress | null = opts.quiet || opts.json ? null : (opts.prompter ?? createPrompter([])).progress(label, plan.length);
+    let shownDone = 0;
+    const redraw = () => {
+      if (!bar) return;
+      const o = progress.overall();
+      if (bar.set) bar.set(o.done, o.total, progress.segments());
+      else if (o.done > shownDone) bar.tick(o.done - shownDone, progress.segments().join(' · '));
+      shownDone = Math.max(shownDone, o.done);
+    };
+    redraw(); // 0/total (or resumed/total) straight away
     const me = await getMe();
     const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(lastEstimate);
     if (expiryWarn && !opts.json) console.error(color.yellow(expiryWarn));
@@ -259,15 +274,13 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     if (low && !opts.json) console.error(color.yellow(low));
     const limits = translateLimits(me);
     const result = await translateViaCloud({
-      concurrency,
+      ...(concurrency != null ? { concurrency } : {}),
       limits,
       ...(ctx.config.cloud.batchSize != null ? { batchSize: ctx.config.cloud.batchSize } : {}),
       ...(ctx.config.cloud.batchChars != null ? { batchChars: ctx.config.cloud.batchChars } : {}),
       state,
       persist: (st) => wf(resolveInsideProject(ctx.cwd, statePath), `${JSON.stringify(st)}\n`, 'utf8'),
-      onBatchDone: (_l, n, info) => {
-        if (!info?.resumed) bar?.tick(n);
-      },
+      onPollRound: redraw,
       onResumeJob: (l, id) => {
         if (!bar) log(color.dim(`  checking recorded job ${id} (${l})`));
       },
@@ -280,10 +293,10 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       ...(ctx.config.translate?.context ? { context: ctx.config.translate.context } : {}),
       meta,
       ...(opts.pollIntervalMs != null ? { pollIntervalMs: opts.pollIntervalMs } : {}),
-      onProgress: (l, job) => {
+      onProgress: (l, job, info) => {
+        progress.update(l, job, info);
+        if (job.status !== 'queued' && job.status !== 'running') redraw();
         const reason = job.status === 'failed' ? jobErrorMessage(job) : null;
-        const detail = `${l} ${job.status}${job.progress ? ` ${job.progress.done}/${job.progress.total}` : ''} · ${job.id}${reason ? ` — ${reason}` : ''}`;
-        if (bar) bar.tick(0, detail);
         if (job.status === 'failed' && !opts.json) console.error(color.red(`  Loomlocale job ${job.id} (${l}) failed${reason ? `: ${reason}` : ''}`));
       },
     })
@@ -339,7 +352,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     log(`tongue update: wrote ${summary.files.length} review file(s); run \`tongue translate --accept\` after review`);
     return summary;
   }
-  if (changes.length && !opts.json && !opts.quiet) console.log(renderChanges(changes));
+  if (changes.length && !opts.json && !opts.quiet) console.log(opts.verbose ? renderChanges(changes) : renderChangesSummary(changes));
   const interactive = !ci && !opts.yes && (opts.prompter != null || (process.stdin.isTTY === true && process.stdout.isTTY === true));
   if (changes.length && interactive && !opts.json) {
     const target = opts.reviewMode === 'pr' ? 'open a review PR' : opts.outDir ? `stage in ${opts.outDir}` : 'write';
@@ -421,10 +434,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
 
   if (opts.json) console.log(JSON.stringify({ ...summary, plan: undefined, planned: plan.length }));
   else {
-    log(
-      `${color.green('✔')} tongue update: ${summary.translated} translated, ${summary.pulled} pulled from web, ${summary.removed} removed, ${summary.failed.length} failed` +
-        (summary.billedChars ? color.dim(` · ${summary.billedChars.toLocaleString('en-GB')} chars billed`) : ''),
-    );
+    log(formatDoneSummary({ summary, startedAt, now: Date.now(), estimate: runEstimate, lockPath: ctx.lockPath, synced: sync }));
     for (const f of summary.failed) console.error(`  ${color.red('✗')} ${f.locale} ${f.key}: ${f.reason}`);
   }
   if (summary.failed.length) process.exitCode = 1;
@@ -479,4 +489,48 @@ function mapSpendCap(err: unknown): never {
     throw new TongueError('TONGUE_E_BUDGET', `Spending cap exceeded — ${err.message}. Raise --max-cost / cloud.budget.maxCostGBP or narrow the run.`);
   }
   throw err;
+}
+
+const fmtDuration = (ms: number): string => {
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  return m < 60 ? `${m}m ${sec % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
+};
+
+/** Final human summary for `tongue update` (not used with --json). */
+export function formatDoneSummary(a: {
+  summary: Pick<UpdateSummary, 'translated' | 'failed' | 'removed' | 'pulled' | 'billedChars' | 'plannedChars' | 'files' | 'changes'>;
+  startedAt: number;
+  now: number;
+  estimate?: { chars: number; billableChars: number; costGBP: number; allowanceRemaining?: number | null } | null;
+  lockPath?: string;
+  synced?: boolean;
+}): string {
+  const { summary: s } = a;
+  const n = (v: number) => v.toLocaleString('en-GB');
+  const per = new Map<string, number>();
+  for (const c of s.changes) if (c.kind !== 'removed') per.set(c.locale, (per.get(c.locale) ?? 0) + 1);
+  const langs = per.size;
+  const head = s.failed.length
+    ? `${color.yellow('!')} Done with errors — translated ${n(s.translated)} string(s), ${n(s.failed.length)} failed`
+    : s.translated
+      ? `${color.green('✔')} Done — translated ${n(s.translated)} string${s.translated === 1 ? '' : 's'} into ${langs} language${langs === 1 ? '' : 's'}`
+      : `${color.green('✔')} Done — nothing to translate`;
+  const lines = [`${head} in ${fmtDuration(a.now - a.startedAt)}`];
+  if (per.size && per.size <= 8) lines.push(`  ${[...per].map(([l, c]) => `${l} ${n(c)}`).join(' · ')}`);
+  const extra = [s.pulled && `${n(s.pulled)} pulled from web`, s.removed && `${n(s.removed)} removed`].filter(Boolean);
+  if (extra.length) lines.push(`  ${extra.join(', ')}`);
+  const usage: string[] = [];
+  if (a.estimate) {
+    const covered = Math.max(0, a.estimate.chars - a.estimate.billableChars);
+    if (covered) usage.push(`${n(covered)} chars from allowance${typeof a.estimate.allowanceRemaining === 'number' ? ` (${n(Math.max(0, a.estimate.allowanceRemaining - covered))} left)` : ''}`);
+    if (a.estimate.costGBP > 0) usage.push(`~${formatGBP(a.estimate.costGBP)} credit`);
+  }
+  if (s.billedChars) usage.push(`${n(s.billedChars)} chars billed`);
+  if (usage.length) lines.push(`  Usage: ${usage.join(' · ')}`);
+  if (s.files.length) lines.push(`  Wrote ${s.files.length} file(s)${a.lockPath ? ` + ${a.lockPath}` : ''}: ${s.files.slice(0, 4).join(', ')}${s.files.length > 4 ? ` and ${s.files.length - 4} more` : ''}`);
+  if (s.failed.length) lines.push(color.dim('  Next: fix the errors below and re-run `tongue update` (finished strings are not re-billed).'));
+  else if (s.files.length) lines.push(color.dim(`  Next: review with \`git diff\`, then commit${a.synced ? ' (already pushed to Loomlocale)' : ''}.`));
+  return lines.join('\n');
 }

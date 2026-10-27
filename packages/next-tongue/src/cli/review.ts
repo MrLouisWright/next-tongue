@@ -55,6 +55,24 @@ export function renderChanges(changes: KeyChange[]): string {
   return lines.join('\n');
 }
 
+/** Collapsed diff: per locale a count line plus the first `perLocale` keys and "and N more". */
+export function renderChangesSummary(changes: KeyChange[], perLocale = 3): string {
+  const by = new Map<string, KeyChange[]>();
+  for (const c of changes) by.set(c.locale, [...(by.get(c.locale) ?? []), c]);
+  const lines: string[] = [];
+  for (const [l, cs] of by) {
+    const s = summarizeChanges(cs);
+    const parts = [s.added && `${s.added.toLocaleString('en-GB')} added`, s.changed && `${s.changed.toLocaleString('en-GB')} changed`, s.removed && `${s.removed.toLocaleString('en-GB')} removed`].filter(Boolean);
+    const sign = (c: KeyChange) => (c.kind === 'added' ? color.green('+') : c.kind === 'changed' ? color.yellow('~') : color.red('-'));
+    const shown = cs.slice(0, perLocale).map((c) => `${sign(c)} ${c.key}`).join(', ');
+    const more = cs.length > perLocale ? color.dim(` and ${(cs.length - perLocale).toLocaleString('en-GB')} more`) : '';
+    lines.push(`  ${color.bold(l)} ${parts.join(', ')}: ${shown}${more}`);
+  }
+  const s = summarizeChanges(changes);
+  lines.push(color.dim(`${s.added} added, ${s.changed} changed, ${s.removed} removed · run with --verbose (or --diff) for the full diff`));
+  return lines.join('\n');
+}
+
 /** Markdown body for the review PR. */
 export function changesMarkdown(changes: KeyChange[], limit = 200): string {
   const s = summarizeChanges(changes);

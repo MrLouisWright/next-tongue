@@ -23,6 +23,8 @@ export async function runCli(argv: string[]): Promise<void> {
       config: { type: 'string' },
       json: { type: 'boolean', default: false },
       quiet: { type: 'boolean', default: false },
+      verbose: { type: 'boolean', short: 'v', default: false },
+      diff: { type: 'boolean', default: false },
       watch: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
       locale: { type: 'string' },
@@ -112,6 +114,7 @@ export async function runCli(argv: string[]): Promise<void> {
     ...(maxCost != null ? { maxCost } : {}),
     ...(concurrency != null ? { concurrency } : {}),
     ...(typeof values['out-dir'] === 'string' ? { outDir: values['out-dir'] } : {}),
+    ...(values.verbose === true || values.diff === true ? { verbose: true } : {}),
   };
   const interactive =
     values.wizard === true || (process.stdin.isTTY === true && process.stdout.isTTY === true);
@@ -463,7 +466,7 @@ Loomlocale (hosted translation; npx next-tongue = guided setup):
   tongue logout | whoami [--json]
   tongue link [--project <id|name>] [--create <name>]
   tongue update [--dry-run] [--ci] [--yes] [--prefer local|remote] [--locale de] [--keys 'home.*']
-                [--max-chars N] [--max-cost GBP] [--concurrency N] [--review pr] [--out-dir DIR] [--json]
+                [--max-chars N] [--max-cost GBP] [--concurrency N] [--review pr] [--out-dir DIR] [--verbose|--diff] [--json]
                 pull web edits → translate new/changed keys → show diff → write → push
                 caps: cloud.budget, LOOMLOCALE_MAX_CHARS / LOOMLOCALE_MAX_COST (exit 1 when over)
                 interrupted runs resume from tongue.lock.run.json; 429/503 retried with backoff

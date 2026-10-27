@@ -21,6 +21,8 @@ export declare function createMockLoomlocale(opts?: {
   cardRequired?: { setupUrl?: string; afterTranslates?: number } | null;
   account?: Record<string, unknown>;
   stuckJobs?: boolean;
+  queuedPolls?: number;
+  progressPerPoll?: number | null;
   failJobs?: { error?: string; message?: string } | null;
 }): {
   state: {
@@ -49,6 +51,8 @@ export declare function createMockLoomlocale(opts?: {
     account: Record<string, unknown>;
     translateSizes: number[];
     stuckJobs: boolean;
+    queuedPolls: number;
+    progressPerPoll: number | null;
     failJobs: { error?: string; message?: string } | null;
     jobs: Map<string, { hash: string; polls: number; job: Record<string, unknown> }>;
   };

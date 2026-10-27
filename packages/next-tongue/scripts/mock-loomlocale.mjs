@@ -12,7 +12,7 @@
  * Prepaid credits (plan.kind free|credits|subscription; estimate withinCredit/creditRequiredGBP): creditBalanceGBP on /me + estimate, 402 insufficient_credit.
  * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
  * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
- * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate), stuckJobs, failJobs {error, message}.
+ * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate), stuckJobs, failJobs {error, message}, queuedPolls, progressPerPoll.
  * Estimate: allowanceRemaining is the allowance before the run; billableChars = chars beyond it.
  */
 import { createServer } from 'node:http';
@@ -52,6 +52,8 @@ export function createMockLoomlocale(opts = {}) {
     spendCapReached: opts.spendCapReached ?? false,
     lowCredit: opts.lowCredit,
     creditExpiry: opts.creditExpiry ?? {},
+    queuedPolls: opts.queuedPolls ?? 0, // first N polls report queued (done 0, real total), like 6a2917e
+    progressPerPoll: opts.progressPerPoll ?? null, // running: first batch 10 strings, then +N per poll
     stuckJobs: opts.stuckJobs ?? false, // jobs stay queued forever (progress 0)
     failJobs: opts.failJobs ?? null, // { error, message }: jobs finish as failed with this reason // e.g. { nextExpiry: '2026-11-20', nextExpiryGBP: 12.5 }
   };
@@ -210,7 +212,13 @@ export function createMockLoomlocale(opts = {}) {
         return json(res, 200, { job: { id: j.job.id, status: 'failed', progress: { done: 0, total: j.job.progress.total }, results: [], errors: [], error: state.failJobs.error ?? 'provider_error', message: state.failJobs.message ?? 'Upstream translation provider failed' } });
       }
       if (j.polls >= state.pollsToFinish) state.active.delete(j.job.id);
-      if (j.polls < state.pollsToFinish) return json(res, 200, { job: { id: j.job.id, status: 'running', progress: { done: Math.floor(j.job.progress.total / 2), total: j.job.progress.total } } });
+      const total = j.job.progress.total;
+      if (j.polls <= state.queuedPolls) return json(res, 200, { job: { id: j.job.id, status: 'queued', progress: { done: 0, total } } });
+      if (j.polls < state.pollsToFinish) {
+        const n = j.polls - state.queuedPolls;
+        const done = state.progressPerPoll != null ? Math.min(total, 10 + (n - 1) * state.progressPerPoll) : Math.floor(total / 2);
+        return json(res, 200, { job: { id: j.job.id, status: 'running', progress: { done, total } } });
+      }
       return json(res, 200, { job: j.job });
     }
     return json(res, 404, { error: 'not_found', message: `${req.method} ${path}` });
