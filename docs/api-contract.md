@@ -75,11 +75,13 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 ## `POST /projects/:id/estimate`
 ```json
 // request
-{ "sourceLocale": "en", "targetLocales": ["de","fr"], "items": [{ "key": "home.title", "text": "Hello, {name}!" }] }
+{ "sourceLocale": "en", "targetLocales": ["de"], "items": [{ "key": "home.title", "text": "Hello, {name}!" }],
+  "glossary": { "Loom": { "doNotTranslate": true } } }   // 1.0.4: same canonical record the translate call sends
 // 200
 { "chars": 28, "billableChars": 28, "costGBP": 0.0007, "currency": "GBP", "allowanceRemaining": null, "withinAllowance": false,
   "creditRequiredGBP": 0.0007, "creditBalanceGBP": 42.1, "withinCredit": true, "topUpUrl": "https://…",   // prepaid; topUpUrl only when withinCredit is false
-  "allowed": true, "withinSpendCap": true, "note": "…" }     // all optional; withinSpendCap is a deprecated alias of withinCredit
+  "allowed": true, "withinSpendCap": true, "note": "…",     // all optional; withinSpendCap is a deprecated alias of withinCredit
+  "grossChars": 28, "memoryChars": 0, "perLocale": { "de": { "chars": 14, "texts": 1, "memoryHits": 0 } } }   // a5fb584+
 ```
 - `chars` = Σ source chars (Unicode code points) of **unique texts** × target count. **Identical texts are counted once**, so the server estimate can be lower than the CLI's local count (which counts every key).
 - `allowanceRemaining` is `null` for PAYG. The CLI (1.0.1) treats it as the allowance **before** this run, and `billableChars` as the chars **not** covered by it (so `chars − billableChars` is the allowance used, and `allowanceRemaining − (chars − billableChars)` is shown as left after the run). `withinAllowance` is `true` only when the whole run is covered; partial cover is shown from `billableChars`.
@@ -88,6 +90,9 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 - **Credit check:** `withinCredit` is authoritative. Per-locale `creditRequiredGBP` amounts are summed and compared with `creditBalanceGBP`. If any estimate says `withinCredit: false`, or the summed amount exceeds the balance, the run aborts before translating with the insufficient-credit error (exit code 4). `withinSpendCap` / `allowed` are deprecated and only read when `withinCredit` is absent (older servers). In that case a `false` aborts with exit 1 and shows `note`. Nothing is translated or billed.
 - `creditBalanceGBP` (if present) is printed next to the run's estimated cost.
 - `--dry-run` uses the local count and the PAYG rate only (no network).
+- **Translation memory (server a5fb584, CLI 1.0.4).** `chars` is after translation memory: unique texts per locale minus texts already translated into that locale (with a matching glossary). Empty texts are free. `grossChars` = before memory (unique texts × targets), `memoryChars = grossChars − chars`, and `perLocale[locale] = { chars, texts, memoryHits }`. All three are optional; older servers omit them and the CLI then shows `chars` alone.
+- **What the CLI estimates (1.0.4).** Both `update` and the wizard estimate only the planned items (pull, then diff vs target files + `tongue.lock`), with **one request per target locale**, the same `sourceLocale`, and the same glossary record as `/translate`. The glossary is canonicalised (terms and their fields sorted, undefined dropped) and always sent, `{}` when empty. Empty source texts are never sent: the CLI writes `""` + a lock entry locally.
+- **Assumptions (not verified against the server code):** (1) the memory lookup is keyed by locale + source text, with the glossary compared by value, so key order does not matter server-side. The CLI sorts anyway. (2) Targets pushed via `/sync` (`origin: 'cli'`, `sourceHash`) count as memory for later estimates and translates. (3) `perLocale` is keyed by the target locale codes sent.
 
 ## `POST /projects/:id/translate` → job
 ```json
@@ -124,6 +129,8 @@ type Job = {
 CLI polls every 1 s (30 min timeout; `LOOMLOCALE_JOB_TIMEOUT`). A job whose `status` and `progress.done` do not change for 10 min (`LOOMLOCALE_JOB_STALL_TIMEOUT`) stops the run with `TONGUE_E_JOB_TIMEOUT` (run state kept, re-run resumes). Optional on failed jobs (1.0.1): `error` (string code or `{ code, message }`) and `message`; the CLI prints them. Without them it falls back to the first `errors[].message`.
 
 ## `POST /projects/:id/sync`
+
+**First sync (1.0.4):** when `tongue.lock` has no `$cloud.cursor` (first run against the project), the CLI pushes the existing non-empty target values before estimating or translating: `mode: 'push'`, entries `{ key, locale, text, sourceHash: sha256(source), origin: 'cli' }`. This lets translations made before Loomlocale count as cached.
 ```json
 // request
 { "mode": "push" | "pull" | "both", "sourceLocale": "en", "cursor": "c42",

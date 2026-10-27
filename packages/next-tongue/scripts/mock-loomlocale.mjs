@@ -12,11 +12,13 @@
  * Prepaid credits (plan.kind free|credits|subscription; estimate withinCredit/creditRequiredGBP): creditBalanceGBP on /me + estimate, 402 insufficient_credit.
  * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
  * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
- * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate), stuckJobs, failJobs {error, message}, queuedPolls, progressPerPoll.
+ * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate), stuckJobs, failJobs {error, message}, queuedPolls, progressPerPoll, translationMemory (estimate grossChars/memoryChars/perLocale; records state.estimates, state.translateBodies).
  * Estimate: allowanceRemaining is the allowance before the run; billableChars = chars beyond it.
  */
 import { createServer } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+const sha = (t) => `sha256:${createHash('sha256').update(t, 'utf8').digest('hex')}`;
+const canon = (g) => JSON.stringify(Object.fromEntries(Object.keys(g ?? {}).sort().map((k) => [k, Object.fromEntries(Object.keys(g[k]).sort().map((f) => [f, g[k][f]]))])));
 
 export function createMockLoomlocale(opts = {}) {
   const state = {
@@ -54,8 +56,17 @@ export function createMockLoomlocale(opts = {}) {
     creditExpiry: opts.creditExpiry ?? {},
     queuedPolls: opts.queuedPolls ?? 0, // first N polls report queued (done 0, real total), like 6a2917e
     progressPerPoll: opts.progressPerPoll ?? null, // running: first batch 10 strings, then +N per poll
+    translationMemory: opts.translationMemory ?? false, // a5fb584: estimate excludes cached texts (synced targets by sourceHash; translated texts with the same glossary)
+    memory: new Map(), // `${locale}\0${sourceHash}` → canonical glossary JSON | '*'
+    estimates: [],
+    translateBodies: [],
     stuckJobs: opts.stuckJobs ?? false, // jobs stay queued forever (progress 0)
     failJobs: opts.failJobs ?? null, // { error, message }: jobs finish as failed with this reason // e.g. { nextExpiry: '2026-11-20', nextExpiryGBP: 12.5 }
+  };
+  const memHit = (l, t, g) => {
+    if (!state.translationMemory) return false;
+    const m = state.memory.get(`${l}\0${sha(t)}`);
+    return m === '*' || m === canon(g);
   };
   const tooMany = (res) => {
     state.rateLimited++;
@@ -118,16 +129,25 @@ export function createMockLoomlocale(opts = {}) {
       const project = state.projects.find((p) => p.id === decodeURIComponent(m[1]));
       if (!project) return json(res, 404, { error: 'not_found', message: 'Unknown project' });
       if (m[2] === 'estimate') {
-        // Identical texts are counted once.
-        const unique = new Set(body.items.map((i) => i.text));
-        const chars = [...unique].reduce((n, t) => n + [...t].length, 0) * body.targetLocales.length;
+        // Identical texts are counted once; like a5fb584, translation-memory hits (per locale, same glossary) are excluded.
+        state.estimates.push({ sourceLocale: body.sourceLocale, targetLocales: body.targetLocales, items: body.items, glossary: body.glossary });
+        const unique = [...new Set(body.items.map((i) => i.text))];
+        const grossChars = unique.reduce((n, t) => n + [...t].length, 0) * body.targetLocales.length;
+        const perLocale = {};
+        let chars = 0;
+        for (const l of body.targetLocales) {
+          const miss = unique.filter((t) => t !== '' && !memHit(l, t, body.glossary));
+          const c = miss.reduce((n, t) => n + [...t].length, 0);
+          perLocale[l] = { chars: c, texts: miss.length, memoryHits: unique.length - miss.length };
+          chars += c;
+        }
         const left = state.plan.kind === 'payg' || state.plan.kind === 'credits' ? null : state.plan.charsIncluded - state.plan.charsUsed;
         const within = left != null && chars <= left;
         // Partial cover: the allowance pays for what it can, the rest is billable (allowanceRemaining is before this run).
         const billableChars = left == null ? chars : Math.max(0, chars - Math.max(0, left));
         const costGBP = within ? 0 : Math.round((billableChars / 1e6) * state.plan.paygPerMillionGBP * 100) / 100;
         const withinSpendCap = state.spendCapGBP == null || costGBP <= state.spendCapGBP;
-        return json(res, 200, { chars, billableChars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, ...(state.creditBalanceGBP != null
+        return json(res, 200, { chars, grossChars, memoryChars: grossChars - chars, perLocale, billableChars, costGBP, currency: 'GBP', allowanceRemaining: left, withinAllowance: within, ...(state.creditBalanceGBP != null
           ? (() => {
               // Prepaid: withinCredit is authoritative; withinSpendCap is its deprecated alias.
               const withinCredit = costGBP <= state.creditBalanceGBP;
@@ -163,6 +183,8 @@ export function createMockLoomlocale(opts = {}) {
           return json(res, 409, { error: 'conflict', message: 'Idempotency-Key was already used with a different request', details: { error: 'idempotency_key_reused' } });
         }
         state.translateSizes.push(body.items.length);
+        state.translateBodies.push(body);
+        if (state.translationMemory) for (const l of body.targetLocales) for (const it of body.items) state.memory.set(`${l}\0${sha(it.text)}`, canon(body.glossary));
         if (idem && state.idempotency.has(idem)) {
           const prev = state.jobs.get(state.idempotency.get(idem));
           return json(res, 200, { job: { id: prev.job.id, status: 'queued', progress: { done: 0, total: prev.job.progress.total } } });
@@ -185,6 +207,7 @@ export function createMockLoomlocale(opts = {}) {
       // sync
       const pulled = [];
       if (body.mode === 'push' || body.mode === 'both') {
+        if (state.translationMemory) for (const e of body.entries ?? []) if (e.locale !== body.sourceLocale && e.sourceHash) state.memory.set(`${e.locale}\0${e.sourceHash}`, '*');
         for (const e of body.entries ?? []) state.entries.set(`${e.locale}\0${e.key}`, { ...e, file: e.file ?? `${body.sourceLocale}.json`, updatedAt: new Date().toISOString() });
         for (const k of body.deletedKeys ?? []) for (const id of [...state.entries.keys()]) if (id.endsWith(`\0${k}`)) state.entries.delete(id);
       }

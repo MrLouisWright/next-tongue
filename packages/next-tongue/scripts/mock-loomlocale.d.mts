@@ -24,6 +24,7 @@ export declare function createMockLoomlocale(opts?: {
   queuedPolls?: number;
   progressPerPoll?: number | null;
   failJobs?: { error?: string; message?: string } | null;
+  translationMemory?: boolean;
 }): {
   state: {
     requests: Array<{ method: string; path: string; body: unknown; auth: string | null; idempotencyKey: string | null }>;
@@ -54,6 +55,10 @@ export declare function createMockLoomlocale(opts?: {
     queuedPolls: number;
     progressPerPoll: number | null;
     failJobs: { error?: string; message?: string } | null;
+    translationMemory: boolean;
+    memory: Map<string, string>;
+    estimates: Array<{ sourceLocale: string; targetLocales: string[]; items: Array<{ key: string; text: string }>; glossary?: Record<string, unknown> }>;
+    translateBodies: Array<{ sourceLocale: string; targetLocales: string[]; items: Array<{ key: string; text: string }>; glossary?: Record<string, unknown> }>;
     jobs: Map<string, { hash: string; polls: number; job: Record<string, unknown> }>;
   };
   listen(port?: number): Promise<string>;

@@ -58,7 +58,7 @@ Binary aliases: `tongue` and `next-tongue`. Running `npx next-tongue` with no co
 
 | Command | What it does |
 |---|---|
-| `tongue init` | Interactive wizard (TTY). `--scaffold`, `--yes`, `--locales`… keep the classic Next.js scaffolder. |
+| `tongue init` | Interactive wizard (TTY). `--scaffold`, `--yes`, `--locales`… keep the classic Next.js scaffolder. The estimate step uses the same plan as `tongue update` (`N keys need translation · M already translated`, per language). It shows the server's gross vs after-cache chars and skips the confirm with `Nothing to translate` when the plan is empty. |
 | `tongue login [--no-browser]` | OAuth device code: prints the code + `https://www.loomlocale.com/device`, opens the browser, polls, stores the token (OS keychain, fallback `~/.config/loomlocale/credentials.json`). |
 | `tongue logout` / `tongue whoami [--json]` | Forget the token / show account + plan. |
 | `tongue link [--project <id\|name>] [--create <name>]` | Pick or create a project and write `cloud.projectId` into your config. |
@@ -96,6 +96,8 @@ Colour is used only on a TTY and is disabled by `NO_COLOR`. In a terminal you ar
 **Free allowance.** Free workspaces add a card to claim a one-time 50,000-character allowance. Until then, `tongue whoami` and `tongue status` print the card setup link, and translating stops with `402 card_required` (exit 4; the message, link and request id are printed; finished batches are kept). Both commands also show the allowance remaining.
 
 **Prepaid credit.** If Loomlocale answers `402 insufficient_credit`, the run stops with **exit code 4** and prints your balance, the amount needed and the top-up link (fallback `https://www.loomlocale.com/dashboard/billing`). Nothing is retried. Finished batches are kept, so re-running after topping up resumes. Credits expire 12 months after purchase: if some expire within 30 days, `tongue whoami`, `tongue update` (before translating) and the wizard print a one-line warning. They also print a hint when Loomlocale reports low credit.
+
+**What gets sent (1.0.4).** Only missing or changed keys are estimated and translated. Empty source strings are written as `""` locally and never sent. On the first run against a project, existing translations are pushed to Loomlocale first so they count as cached (not billed). The glossary is sent in the same canonical form every run. After an interrupted run, `update` reports per language what was resumed vs newly translated.
 
 **Spending caps.** Before translating, `update` asks Loomlocale for an estimate and aborts with **exit code 1** (`TONGUE_E_BUDGET`, nothing translated or billed) when a cap would be exceeded:
 

@@ -12,7 +12,7 @@ import { findConfigFile, formatGBP, makeClient, resolveBaseURL, upsertCloudBlock
 import { CancelledError, color, createPrompter, type Prompter } from '../cloud/tui.js';
 import { loadConfig } from '../config/load-config.js';
 import { cmdLink, cmdLogin, describePlan } from './cloud.js';
-import { runUpdate } from './update.js';
+import { formatGrossVsCache, runUpdate, type PlanInfo } from './update.js';
 import { cmdInit } from './init.js';
 
 export const COMMON_LOCALES: Array<[string, string]> = [
@@ -130,32 +130,54 @@ export async function runWizard(opts: WizardOptions): Promise<void> {
     let projectId = fresh.cloud.projectId;
     if (!projectId) projectId = (await cmdLink({ ...g, prompter: pr, quiet: true })).id;
 
-    // Estimate
+    // Estimate: the exact plan runUpdate will translate (pull + diff vs target files + tongue.lock), estimated
+    // per language with the same sourceLocale + glossary the translate call sends.
     const client = await makeClient(g, fresh);
     me ??= await client.me().catch(() => null);
-    let estimateLine = `${keyCount} keys · ${srcChars.toLocaleString('en-GB')} chars × ${targets.length} languages = ${color.bold(totalChars.toLocaleString('en-GB'))} chars`;
-    let est: Estimate | null = null;
-    try {
-      est = await client.estimate(projectId, { sourceLocale, targetLocales: targets, items: Object.entries(source.flat).map(([key, text]) => ({ key, text })) });
-      // Prefer the server's figures: it dedupes identical texts and applies the allowance.
-      if (est.chars !== totalChars) estimateLine += `\n${color.dim(`Loomlocale counts ${est.chars.toLocaleString('en-GB')} chars (identical texts are counted once)`)}`;
-      const d = describeEstimate(est, formatGBP);
-      estimateLine += `\n${d.included ? color.green(d.text) : d.text}`;
-    } catch {
-      estimateLine += `\n≈ ${color.bold(formatGBP(localCostGBP(totalChars, me?.plan.paygPerMillionGBP ?? 25)))} at PAYG £25 / 1M chars ${color.dim('(local estimate)')}`;
-    }
-    if (me) estimateLine += `\n${color.dim(`${me.user.email} · ${describePlan(me)}`)}`;
-    const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(est);
-    if (expiryWarn) estimateLine += `\n${color.yellow(expiryWarn)}`;
-    const low = lowCreditHint(me, est ?? { chars: totalChars });
-    if (low) estimateLine += `\n${color.yellow(low)}`;
-    pr.note(estimateLine, 'Estimate');
-    if (!opts.yes && !(await pr.confirm(`Translate into ${targets.join(', ')}?`, true))) {
+    let declined = false;
+    let nothing = false;
+    const summary = await runUpdate({
+      ...g,
+      yes: true,
+      prompter: pr,
+      quiet: false,
+      confirmPlan: async (info) => {
+        if (!info.plan.length) {
+          nothing = true;
+          pr.note(`${color.green('Nothing to translate')} — all ${info.keyCount.toLocaleString('en-GB')} keys are already translated into ${info.locales.join(', ')}${info.empty ? ` (${info.empty} empty source text(s) written locally)` : ''}.`, 'Estimate');
+          return true;
+        }
+        const lines = [estimatePlanLine(info)];
+        const est = info.estimate;
+        const per = Object.entries(info.perLocale).map(([l, c]) => `${l} ${c.toLocaleString('en-GB')}`).join(' · ');
+        if (per) lines.push(color.dim(per));
+        if (est) {
+          lines.push(formatGrossVsCache(est));
+          const d = describeEstimate(est, formatGBP);
+          lines.push(d.included ? color.green(d.text) : d.text);
+        } else {
+          lines.push(`${info.plannedChars.toLocaleString('en-GB')} chars ≈ ${color.bold(formatGBP(localCostGBP(info.plannedChars, me?.plan.paygPerMillionGBP ?? 25)))} at PAYG £25 / 1M chars ${color.dim('(local estimate)')}`);
+        }
+        if (me) lines.push(color.dim(`${me.user.email} · ${describePlan(me)}`));
+        const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(est as Estimate | null);
+        if (expiryWarn) lines.push(color.yellow(expiryWarn));
+        const low = lowCreditHint(me, est ?? { chars: info.plannedChars });
+        if (low) lines.push(color.yellow(low));
+        pr.note(lines.join('\n'), 'Estimate');
+        if (opts.yes) return true;
+        const ok = await pr.confirm(`Translate into ${Object.keys(info.perLocale).join(', ')}?`, true);
+        declined = !ok;
+        return ok;
+      },
+    });
+    if (declined) {
       pr.outro('Nothing translated. Run `tongue update` any time.');
       return;
     }
-
-    const summary = await runUpdate({ ...g, yes: true, prompter: pr, quiet: false });
+    if (nothing) {
+      pr.outro(color.green('All set ✨'));
+      return;
+    }
     pr.note(
       [
         `${color.green(String(summary.translated))} strings translated, ${summary.failed.length ? color.red(String(summary.failed.length)) : '0'} failed validation`,
@@ -173,4 +195,10 @@ export async function runWizard(opts: WizardOptions): Promise<void> {
     }
     throw err;
   }
+}
+
+/** "N keys need translation · M already translated". */
+export function estimatePlanLine(info: Pick<PlanInfo, 'plan' | 'alreadyTranslated' | 'empty'>): string {
+  const n = (v: number) => v.toLocaleString('en-GB');
+  return `${color.bold(n(info.plan.length))} keys need translation · ${n(info.alreadyTranslated)} already translated${info.empty ? ` · ${n(info.empty)} empty (kept empty, not sent)` : ''}`;
 }
