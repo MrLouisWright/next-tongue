@@ -29,7 +29,7 @@ Scans source (`app/`, `src/`, `components/`, `lib/`, `server/`, `actions/` by de
 - regenerates `.tongue/types.d.ts` (same as `tongue build`).
 
 ## `tongue check`
-CI gate. Reads messages + source, reports. Run it **before** `tongue build` after machine translation — it catches ICU arg parity (`missing=[] extra=[name]`), apostrophe traps in EN source, and undefined keys without waiting for a full Next build:
+CI gate. Reads messages + source, reports. Run it **before** `tongue build` after machine translation — it catches ICU arg parity (`missing=[] extra=[name]`), apostrophe traps (`l'{app}`), and undefined keys without waiting for a full Next build:
 
 | Check | Meaning | Severity from |
 |---|---|---|
@@ -37,7 +37,7 @@ CI gate. Reads messages + source, reports. Run it **before** `tongue build` afte
 | `unused` | Key in messages, never referenced in code | `strict.unused` — skipped for `$meta.planned` / `@tongue-ignore` / `unusedIgnore` |
 | `undefined` | Key referenced in code, absent in default locale | always `error` |
 | `dynamic` | Client `useT` + `t(variable)` without a string literal | always `error` — use `t.dynamic(key, { from })` |
-| `icu` | Likely unescaped prose apostrophe (`l'été` → write `l''été`) | `warn` for fr/it/… only (not English `don't`) |
+| `icu` | A single `'` after a letter, directly before `{`, `}`, `<`, or `#` in a plural, that is never closed (`l'{app}` → write `l''{app}`). Plain elisions like `l'été` / `don't` / `d'un {email}` don't warn (1.0.6) | `warn`, all locales |
 | `client-loader` | `"use client"` + `useT` rewrite calls `useLocale` without importing it | always `error` (Safari ReferenceError) |
 | `mismatch` | ICU args, tags or plural categories differ from default locale | `strict.mismatch` |
 | `syntax` | ICU parse error | always `error` |
