@@ -109,7 +109,11 @@ export type EstimateRequest = {
   sourceLocale: string;
   targetLocales: string[];
   items: Array<{ key: string; text: string }>;
+  /** Same glossary record the translate call sends, so translation-memory hits match (server a5fb584). */
+  glossary?: GlossaryTerms;
 };
+
+export type EstimatePerLocale = { chars: number; texts: number; memoryHits: number };
 
 export type Estimate = {
   /** Source characters × target locales. */
@@ -132,6 +136,11 @@ export type Estimate = {
   note?: string;
   /** Prepaid credit balance (upcoming). Optional. */
   creditBalanceGBP?: number | null;
+  /** Before translation memory: unique texts × target locales (server a5fb584+). `chars` is after memory. */
+  grossChars?: number;
+  /** grossChars − chars: covered by cached translations, not billed. */
+  memoryChars?: number;
+  perLocale?: Record<string, EstimatePerLocale>;
 } & CreditExpiryFields;
 
 export type GlossaryTerms = Record<
@@ -344,12 +353,15 @@ const gbpPrecise = (n: number) => `£${n !== 0 && Math.abs(n) < 0.01 ? n.toFixed
 
 /** Sums per-locale estimates. Credit: required amounts add up, so the sum is checked against the balance. */
 export function aggregateEstimates(ests: Estimate[]): Pick<Estimate, 'chars' | 'billableChars' | 'costGBP'> &
-  Partial<Pick<Estimate, 'allowed' | 'withinSpendCap' | 'withinCredit' | 'creditRequiredGBP' | 'creditBalanceGBP' | 'topUpUrl' | 'note' | 'allowanceRemaining' | 'withinAllowance'>> {
+  Partial<Pick<Estimate, 'grossChars' | 'memoryChars' | 'perLocale' | 'allowed' | 'withinSpendCap' | 'withinCredit' | 'creditRequiredGBP' | 'creditBalanceGBP' | 'topUpUrl' | 'note' | 'allowanceRemaining' | 'withinAllowance'>> {
   const out: ReturnType<typeof aggregateEstimates> = { chars: 0, billableChars: 0, costGBP: 0 };
   for (const e of ests) {
     if (typeof e.allowanceRemaining === 'number') out.allowanceRemaining = e.allowanceRemaining; // org-wide, not per locale
     if (typeof e.withinAllowance === 'boolean') out.withinAllowance = (out.withinAllowance ?? true) && e.withinAllowance;
     out.chars += e.chars;
+    if (typeof e.grossChars === 'number') out.grossChars = (out.grossChars ?? 0) + e.grossChars;
+    if (typeof e.memoryChars === 'number') out.memoryChars = (out.memoryChars ?? 0) + e.memoryChars;
+    if (e.perLocale) out.perLocale = { ...out.perLocale, ...e.perLocale };
     out.billableChars += e.billableChars;
     out.costGBP += e.costGBP;
     if (e.allowed === false) out.allowed = false;

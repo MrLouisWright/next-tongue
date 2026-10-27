@@ -20,6 +20,7 @@ import {
   sha,
   RunProgress,
   translateViaCloud,
+  type Glossary,
   type KeyMeta,
   type PlanItem,
 } from '../cloud/engine.js';
@@ -53,6 +54,26 @@ export type UpdateOptions = CloudGlobals & {
   /** Print the full per-key diff (`--verbose` / `--diff`); collapsed by default. */
   verbose?: boolean;
   prompter?: Prompter;
+  /**
+   * Called after pull + diff with the exact plan (and per-locale server estimate) the run will translate;
+   * return false to stop before anything is translated or written. Used by the wizard.
+   */
+  confirmPlan?: (info: PlanInfo) => Promise<boolean>;
+};
+
+export type PlanInfo = {
+  plan: PlanItem[];
+  /** Planned items per target locale. */
+  perLocale: Record<string, number>;
+  /** key × locale pairs that already have a translation (not planned). */
+  alreadyTranslated: number;
+  /** Empty source texts written locally as empty targets (never sent). */
+  empty: number;
+  locales: string[];
+  keyCount: number;
+  plannedChars: number;
+  estimate: ReturnType<typeof aggregateEstimates> | null;
+  glossary: Glossary;
 };
 
 export type UpdateSummary = {
@@ -150,6 +171,8 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
   const needClient = !opts.dryRun;
   const client = needClient ? await makeClient(opts, ctx.config) : null;
 
+  // First run against this project (no sync cursor yet): existing target values are pushed before translating.
+  const firstRun = !lock.$cloud?.cursor;
   // 1. pull web edits + glossary
   const takenFromRemote = new Set<string>();
   if (sync && client && projectId) {
@@ -190,9 +213,34 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     }
   }
 
+  // 1b. first run: push existing translations so the server's translation memory knows them (not re-billed).
+  if (sync && client && projectId && firstRun) {
+    const seed: SyncEntry[] = [];
+    for (const l of locales) {
+      for (const [k, t] of Object.entries(targets[l] ?? {})) {
+        const src = source.flat[k];
+        if (src == null || t === '' || takenFromRemote.has(`${l}\0${k}`)) continue;
+        seed.push({ key: k, locale: l, text: t, sourceHash: sha(src), origin: 'cli' });
+      }
+    }
+    if (seed.length) {
+      const pushed = await client.sync(projectId, { mode: 'push', sourceLocale: ctx.sourceLocale, ...(lock.$cloud?.cursor ? { cursor: lock.$cloud.cursor } : {}), entries: seed, deletedKeys: [] });
+      lock.$cloud = { ...lock.$cloud, projectId, cursor: pushed.cursor, sourceLocale: ctx.sourceLocale };
+      log(color.dim(`  first sync: pushed ${seed.length.toLocaleString('en-GB')} existing translation(s) to Loomlocale`));
+    }
+  }
+
   // 2. diff
   const diff = diffCatalogs({ source: source.flat, targets, lock, locales, ...(opts.retranslate ? { retranslate: true } : {}), ...(keyFilter ? { keyFilter } : {}) });
-  const plan = diff.plan.filter((p) => !takenFromRemote.has(`${p.locale}\0${p.key}`));
+  const planAll = diff.plan.filter((p) => !takenFromRemote.has(`${p.locale}\0${p.key}`));
+  // Empty source text (e.g. a spacer key): empty target + lock entry locally, never sent or billed.
+  const emptyItems = planAll.filter((p) => p.source === '');
+  const plan = planAll.filter((p) => p.source !== '');
+  for (const p of emptyItems) {
+    if (opts.dryRun) break;
+    bucket(p.locale).set[p.key] = '';
+    lockSection(lock, p.locale)[p.key] = { source: sha(''), target: sha(''), at: new Date().toISOString(), origin: 'cli' };
+  }
   summary.plan = plan;
   summary.plannedChars = plan.reduce((n, p) => n + countChars(p.source), 0);
 
@@ -218,11 +266,11 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
   let mePromise: Promise<Me | null> | null = null;
   const getMe = () => (mePromise ??= client ? client.me().catch(() => null) : Promise.resolve(null));
 
-  if (plan.length && client && projectId && hasBudget(budget)) {
+  if (plan.length && client && projectId && (hasBudget(budget) || opts.confirmPlan)) {
     const byLocale = new Map<string, PlanItem[]>();
     for (const p of plan) byLocale.set(p.locale, [...(byLocale.get(p.locale) ?? []), p]);
     const ests = await Promise.all(
-      [...byLocale].map(([l, items]) => client.estimate(projectId, { sourceLocale: ctx.sourceLocale, targetLocales: [l], items: items.map((p) => ({ key: p.key, text: p.source })) })),
+      [...byLocale].map(([l, items]) => client.estimate(projectId, { sourceLocale: ctx.sourceLocale, targetLocales: [l], items: items.map((p) => ({ key: p.key, text: p.source })), glossary: glossary.terms })),
     );
     const est = aggregateEstimates(ests);
     runEstimate = est;
@@ -230,7 +278,17 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     if (typeof est.creditBalanceGBP === 'number' && !opts.quiet && !opts.json)
       log(color.dim(`  prepaid credit balance: ${formatGBP(est.creditBalanceGBP)} (this run ~${formatGBP(est.creditRequiredGBP ?? est.costGBP)})`));
     const plan2 = budget.monthlyChars != null || budget.monthlyCostGBP != null ? (await getMe())?.plan : undefined;
-    enforceBudget(budget, est, plan2);
+    if (hasBudget(budget)) enforceBudget(budget, est, plan2);
+  }
+  if (opts.confirmPlan) {
+    const perLocale: Record<string, number> = {};
+    for (const p of plan) perLocale[p.locale] = (perLocale[p.locale] ?? 0) + 1;
+    const keyCount = Object.keys(source.flat).filter((k) => !keyFilter || keyFilter(k)).length;
+    const ok = await opts.confirmPlan({
+      plan, perLocale, empty: emptyItems.length, locales, keyCount, plannedChars: summary.plannedChars, estimate: runEstimate, glossary,
+      alreadyTranslated: Math.max(0, keyCount * locales.length - plan.length - emptyItems.length),
+    });
+    if (!ok) return summary;
   }
 
   // 3. translate
@@ -310,6 +368,16 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     bar = null;
     summary.billedChars = result.billedChars;
     summary.failed = result.failed;
+    if (summary.resumed) {
+      const per = new Map<string, { resumed: number; fresh: number }>();
+      for (const r of result.ok) {
+        const c = per.get(r.locale) ?? { resumed: 0, fresh: 0 };
+        if (doneKeys.has(`${r.locale}\0${r.key}`)) c.resumed++;
+        else c.fresh++;
+        per.set(r.locale, c);
+      }
+      if (per.size) log(color.dim(`  ${formatResumeSplit(per)}`));
+    }
     for (const r of result.ok) {
       bucket(r.locale).set[r.key] = r.target;
       lockSection(lock, r.locale)[r.key] = { source: sha(r.source), target: sha(r.target), at: new Date().toISOString(), origin: 'machine' };
@@ -533,4 +601,21 @@ export function formatDoneSummary(a: {
   if (s.failed.length) lines.push(color.dim('  Next: fix the errors below and re-run `tongue update` (finished strings are not re-billed).'));
   else if (s.files.length) lines.push(color.dim(`  Next: review with \`git diff\`, then commit${a.synced ? ' (already pushed to Loomlocale)' : ''}.`));
   return lines.join('\n');
+}
+
+/** "resumed vs new" per language, e.g. `de 120 resumed + 479 new · fr all 599 new`. */
+export function formatResumeSplit(per: Map<string, { resumed: number; fresh: number }>): string {
+  const n = (v: number) => v.toLocaleString('en-GB');
+  const parts = [...per].map(([l, c]) =>
+    c.fresh === 0 ? `${l} ${n(c.resumed)} resumed` : c.resumed === 0 ? `${l} ${n(c.fresh)} new` : `${l} ${n(c.resumed)} resumed + ${n(c.fresh)} new`,
+  );
+  return `resumed from the interrupted run vs newly translated: ${parts.join(' · ')}`;
+}
+
+/** Gross (before translation memory) next to after-cache chars, e.g. `305,460 chars gross → 12,340 after cache`. */
+export function formatGrossVsCache(e: { chars: number; grossChars?: number; memoryChars?: number }): string {
+  const n = (v: number) => v.toLocaleString('en-GB');
+  if (typeof e.grossChars !== 'number' || e.grossChars === e.chars) return `${n(e.chars)} chars to translate`;
+  const mem = e.memoryChars ?? e.grossChars - e.chars;
+  return `${n(e.grossChars)} chars gross → ${n(e.chars)} after cache (${n(mem)} already translated, not billed)`;
 }

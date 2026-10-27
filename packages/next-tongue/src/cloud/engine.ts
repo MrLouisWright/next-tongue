@@ -75,7 +75,7 @@ export async function loadGlossary(cwd: string, path: string | undefined): Promi
   if (!path) return { terms: {} };
   try {
     const g = JSON.parse(await readFile(resolveInsideProject(cwd, path), 'utf8')) as Partial<Glossary>;
-    return { terms: g.terms ?? {} };
+    return canonicalGlossary({ terms: g.terms ?? {} });
   } catch {
     return { terms: {} };
   }
@@ -83,7 +83,23 @@ export async function loadGlossary(cwd: string, path: string | undefined): Promi
 
 export function mergeGlossary(local: Glossary, remote: GlossaryTerms): Glossary {
   // Local file wins for terms defined in both (it is code-reviewed).
-  return { terms: { ...remote, ...local.terms } };
+  return canonicalGlossary({ terms: { ...remote, ...local.terms } });
+}
+
+/**
+ * Same glossary → same bytes: terms and their fields sorted, undefined dropped. Sent identically on every
+ * estimate/translate (always as a record, `{}` when empty) so the server's translation-memory lookup and the
+ * request hash match across runs.
+ */
+export function canonicalGlossary(g: Glossary): Glossary {
+  const terms: GlossaryTerms = {};
+  for (const term of Object.keys(g.terms ?? {}).sort()) {
+    const spec = g.terms[term] ?? {};
+    const out: GlossaryTerms[string] = {};
+    for (const k of Object.keys(spec).sort()) if (spec[k] !== undefined) out[k] = spec[k];
+    terms[term] = out;
+  }
+  return { terms };
 }
 
 // ---------- lockfile ----------
@@ -158,7 +174,8 @@ export function diffCatalogs(args: {
       if (args.keyFilter && !args.keyFilter(key)) continue;
       const t = target[key];
       const entry = section[key];
-      const missing = t == null || t === '';
+      // An empty source has an empty translation: '' is not "missing" then (written locally, never sent).
+      const missing = t == null || (t === '' && source !== '');
       const changed = entry != null && entry.source !== sha(source);
       const edited = entry != null && !missing && entry.target !== sha(t);
       if (args.retranslate) {
@@ -440,7 +457,8 @@ export async function translateViaCloud(args: {
     saving = saving.then(() => args.persist!(state));
     return saving;
   };
-  const glossaryHash = sha(JSON.stringify(args.glossary.terms ?? {}));
+  const glossary = canonicalGlossary(args.glossary);
+  const glossaryHash = sha(JSON.stringify(glossary.terms));
 
   const poller = new JobPoller(args.client, {
     ...(args.pollIntervalMs != null ? { intervalMs: args.pollIntervalMs } : {}),
@@ -490,7 +508,7 @@ export async function translateViaCloud(args: {
           sourceLocale: args.sourceLocale,
           targetLocales: [locale],
           items: reqItems,
-          glossary: args.glossary.terms,
+          glossary: glossary.terms,
           ...(args.context ? { context: args.context } : {}),
           placeholderPattern: '__TONGUE_n__',
           idempotencyKey,

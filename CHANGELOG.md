@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.0.4] — Unreleased
+
+### Fixed
+
+- **The wizard's estimate now matches what is actually sent.** It used to count every key × every language (for example 305,460 chars), but runs only send missing or changed keys. The wizard now builds the same plan as `tongue update` (pull, then diff against the target files + `tongue.lock`) and shows `N keys need translation · M already translated` with a per-language count. It requests one estimate per language containing only the planned items, with the same `sourceLocale` and glossary as the translate call. An empty plan prints `Nothing to translate` and skips the confirm.
+- **Gross vs after-cache:** the estimate shows the gross figure next to the after-cache one (`305,460 chars gross → 12,340 after cache (293,120 already translated, not billed)`), using `grossChars` / `memoryChars` / `perLocale` from `/estimate` (Loomlocale a5fb584).
+- **Empty source texts** (e.g. `homeCompare.h0: ""`) are written locally as an empty target with a lock entry. They are never sent or billed, and are no longer re-planned as "missing" on every run.
+- **Identical glossary on every run:** the glossary is canonicalised (terms and fields sorted) and always sent as a record (`{}` when empty) on estimate and translate, so the server's translation memory and request hash match across runs.
+- **First sync pushes existing translations:** on the first run against a project (no sync cursor yet), existing target values are pushed via `/sync` (`origin: 'cli'`, `sourceHash`) before estimating and translating, so they count as cached.
+- **Resume message:** after a resumed run, `update` prints per language what came from the interrupted run vs what was newly translated (`de 120 resumed + 479 new · fr 599 new`).
+
+### Internal
+
+- `runUpdate({ confirmPlan })` hook (used by the wizard). `aggregateEstimates` sums `grossChars` / `memoryChars` and merges `perLocale`.
+- Mock server: `translationMemory` option (the estimate excludes cached texts per locale and glossary; synced targets are matched by `sourceHash`). Records `state.estimates` / `state.translateBodies`. New tests in `estimate-1-0-4.test.ts`.
+
 ## [1.0.3] — 2026-10-27
 
 ### Changed
