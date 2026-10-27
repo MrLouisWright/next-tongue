@@ -465,9 +465,49 @@ export type ClientOptions = {
   /** Injected for tests. */
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
-  /** Called before each retry wait. */
-  onRetry?: (info: { attempt: number; waitMs: number; status: number; path: string }) => void;
+  /** Called before each retry wait. `message` is a human line, e.g. "Loomlocale reset the connection (POST /sync), retrying 1/2". */
+  onRetry?: (info: { attempt: number; waitMs: number; status: number; path: string; message?: string }) => void;
+  /** Per-request timeouts in ms (1.0.5). Defaults: 60s for /sync, /estimate, /me and other calls; 30s for job polls. */
+  timeouts?: Partial<RequestTimeouts>;
+  /** Cap on the total time one call may spend retrying (default 3 min). */
+  retryBudgetMs?: number;
 };
+
+export type RequestTimeouts = { sync: number; estimate: number; me: number; poll: number; default: number };
+export const DEFAULT_TIMEOUTS: RequestTimeouts = { sync: 60_000, estimate: 60_000, me: 60_000, poll: 30_000, default: 60_000 };
+/** Retries after an immediate ECONNRESET / ECONNREFUSED (connection never got a response). */
+export const MAX_RESET_RETRIES = 2;
+const IMMEDIATE_MS = 5_000;
+const RESET_CODES = new Set(['ECONNRESET', 'ECONNREFUSED', 'UND_ERR_SOCKET', 'EPIPE']);
+
+/** AbortSignal.timeout with a fallback for runtimes without it (it exists from Node 17.3). */
+export function timeoutSignal(ms: number): AbortSignal {
+  const AS = AbortSignal as typeof AbortSignal & { timeout?: (ms: number) => AbortSignal };
+  if (typeof AS.timeout === 'function') return AS.timeout(ms);
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' })), ms);
+  (t as { unref?: () => void }).unref?.();
+  return c.signal;
+}
+
+/** errno-style code of a fetch failure (undici puts it on `cause`, sometimes nested). */
+export function networkErrorCode(err: unknown): string | null {
+  let e: unknown = err;
+  for (let i = 0; i < 4 && e && typeof e === 'object'; i++) {
+    const o = e as { code?: unknown; cause?: unknown; errors?: unknown[] };
+    if (typeof o.code === 'string') return o.code;
+    e = o.cause ?? o.errors?.[0];
+  }
+  return null;
+}
+
+const fmtSec = (ms: number) => `${Math.round(ms / 1000)}s`;
+
+/** Nothing-billed hint for a failed call (translate jobs are idempotent: the same key never bills twice). */
+export function nothingBilledHint(method: string, path: string): string {
+  if (/\/translate$/.test(path)) return 'Re-running `tongue update` reuses the same idempotency key, so nothing is billed twice.';
+  return `Nothing was billed for ${method} ${path.replace(/\/projects\/[^/]+/, '/projects/…')}; re-run \`tongue update\` to resume.`;
+}
 
 const MAX_BACKOFF_MS = 30_000;
 
@@ -497,6 +537,8 @@ export class LoomlocaleClient {
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly random: () => number;
   private readonly onRetry: ClientOptions['onRetry'];
+  private readonly timeouts: RequestTimeouts;
+  private readonly retryBudgetMs: number;
   /** Shared rate-limit gate: concurrent workers wait here after a 429/503. */
   private pausedUntil = 0;
 
@@ -506,10 +548,21 @@ export class LoomlocaleClient {
     this.sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
     this.random = opts.random ?? Math.random;
     this.onRetry = opts.onRetry;
+    this.timeouts = { ...DEFAULT_TIMEOUTS, ...opts.timeouts };
+    this.retryBudgetMs = opts.retryBudgetMs ?? 180_000;
     this.baseURL = (opts.baseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.token = opts.token ?? null;
     this.fetchImpl = opts.fetchImpl ?? globalThis.fetch;
     this.userAgent = opts.userAgent ?? 'next-tongue-cli/1';
+  }
+
+  /** Timeout for one request: 60s for /sync, /estimate, /me; 30s for job polls (1.0.5). */
+  timeoutFor(method: string, path: string): number {
+    if (method === 'GET' && path.startsWith('/jobs/')) return this.timeouts.poll;
+    if (path.endsWith('/sync')) return this.timeouts.sync;
+    if (path.endsWith('/estimate')) return this.timeouts.estimate;
+    if (path === '/me') return this.timeouts.me;
+    return this.timeouts.default;
   }
 
   private async request<T>(
@@ -518,18 +571,49 @@ export class LoomlocaleClient {
     body?: unknown,
     opts: { auth?: boolean; allowError?: boolean; headers?: Record<string, string>; retry?: boolean } = {},
   ): Promise<{ status: number; data: T }> {
+    const started = Date.now();
+    // Safe to repeat: GETs and sync pulls. A /sync push, /translate etc. are only retried when the server said so (429/503)
+    // or the connection failed before any response could have been produced (immediate reset/refused).
+    const idempotent = method === 'GET' || (path.endsWith('/sync') && (body as { mode?: string } | undefined)?.mode === 'pull');
+    const label = `${method} ${path}`;
+    let resets = 0;
     for (let attempt = 0; ; attempt++) {
       const wait = this.pausedUntil - Date.now();
       if (wait > 0) await this.sleep(wait);
+      const t0 = Date.now();
       try {
         return await this.requestOnce<T>(method, path, body, opts);
       } catch (err) {
-        const retryable =
-          opts.retry !== false && err instanceof ApiError && (err.status === 429 || err.status === 503 || err.status === 0) && err.code !== 'timeout';
-        if (!retryable || attempt >= this.maxRetries) throw err;
-        const waitMs = backoffDelay(attempt, (err as ApiError).retryAfterMs ?? null, this.backoffMs, this.random);
-        if ((err as ApiError).status !== 0) this.pausedUntil = Math.max(this.pausedUntil, Date.now() + waitMs);
-        this.onRetry?.({ attempt: attempt + 1, waitMs, status: (err as ApiError).status, path });
+        if (opts.retry === false || !(err instanceof ApiError) || attempt >= this.maxRetries) throw err;
+        let retryable = false;
+        let reason = '';
+        if (err.code === 'timeout') retryable = false; // never retried (a /sync push may still be running server-side)
+        else if (err.status === 429 || err.status === 503) {
+          retryable = true;
+          reason = `Loomlocale is busy (HTTP ${err.status}, ${label})`;
+        } else if ((err.status === 502 || err.status === 504) && idempotent) {
+          retryable = true;
+          reason = `Loomlocale gateway error (HTTP ${err.status}, ${label})`;
+        } else if (err.status === 0 && err.code === 'network') {
+          const immediate = Date.now() - t0 < IMMEDIATE_MS;
+          const resetLike = RESET_CODES.has(networkErrorCode(err.cause) ?? '') || idempotent;
+          if (immediate && resetLike && resets < MAX_RESET_RETRIES) {
+            resets++;
+            retryable = true;
+            reason = `Loomlocale reset the connection (${label}), retrying ${resets}/${MAX_RESET_RETRIES}`;
+          }
+        }
+        if (!retryable) {
+          if (err.status === 0 && !/Nothing was billed|nothing is billed/.test(err.message)) err.message += `. ${nothingBilledHint(method, path)}`;
+          throw err;
+        }
+        const waitMs = backoffDelay(attempt, err.retryAfterMs ?? null, this.backoffMs, this.random);
+        if (Date.now() - started + waitMs > this.retryBudgetMs) {
+          err.message += ` (gave up after ${fmtSec(Date.now() - started)} of retries). ${nothingBilledHint(method, path)}`;
+          throw err;
+        }
+        if (err.status !== 0) this.pausedUntil = Math.max(this.pausedUntil, Date.now() + waitMs);
+        this.onRetry?.({ attempt: attempt + 1, waitMs, status: err.status, path, message: reason });
         await this.sleep(waitMs);
       }
     }
@@ -556,17 +640,30 @@ export class LoomlocaleClient {
       }
       headers.authorization = `Bearer ${this.token}`;
     }
+    const timeoutMs = this.timeoutFor(method, path);
+    const asError = (err: unknown): ApiError => {
+      const name = err instanceof Error ? err.name : '';
+      if (name === 'TimeoutError' || name === 'AbortError') {
+        return new ApiError(0, 'timeout', `Loomlocale didn't answer within ${fmtSec(timeoutMs)} (${method} ${path}). Not retried`);
+      }
+      const code = networkErrorCode(err);
+      const e = new ApiError(0, 'network', `Cannot reach ${this.baseURL} (${method} ${path}): ${code === 'ECONNRESET' || code === 'UND_ERR_SOCKET' ? 'connection reset by the server' : code === 'ECONNREFUSED' ? 'connection refused' : err instanceof Error ? err.message : String(err)}`);
+      (e as { cause?: unknown }).cause = err;
+      return e;
+    };
     let res: Response;
+    let text: string;
     try {
       res = await this.fetchImpl(`${this.baseURL}${path}`, {
         method,
         headers,
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        signal: timeoutSignal(timeoutMs),
       });
+      text = await res.text();
     } catch (err) {
-      throw new ApiError(0, 'network', `Cannot reach ${this.baseURL}: ${err instanceof Error ? err.message : err}`);
+      throw asError(err);
     }
-    const text = await res.text();
     let data: unknown = {};
     if (text) {
       try {
@@ -574,6 +671,11 @@ export class LoomlocaleClient {
       } catch {
         data = { error: 'invalid_json', message: text.slice(0, 200) };
       }
+    }
+    if (res.status === 502 || res.status === 504) {
+      const d = normalizeErrorBody(data);
+      const e = new ApiError(res.status, d.error ?? (res.status === 504 ? 'gateway_timeout' : 'bad_gateway'), `Loomlocale API ${method} ${path} → ${res.status} ${d.message ?? (res.status === 504 ? 'gateway timeout' : 'bad gateway')}`);
+      if (!opts.allowError) throw e;
     }
     if (res.status === 429 || res.status === 503) {
       const d = normalizeErrorBody(data);

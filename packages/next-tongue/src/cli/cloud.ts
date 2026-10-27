@@ -1,4 +1,5 @@
 /** Loomlocale account + project commands: login, logout, whoami, link, status, push, pull. */
+import { pushInBatches, SYNC_PUSH_BATCH } from '../cloud/sync-batch.js';
 import { TongueError } from '../errors.js';
 import { LoomlocaleClient, TOKEN_PREFIX, allowanceLines, DEVICE_PAGE_URL, creditExpiryWarning, lowCreditHint, type Me, type Project, type SyncEntry } from '../cloud/api.js';
 import { createCredentialStore } from '../cloud/credentials.js';
@@ -170,8 +171,12 @@ export async function cmdPush(opts: CloudGlobals): Promise<number> {
       if (k in source.flat && v) entries.push({ key: k, locale: l, text: v, sourceHash: lockSection(lock, l)[k]?.source ?? sha(source.flat[k]!), origin: 'cli' });
     }
   }
-  const res = await client.sync(projectId, { mode: 'push', sourceLocale: ctx.sourceLocale, ...(lock.$cloud?.cursor ? { cursor: lock.$cloud.cursor } : {}), entries });
-  lock.$cloud = { ...lock.$cloud, projectId, cursor: res.cursor, sourceLocale: ctx.sourceLocale };
+  const res = await pushInBatches(client, projectId, { sourceLocale: ctx.sourceLocale, ...(lock.$cloud?.cursor ? { cursor: lock.$cloud.cursor } : {}), entries }, {
+    onBatch: (done, total) => {
+      if (!opts.quiet && total > SYNC_PUSH_BATCH) console.log(color.dim(`  pushed ${done.toLocaleString('en-GB')}/${total.toLocaleString('en-GB')}`));
+    },
+  });
+  lock.$cloud = { ...lock.$cloud, projectId, ...(res.cursor ? { cursor: res.cursor } : {}), sourceLocale: ctx.sourceLocale };
   await saveLock(ctx.cwd, ctx.lockPath, lock);
   if (!opts.quiet) console.log(`${color.green('✔')} pushed ${entries.length} strings to Loomlocale`);
   return entries.length;

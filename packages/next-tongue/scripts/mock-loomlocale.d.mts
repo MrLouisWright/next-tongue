@@ -1,3 +1,4 @@
+export type MockFault = { match: string; mode: 'slow' | 'hang' | 'reset' | 'status'; times?: number; delayMs?: number; status?: number; syncMode?: 'push' | 'pull' | 'both' };
 export declare function createMockLoomlocale(opts?: {
   token?: string;
   approveAfter?: number;
@@ -25,6 +26,7 @@ export declare function createMockLoomlocale(opts?: {
   progressPerPoll?: number | null;
   failJobs?: { error?: string; message?: string } | null;
   translationMemory?: boolean;
+  faults?: MockFault[];
 }): {
   state: {
     requests: Array<{ method: string; path: string; body: unknown; auth: string | null; idempotencyKey: string | null }>;
@@ -56,6 +58,9 @@ export declare function createMockLoomlocale(opts?: {
     progressPerPoll: number | null;
     failJobs: { error?: string; message?: string } | null;
     translationMemory: boolean;
+    faults: MockFault[];
+    faultHits: Array<{ sig: string; mode: string; syncMode?: string }>;
+    syncPushSizes: number[];
     memory: Map<string, string>;
     estimates: Array<{ sourceLocale: string; targetLocales: string[]; items: Array<{ key: string; text: string }>; glossary?: Record<string, unknown> }>;
     translateBodies: Array<{ sourceLocale: string; targetLocales: string[]; items: Array<{ key: string; text: string }>; glossary?: Record<string, unknown> }>;

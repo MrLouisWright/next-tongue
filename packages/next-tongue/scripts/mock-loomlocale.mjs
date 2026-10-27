@@ -12,7 +12,7 @@
  * Prepaid credits (plan.kind free|credits|subscription; estimate withinCredit/creditRequiredGBP): creditBalanceGBP on /me + estimate, 402 insufficient_credit.
  * Test knobs: rateLimit {translate, job, retryAfter}, dropJobPolls, pollsToFinish, spendCapGBP,
  * limits (published on /me; null = omitted), enforceLimits (what translate enforces),
- * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate), stuckJobs, failJobs {error, message}, queuedPolls, progressPerPoll, translationMemory (estimate grossChars/memoryChars/perLocale; records state.estimates, state.translateBodies).
+ * cardRequired {setupUrl, afterTranslates}, account (extra /me fields), nestedErrors, spendCapReached, lowCredit, conflicts (force N 409s), creditBalanceGBP, insufficientCredit {topUpUrl|null}, creditExpiry (fields spread into /me + estimate), stuckJobs, failJobs {error, message}, queuedPolls, progressPerPoll, translationMemory, faults [{ match: 'POST /sync', mode: slow|hang|reset|status, times, delayMs, status, syncMode }] (estimate grossChars/memoryChars/perLocale; records state.estimates, state.translateBodies).
  * Estimate: allowanceRemaining is the allowance before the run; billableChars = chars beyond it.
  */
 import { createServer } from 'node:http';
@@ -60,6 +60,9 @@ export function createMockLoomlocale(opts = {}) {
     memory: new Map(), // `${locale}\0${sourceHash}` → canonical glossary JSON | '*'
     estimates: [],
     translateBodies: [],
+    faults: (opts.faults ?? []).map((f) => ({ ...f })), // slow | hang | reset | status (502/504) per request signature
+    faultHits: [],
+    syncPushSizes: [],
     stuckJobs: opts.stuckJobs ?? false, // jobs stay queued forever (progress 0)
     failJobs: opts.failJobs ?? null, // { error, message }: jobs finish as failed with this reason // e.g. { nextExpiry: '2026-11-20', nextExpiryGBP: 12.5 }
   };
@@ -92,6 +95,18 @@ export function createMockLoomlocale(opts = {}) {
     const path = url.pathname.replace(/^\/api\/v1/, '');
     state.requests.push({ method: req.method, path, body, auth: req.headers.authorization ?? null, idempotencyKey: req.headers['idempotency-key'] ?? null });
     const authed = req.headers.authorization === `Bearer ${state.token}`;
+    // 1.0.5 fault injection: { match: 'POST /sync' (prefix of "METHOD path", path without /projects/:id), mode, times, delayMs, status, syncMode }
+    const sig = `${req.method} ${path.replace(/^\/projects\/[^/]+/, '')}`;
+    const fault = state.faults.find((f) => (f.times ?? 1) > 0 && sig.startsWith(f.match) && (!f.syncMode || body.mode === f.syncMode));
+    if (fault) {
+      fault.times = (fault.times ?? 1) - 1;
+      state.faultHits.push({ sig, mode: fault.mode, syncMode: body.mode });
+      if (fault.mode === 'reset') return void req.socket.destroy();
+      if (fault.mode === 'hang') return; // never answers (client timeout)
+      if (fault.mode === 'status') return json(res, fault.status ?? 504, { error: fault.status === 502 ? 'bad_gateway' : 'gateway_timeout', message: 'FUNCTION_INVOCATION_TIMEOUT' });
+      if (fault.mode === 'slow') await new Promise((r) => setTimeout(r, fault.delayMs ?? 1000));
+    }
+    if (req.method === 'POST' && /\/sync$/.test(path) && body.mode === 'push') state.syncPushSizes.push((body.entries ?? []).length);
 
     if (req.method === 'POST' && path === '/device/code') {
       const device_code = randomUUID();
@@ -254,7 +269,7 @@ export function createMockLoomlocale(opts = {}) {
       const addr = server.address();
       return `http://127.0.0.1:${addr.port}/api/v1`;
     },
-    close: () => new Promise((r) => server.close(() => r())),
+    close: () => new Promise((r) => { server.close(() => r()); server.closeAllConnections?.(); }),
   };
 }
 

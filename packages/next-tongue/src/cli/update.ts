@@ -29,6 +29,7 @@ import { color, createPrompter, type Prompter, type Progress } from '../cloud/tu
 import { enforceBudget, hasBudget, resolveBudget } from '../cloud/budget.js';
 import { buildChanges, changesMarkdown, renderChanges, renderChangesSummary, startReviewBranch, summarizeChanges, type KeyChange } from './review.js';
 import { resolveInsideProject } from './safe-path.js';
+import { pushInBatches, SYNC_PUSH_BATCH } from '../cloud/sync-batch.js';
 
 export type UpdateOptions = CloudGlobals & {
   dryRun?: boolean;
@@ -135,7 +136,32 @@ async function loadMeta(ctx: ProjectContext, source: Catalog): Promise<Record<st
   return out;
 }
 
+/** Where the current run is, for the Ctrl-C message. */
+type RunWhere = { phase: string; statePath: string | null; resumable: boolean };
+
+/** Ctrl-C message: where the run stopped and how to resume. */
+export function interruptMessage(w: RunWhere): string {
+  const resume = w.statePath && w.resumable
+    ? `Finished batches are saved in ${w.statePath}; re-run \`tongue update\` to resume (finished work is not billed again).`
+    : 're-run `tongue update` to start again (nothing was billed for unfinished requests).';
+  return `\nInterrupted (Ctrl-C) during ${w.phase}. ${resume}`;
+}
+
 export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
+  const where: RunWhere = { phase: 'loading project', statePath: null, resumable: false };
+  const onSigint = () => {
+    if (!opts.json) console.error(interruptMessage(where));
+    process.exit(130);
+  };
+  process.once('SIGINT', onSigint);
+  try {
+    return await runUpdateInner(opts, where);
+  } finally {
+    process.removeListener('SIGINT', onSigint);
+  }
+}
+
+async function runUpdateInner(opts: UpdateOptions, where: RunWhere): Promise<UpdateSummary> {
   const startedAt = Date.now();
   const env = opts.env ?? process.env;
   const ci = opts.ci === true || env.CI === 'true';
@@ -174,6 +200,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
   // First run against this project (no sync cursor yet): existing target values are pushed before translating.
   const firstRun = !lock.$cloud?.cursor;
   // 1. pull web edits + glossary
+  where.phase = 'pulling web edits from Loomlocale';
   const takenFromRemote = new Set<string>();
   if (sync && client && projectId) {
     const pulled = await client.sync(projectId, {
@@ -224,9 +251,15 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       }
     }
     if (seed.length) {
-      const pushed = await client.sync(projectId, { mode: 'push', sourceLocale: ctx.sourceLocale, ...(lock.$cloud?.cursor ? { cursor: lock.$cloud.cursor } : {}), entries: seed, deletedKeys: [] });
-      lock.$cloud = { ...lock.$cloud, projectId, cursor: pushed.cursor, sourceLocale: ctx.sourceLocale };
-      log(color.dim(`  first sync: pushed ${seed.length.toLocaleString('en-GB')} existing translation(s) to Loomlocale`));
+      const n = (v: number) => v.toLocaleString('en-GB');
+      where.phase = `first sync: pushed 0/${n(seed.length)}`;
+      const pushed = await pushInBatches(client, projectId, { sourceLocale: ctx.sourceLocale, ...(lock.$cloud?.cursor ? { cursor: lock.$cloud.cursor } : {}), entries: seed, deletedKeys: [] }, {
+        onBatch: (done, total) => {
+          where.phase = `first sync: pushed ${n(done)}/${n(total)}`;
+          log(color.dim(`  ${where.phase}`));
+        },
+      });
+      lock.$cloud = { ...lock.$cloud, projectId, ...(pushed.cursor ? { cursor: pushed.cursor } : {}), sourceLocale: ctx.sourceLocale };
     }
   }
 
@@ -295,6 +328,9 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
   if (plan.length && client) {
     if (!projectId) throw new TongueError('TONGUE_E_CONFIG', 'No Loomlocale project linked. Run `tongue link`.');
     const statePath = runStatePath(ctx.lockPath);
+    where.statePath = statePath;
+    where.resumable = true;
+    where.phase = `translating (0/${plan.length.toLocaleString('en-GB')} strings)`;
     const state = await loadRunState(ctx.cwd, statePath, projectId);
     summary.resumed = Object.keys(state.batches).length > 0;
     // Keys already finished by the interrupted run count towards progress straight away.
@@ -319,6 +355,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
     const redraw = () => {
       if (!bar) return;
       const o = progress.overall();
+      where.phase = `translating (${o.done.toLocaleString('en-GB')}/${o.total.toLocaleString('en-GB')} strings done)`;
       if (bar.set) bar.set(o.done, o.total, progress.segments());
       else if (o.done > shownDone) bar.tick(o.done - shownDone, progress.segments().join(' · '));
       shownDone = Math.max(shownDone, o.done);
@@ -488,14 +525,13 @@ export async function runUpdate(opts: UpdateOptions): Promise<UpdateSummary> {
       if (t != null) entries.push({ key: e.key, locale: e.locale, text: t, sourceHash: sha(source.flat[e.key] ?? ''), origin: 'cli' });
     }
     const deletedKeys = [...new Set(Object.values(diff.removed).flat())];
-    const pushed = await client.sync(projectId, {
-      mode: 'push',
-      sourceLocale: ctx.sourceLocale,
-      ...(lock.$cloud?.cursor ? { cursor: lock.$cloud.cursor } : {}),
-      entries,
-      deletedKeys,
+    where.phase = 'pushing results to Loomlocale';
+    const pushed = await pushInBatches(client, projectId, { sourceLocale: ctx.sourceLocale, ...(lock.$cloud?.cursor ? { cursor: lock.$cloud.cursor } : {}), entries, deletedKeys }, {
+      onBatch: (done, total) => {
+        if (total > SYNC_PUSH_BATCH) log(color.dim(`  sync: pushed ${done.toLocaleString('en-GB')}/${total.toLocaleString('en-GB')}`));
+      },
     });
-    lock.$cloud = { ...lock.$cloud, projectId, cursor: pushed.cursor, sourceLocale: ctx.sourceLocale };
+    lock.$cloud = { ...lock.$cloud, projectId, ...(pushed.cursor ? { cursor: pushed.cursor } : {}), sourceLocale: ctx.sourceLocale };
   }
   await saveLock(ctx.cwd, ctx.lockPath, lock);
   await clearState();

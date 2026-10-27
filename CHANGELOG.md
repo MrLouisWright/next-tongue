@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
+## [1.0.5] — Unreleased
+
+### Fixed
+
+- **A large first sync no longer times out or looks hung.** The first-run `/sync` push (e.g. 8,371 rows, ~1.6 MB) used to go in one request, hit the 300 s gateway limit (Vercel 504), and then get retried. Pushes now go in sequential batches of at most 2,000 entries, passing the cursor along, with progress: `first sync: pushed 2,000/8,371`. This applies to `update`'s final push and `tongue push` too. Built against Loomlocale 1ccf440 (bulk writes).
+- **Per-request timeouts:** `AbortSignal.timeout` (with a fallback) of 60 s for `/sync`, `/estimate` and `/me`, and 30 s for job polls. A timeout is reported as `ApiError(0, 'timeout')` and never retried. A timed-out poll is polled again next round, up to 2 in a row.
+- **Safer retries:** a `/sync` push is never retried after a timeout. Network failures are retried at most twice, and only when the connection failed immediately (`ECONNRESET`/`ECONNREFUSED`). `502`/`504` are retried only for GET and sync pulls. Total retry time per call is capped at ~3 min.
+- **Clear messages instead of "connection dropped":** e.g. "Loomlocale didn't answer within 60s (POST /sync)" or "Loomlocale reset the connection (POST /sync), retrying 1/2". Final errors end with a hint that nothing was billed.
+- **Ctrl-C** during `tongue update` prints where the run stopped (e.g. `first sync: pushed 2,000/8,371` or `translating (1,200/5,980 strings done)`) and whether it can be resumed from `tongue.lock.run.json`.
+
+### Internal
+
+- `pushInBatches` (`cloud/sync-batch.ts`). Mock server: `faults` option (`slow` / `hang` / `reset` / `status` 502/504 per request, optionally per sync mode); records `syncPushSizes` / `faultHits`. New tests in `sync-1-0-5.test.ts`.
+
 ## [1.0.4] — 2026-10-27
 
 ### Fixed
