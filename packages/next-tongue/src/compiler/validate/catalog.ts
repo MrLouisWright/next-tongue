@@ -309,47 +309,74 @@ export async function validateStale(
   return issues;
 }
 
-/** Letter + single quote + letter — usually meant as prose apostrophe, not ICU quote. */
+/**
+ * Since 1.0.6 a lone ' is only an ICU quote right before `{`, `}`, `<` or (inside a
+ * plural/selectordinal) `#`. Elsewhere (l'été, don't, d'un {email}) it is a plain
+ * apostrophe, so only flag a prose apostrophe — a lone ' preceded by a letter — that
+ * sits directly before one of those characters and is never closed, e.g. l'{app} (quotes
+ * away {app} and the rest). Closed quotes such as '{'literal'}' or "'<id>'" are deliberate.
+ */
 export function likelyUnescapedApostrophe(icu: string): boolean {
-  for (let i = 0; i < icu.length - 2; i++) {
-    const a = icu[i]!;
-    const b = icu[i + 1]!;
-    const c = icu[i + 2]!;
-    if (b === "'" && /[A-Za-zÀ-ÿ]/.test(a) && /[A-Za-zÀ-ÿ]/.test(c)) {
-      return true;
-    }
-  }
-  return false;
+  return findQuotingApostrophe(icu) !== null;
 }
 
-/**
- * Apostrophe-in-words is common in fr/it/…; English `don't` alone floods CI.
- * Still warn for English when the message also has `{…}` placeholders — a prose
- * apostrophe (couldn't) quotes away the rest of the string so args vanish.
- */
-export function shouldHintApostrophe(
-  locale: string,
-  source?: string,
-): boolean {
-  if (/^(fr|it|ca|oc|ht|lb|rm|ga|gd|mt)(-|$)/i.test(locale)) return true;
-  if (
-    /^(en)(-|$)/i.test(locale) &&
-    source != null &&
-    /\{[A-Za-z_$]/.test(source) &&
-    likelyUnescapedApostrophe(source)
-  ) {
-    return true;
+/** Index of the first prose apostrophe that ICU would treat as a quote, or null. */
+export function findQuotingApostrophe(icu: string): number | null {
+  // Brace stack: 'arg' = inside {…} header, 'plural' / 'body' = inside an option body.
+  const stack: Array<'arg' | 'plural' | 'body'> = [];
+  const headerStart: number[] = [];
+  for (let i = 0; i < icu.length; i++) {
+    const ch = icu[i]!;
+    if (ch === "'") {
+      if (icu[i + 1] === "'") {
+        i++;
+        continue;
+      }
+      const next = icu[i + 1];
+      const inPlural = stack.includes('plural');
+      const quotes = next === '{' || next === '}' || next === '<' || (next === '#' && inPlural);
+      if (quotes) {
+        let j = i + 1;
+        for (; j < icu.length; j++) {
+          if (icu[j] === "'") {
+            if (icu[j + 1] === "'") j++;
+            else break;
+          }
+        }
+        // A prose apostrophe (after a letter) with no closing ' swallows the rest of the message.
+        if (j >= icu.length && i > 0 && /\p{L}/u.test(icu[i - 1]!)) return i;
+        // Otherwise a deliberate quoted literal ('{literal}'): skip to the closing '.
+        i = j;
+      }
+      continue;
+    }
+    if (ch === '{') {
+      const top = stack[stack.length - 1];
+      if (top === 'arg') {
+        const header = icu.slice(headerStart[headerStart.length - 1]!, i);
+        stack.push(/^\s*[\w$.]+\s*,\s*(plural|selectordinal)\s*,/.test(header) ? 'plural' : 'body');
+      } else {
+        stack.push('arg');
+        headerStart.push(i + 1);
+      }
+    } else if (ch === '}') {
+      const top = stack.pop();
+      if (top === 'arg') headerStart.pop();
+    }
   }
-  return false;
+  return null;
+}
+
+/** Apostrophe hints now apply to every locale (the narrow rule no longer floods on don't / l'été). */
+export function shouldHintApostrophe(_locale: string, _source?: string): boolean {
+  return true;
 }
 
 export function apostropheHintMessage(fullKey: string, source: string): string {
-  const hasArgs = /\{[A-Za-z_$]/.test(source);
-  const base = `Key "${fullKey}" looks like a natural-language apostrophe. In ICU, double it: "couldn''t" / "l''été".`;
-  if (hasArgs) {
-    return `${base} A single ' before a letter quotes until the next ', which can swallow {placeholders} so the default locale looks like it has no args.`;
-  }
-  return base;
+  const at = findQuotingApostrophe(source);
+  const snippet = at === null ? null : source.slice(Math.max(0, at - 1), Math.min(source.length, at + 6));
+  const fix = snippet ? ` ("${snippet}" → "${snippet.replace("'", "''")}")` : '';
+  return `Key "${fullKey}" has a single ' directly before {, }, < or # (in a plural), which ICU reads as a quote and hides what follows. Double it if you meant an apostrophe: l'{app} → l''{app}${fix}.`;
 }
 
 export function formatArgMismatch(opts: {
@@ -387,7 +414,7 @@ export function formatArgMismatch(opts: {
     likelyUnescapedApostrophe(defaultSource)
   ) {
     msg +=
-      `\n  Hint: default locale may have an unescaped apostrophe (e.g. couldn't → couldn''t) that quoted away {…}.`;
+      `\n  Hint: default locale may have a single ' right before {…} (e.g. l'{app} → l''{app}) that quoted the placeholder away.`;
   }
   return msg;
 }

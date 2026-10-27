@@ -106,18 +106,32 @@ class Parser {
   }
 
   private parseQuoted(): string {
-    // Apostrophe escaping: '' → ', '{ → {, 'text' → text
+    // ICU apostrophe rules (ICU4J ApostropheMode.DOUBLE_OPTIONAL):
+    //   ''            → a literal apostrophe (anywhere)
+    //   '{ '} '< '#   → starts quoted text up to the next single ' ('#' only inside a plural)
+    //   any other '   → a plain apostrophe, e.g. French/Catalan/Italian elisions "d'un {email}", "l'app"
     this.expect("'");
-    if (this.peek() === "'") {
+    const next = this.peek();
+    if (next === "'") {
       this.advance();
       return "'";
     }
+    if (!(next === '{' || next === '}' || next === '<' || (next === '#' && this.inPluralContext > 0))) return "'";
     let out = '';
-    while (!this.eof() && this.peek() !== "'") {
+    while (!this.eof()) {
+      if (this.peek() === "'") {
+        if (this.src[this.i + 1] === "'") {
+          out += "'";
+          this.advance();
+          this.advance();
+          continue;
+        }
+        this.advance();
+        break;
+      }
       out += this.peek();
       this.advance();
     }
-    if (this.peek() === "'") this.advance();
     return out;
   }
 

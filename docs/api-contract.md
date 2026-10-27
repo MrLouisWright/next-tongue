@@ -39,6 +39,8 @@ CLI polls every `interval` s, +5 s on `slow_down`. No refresh token is assumed (
 - An **unknown or already-redeemed** `device_code` returns `expired_token`, the same as a timed-out code. The CLI treats this as "restart login" ("This login code is no longer valid (expired, or already used). Restart with `tongue login`.").
 
 ## `GET /me`
+
+`allowanceRemaining` and the optional `bonusCharsRemaining` are both character counts. After a run's jobs finish, `tongue update` calls `/me` again and shows their sum as "N chars allowance left". If that call fails, the line is left out.
 ```json
 { "user": { "id": "u_1", "email": "dev@example.com", "name": "Dev" },
   "org":  { "id": "o_1", "name": "Example Ltd" },
@@ -75,9 +77,11 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
 ```
 
 ## `POST /projects/:id/estimate`
+
+Since 1.0.6 the CLI sends the **masked** text (`{name}` → `__TONGUE_0__`), the same text `/translate` receives. The server (64dbb9e/aa241ad) does not bill placeholders, so the estimate matches the final bill.
 ```json
 // request
-{ "sourceLocale": "en", "targetLocales": ["de"], "items": [{ "key": "home.title", "text": "Hello, {name}!" }],
+{ "sourceLocale": "en", "targetLocales": ["de"], "items": [{ "key": "home.title", "text": "Hello, __TONGUE_0__!" }],
   "glossary": { "Loom": { "doNotTranslate": true } } }   // 1.0.4: same canonical record the translate call sends
 // 200
 { "chars": 28, "billableChars": 28, "costGBP": 0.0007, "currency": "GBP", "allowanceRemaining": null, "withinAllowance": false,

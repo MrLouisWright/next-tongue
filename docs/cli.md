@@ -29,7 +29,7 @@ Scans source (`app/`, `src/`, `components/`, `lib/`, `server/`, `actions/` by de
 - regenerates `.tongue/types.d.ts` (same as `tongue build`).
 
 ## `tongue check`
-CI gate. Reads messages + source, reports. Run it **before** `tongue build` after machine translation — it catches ICU arg parity (`missing=[] extra=[name]`), apostrophe traps in EN source, and undefined keys without waiting for a full Next build:
+CI gate. Reads messages + source, reports. Run it **before** `tongue build` after machine translation — it catches ICU arg parity (`missing=[] extra=[name]`), apostrophe traps (`l'{app}`), and undefined keys without waiting for a full Next build:
 
 | Check | Meaning | Severity from |
 |---|---|---|
@@ -37,7 +37,7 @@ CI gate. Reads messages + source, reports. Run it **before** `tongue build` afte
 | `unused` | Key in messages, never referenced in code | `strict.unused` — skipped for `$meta.planned` / `@tongue-ignore` / `unusedIgnore` |
 | `undefined` | Key referenced in code, absent in default locale | always `error` |
 | `dynamic` | Client `useT` + `t(variable)` without a string literal | always `error` — use `t.dynamic(key, { from })` |
-| `icu` | Likely unescaped prose apostrophe (`l'été` → write `l''été`) | `warn` for fr/it/… only (not English `don't`) |
+| `icu` | A single `'` after a letter, directly before `{`, `}`, `<`, or `#` in a plural, that is never closed (`l'{app}` → write `l''{app}`). Plain elisions like `l'été` / `don't` / `d'un {email}` don't warn (1.0.6) | `warn`, all locales |
 | `client-loader` | `"use client"` + `useT` rewrite calls `useLocale` without importing it | always `error` (Safari ReferenceError) |
 | `mismatch` | ICU args, tags or plural categories differ from default locale | `strict.mismatch` |
 | `syntax` | ICU parse error | always `error` |
@@ -109,6 +109,8 @@ Colour is used only on a TTY and is disabled by `NO_COLOR`. In a terminal you ar
 | £ per billing period | — | — | `cloud.budget.monthlyCostGBP` |
 
 Flags beat env, env beats config. An organisation spend cap set on loomlocale.com (`withinSpendCap: false` in the estimate) also aborts the run. `--dry-run` checks per-run caps against the local count (no network).
+
+**Summary line.** `Usage: 1,200 chars billed · est. 1,250 · 98,800 chars allowance left`. *Billed* is the sum of the jobs' `billedChars` (placeholders are not billed). *est.* is the pre-run `/estimate`. *Allowance left* comes from `/me` after the jobs (`allowanceRemaining + bonusCharsRemaining`) and is omitted if `/me` fails.
 
 **Resilience.** `429`/`503` responses are retried, honouring `Retry-After`, with exponential backoff and jitter (`cloud.maxRetries`, default 5). Every request has a timeout: 60 s for `/sync`, `/estimate` and `/me`, 30 s for job polls. A timeout is reported clearly ("Loomlocale didn't answer within 60s (POST /sync)") and is not retried. Immediate connection resets are retried at most twice, and `502`/`504` only for reads and sync pulls. One call retries for at most ~3 min. `/sync` pushes go in batches of 2,000 entries (`first sync: pushed 2,000/8,371`). Ctrl-C prints where the run stopped and whether it can be resumed. Translate requests carry a deterministic `Idempotency-Key`. Job ids and progress are saved to `tongue.lock.run.json` (add it to `.gitignore`). If a run is interrupted (crash, Ctrl-C, network loss), re-running `tongue update` resumes polling the same jobs and reuses finished batches instead of translating again. The file is deleted when the run completes.
 

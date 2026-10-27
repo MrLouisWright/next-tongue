@@ -14,7 +14,7 @@ next-tongue uses [ICU MessageFormat](https://unicode-org.github.io/icu/userguide
 | Select | `{gender, select, female {She} male {He} other {They}}` | `gender: 'female' \| 'male' \| (string & {})` |
 | Rich tag | `Read <b>this</b>` | `b: (chunks) => ReactNode` (via `t.rich`) |
 | Rich tag (self-closing) | `Line<br/>break` | `br: () => ReactNode` |
-| Escaping (apostrophes) | `'{'literal'}'`, `it''s` / `couldn''t`, `"data-ns=\"'<id>'\"` | — |
+| Escaping (apostrophes) | `'{'literal'}'`, `it''s` / `couldn''t`, `"data-ns=\"'<id>'\"`. A lone `'` is literal unless followed by `{ } <` (or `#` in a plural): `d'un {email}` keeps `email` (1.0.6) | — |
 
 ### Apostrophes in English (and other) source
 
