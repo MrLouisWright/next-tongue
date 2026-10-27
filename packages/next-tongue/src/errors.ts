@@ -10,6 +10,8 @@ export type TongueErrorCode =
   | 'TONGUE_E_NO_PROVIDER'
   /** Run would exceed the configured Loomlocale spending cap (exit 1). */
   | 'TONGUE_E_BUDGET'
+  /** A Loomlocale job did not finish in time (still queued/running); the run can be resumed (exit 1). */
+  | 'TONGUE_E_JOB_TIMEOUT'
   /** Call-site loader did not rewrite `t()` / `t.dynamic()` (not a missing TongueProvider). */
   | 'TONGUE_E_NOT_REWRITTEN';
 

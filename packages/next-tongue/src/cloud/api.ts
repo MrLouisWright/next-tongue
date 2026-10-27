@@ -166,7 +166,34 @@ export type Job = {
   results?: Array<{ key: string; locale: string; text: string }>;
   errors?: Array<{ key: string; locale: string; message: string }>;
   billedChars?: number;
+  /** Server reason when `status` is `failed` (string or `{ code, message }`); optional. */
+  error?: string | { code?: string; message?: string } | null;
+  message?: string;
 };
+
+/** Server-provided failure reason for a job, if any. */
+export function jobErrorMessage(job: Pick<Job, 'error' | 'message' | 'errors'>): string | null {
+  if (typeof job.error === 'string' && job.error) return job.message ? `${job.error}: ${job.message}` : job.error;
+  if (job.error && typeof job.error === 'object') return job.error.message ?? job.error.code ?? null;
+  if (job.message) return job.message;
+  const first = job.errors?.[0];
+  return first ? first.message : null;
+}
+
+/** A job did not reach a final state in time (overall timeout, or no progress for too long). */
+export class JobTimeoutError extends Error {
+  constructor(
+    readonly jobId: string,
+    readonly lastStatus: string,
+    readonly waitedMs: number,
+    readonly reason: 'timeout' | 'stalled',
+  ) {
+    super(
+      `Loomlocale job ${jobId} is still ${lastStatus} after ${Math.round(waitedMs / 1000)}s${reason === 'stalled' ? ' with no progress' : ''}.`,
+    );
+    this.name = 'JobTimeoutError';
+  }
+}
 
 export type SyncEntry = {
   key: string;
@@ -317,9 +344,11 @@ const gbpPrecise = (n: number) => `£${n !== 0 && Math.abs(n) < 0.01 ? n.toFixed
 
 /** Sums per-locale estimates. Credit: required amounts add up, so the sum is checked against the balance. */
 export function aggregateEstimates(ests: Estimate[]): Pick<Estimate, 'chars' | 'billableChars' | 'costGBP'> &
-  Partial<Pick<Estimate, 'allowed' | 'withinSpendCap' | 'withinCredit' | 'creditRequiredGBP' | 'creditBalanceGBP' | 'topUpUrl' | 'note'>> {
+  Partial<Pick<Estimate, 'allowed' | 'withinSpendCap' | 'withinCredit' | 'creditRequiredGBP' | 'creditBalanceGBP' | 'topUpUrl' | 'note' | 'allowanceRemaining' | 'withinAllowance'>> {
   const out: ReturnType<typeof aggregateEstimates> = { chars: 0, billableChars: 0, costGBP: 0 };
   for (const e of ests) {
+    if (typeof e.allowanceRemaining === 'number') out.allowanceRemaining = e.allowanceRemaining; // org-wide, not per locale
+    if (typeof e.withinAllowance === 'boolean') out.withinAllowance = (out.withinAllowance ?? true) && e.withinAllowance;
     out.chars += e.chars;
     out.billableChars += e.billableChars;
     out.costGBP += e.costGBP;
@@ -335,9 +364,60 @@ export function aggregateEstimates(ests: Estimate[]): Pick<Estimate, 'chars' | '
   return out;
 }
 
-/** Hint when `/me` says credit is low (`credit.lowCredit`). */
-export function lowCreditHint(me: Pick<Me, 'credit' | 'creditBalanceGBP'> | null | undefined): string | null {
+/**
+ * Human estimate lines from the server's figures (`chars`, `billableChars`, `costGBP`,
+ * `allowanceRemaining`). Chars covered by the allowance = chars − billableChars; the allowance
+ * left after the run = allowanceRemaining (before the run, per the contract) − covered.
+ */
+export function describeEstimate(est: Pick<Estimate, 'chars' | 'billableChars' | 'costGBP'> & Partial<Pick<Estimate, 'allowanceRemaining' | 'withinAllowance'>>, fmtGBP: (n: number) => string): { included: boolean; text: string } {
+  const n = (x: number) => Math.max(0, Math.round(x)).toLocaleString('en-GB');
+  const billable = Math.max(0, Math.min(est.chars, est.billableChars));
+  const covered = est.chars - billable;
+  const left = typeof est.allowanceRemaining === 'number' ? Math.max(0, est.allowanceRemaining - covered) : null;
+  const leftText = left != null ? `${n(left)} chars of allowance left after this run` : null;
+  if (billable === 0 && (est.withinAllowance !== false || est.costGBP <= 0)) {
+    return { included: true, text: `Included in your plan: uses ${n(covered)} chars of your allowance${leftText ? ` (${leftText})` : ''}` };
+  }
+  if (covered > 0) {
+    return { included: false, text: `${n(covered)} of ${n(est.chars)} chars covered by your allowance; estimated cost ${fmtGBP(est.costGBP)} for the remaining ${n(billable)} billable chars${leftText ? ` (${leftText})` : ''}` };
+  }
+  return { included: false, text: `Estimated cost ${fmtGBP(est.costGBP)} (${n(billable)} billable chars)` };
+}
+
+/** What a run needs, to decide whether a low-credit hint is relevant. */
+export type CreditNeed = { chars?: number; billableChars?: number; costGBP?: number; creditRequiredGBP?: number; withinAllowance?: boolean };
+
+/** True when the run (per server estimate, or else the free allowance on /me) needs no prepaid credit. */
+export function runNeedsNoCredit(
+  me: { plan?: Me['plan'] | undefined; allowanceRemaining?: number | null | undefined } | null | undefined,
+  need: CreditNeed | null | undefined,
+): boolean {
+  if (!need) return false;
+  if (typeof need.creditRequiredGBP === 'number') return need.creditRequiredGBP <= 0;
+  if (need.withinAllowance === true || need.billableChars === 0) return true;
+  if (typeof need.costGBP === 'number' && typeof need.billableChars === 'number') return need.costGBP <= 0;
+  if (typeof need.chars === 'number') {
+    const left =
+      typeof me?.allowanceRemaining === 'number'
+        ? me.allowanceRemaining
+        : me?.plan && (me.plan.kind === 'free' || me.plan.kind === 'subscription') && typeof me.plan.charsIncluded === 'number'
+          ? me.plan.charsIncluded - (me.plan.charsUsed ?? 0)
+          : null;
+    if (left != null && need.chars <= left) return true;
+  }
+  return false;
+}
+
+/**
+ * Hint when `/me` says credit is low (`credit.lowCredit`). Pass `need` (the run's estimate) to
+ * suppress it when the run is covered by the allowance and needs no credit (e.g. Free plans at £0).
+ */
+export function lowCreditHint(
+  me: (Pick<Me, 'credit' | 'creditBalanceGBP'> & { plan?: Me['plan'] | undefined; allowanceRemaining?: number | null | undefined }) | null | undefined,
+  need?: CreditNeed | null,
+): string | null {
   if (!me?.credit?.lowCredit) return null;
+  if (need !== undefined && runNeedsNoCredit(me, need)) return null;
   const bal = me.creditBalanceGBP ?? me.credit.creditBalanceGBP;
   return `Loomlocale credit is low${typeof bal === 'number' ? ` (${gbpPrecise(bal)})` : ''}. Top up at ${me.credit.topUpUrl ?? TOP_UP_FALLBACK_URL}.`;
 }
@@ -586,15 +666,36 @@ export class LoomlocaleClient {
   /** Poll a job until it leaves queued/running. */
   async waitForJob(
     id: string,
-    opts: { intervalMs?: number; timeoutMs?: number; onProgress?: (job: Job) => void; sleep?: (ms: number) => Promise<void> } = {},
+    opts: {
+      intervalMs?: number;
+      /** Overall limit (default 30 min). */
+      timeoutMs?: number;
+      /** Give up when status/progress has not changed for this long (default 10 min). */
+      stallTimeoutMs?: number;
+      onProgress?: (job: Job, info: { elapsedMs: number }) => void;
+      sleep?: (ms: number) => Promise<void>;
+      now?: () => number;
+    } = {},
   ): Promise<Job> {
     const sleep = opts.sleep ?? this.sleep;
-    const deadline = Date.now() + (opts.timeoutMs ?? 30 * 60_000);
+    const now = opts.now ?? Date.now;
+    const start = now();
+    const timeout = opts.timeoutMs ?? 30 * 60_000;
+    const stall = opts.stallTimeoutMs ?? 10 * 60_000;
+    let lastSig = '';
+    let lastChange = start;
     for (;;) {
       const job = await this.job(id);
-      opts.onProgress?.(job);
+      const t = now();
+      opts.onProgress?.(job, { elapsedMs: t - start });
       if (job.status !== 'queued' && job.status !== 'running') return job;
-      if (Date.now() > deadline) throw new ApiError(0, 'timeout', `Job ${id} did not finish in time`);
+      const sig = `${job.status}:${job.progress?.done ?? 0}`;
+      if (sig !== lastSig) {
+        lastSig = sig;
+        lastChange = t;
+      }
+      if (t - start >= timeout) throw new JobTimeoutError(id, job.status, t - start, 'timeout');
+      if (t - lastChange >= stall) throw new JobTimeoutError(id, job.status, t - start, 'stalled');
       await sleep(opts.intervalMs ?? 1000);
     }
   }

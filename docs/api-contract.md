@@ -82,7 +82,8 @@ type Project = { id: string; name: string; sourceLocale: string; targetLocales: 
   "allowed": true, "withinSpendCap": true, "note": "…" }     // all optional; withinSpendCap is a deprecated alias of withinCredit
 ```
 - `chars` = Σ source chars (Unicode code points) of **unique texts** × target count. **Identical texts are counted once**, so the server estimate can be lower than the CLI's local count (which counts every key).
-- `allowanceRemaining` is `null` for PAYG.
+- `allowanceRemaining` is `null` for PAYG. The CLI (1.0.1) treats it as the allowance **before** this run, and `billableChars` as the chars **not** covered by it (so `chars − billableChars` is the allowance used, and `allowanceRemaining − (chars − billableChars)` is shown as left after the run). `withinAllowance` is `true` only when the whole run is covered; partial cover is shown from `billableChars`.
+- Low-credit hint (1.0.1): `update` and the wizard only show it when the run needs credit (`creditRequiredGBP > 0`, or `billableChars > 0` / `costGBP > 0`; without an estimate, when the planned chars exceed the free/subscription allowance).
 - Budget check: before translating (when any cap is set), the CLI requests one estimate per target locale and sums them, then enforces `cloud.budget` / `--max-chars` / `--max-cost` / env caps (`TONGUE_E_BUDGET`, exit 1).
 - **Credit check:** `withinCredit` is authoritative. Per-locale `creditRequiredGBP` amounts are summed and compared with `creditBalanceGBP`. If any estimate says `withinCredit: false`, or the summed amount exceeds the balance, the run aborts before translating with the insufficient-credit error (exit code 4). `withinSpendCap` / `allowed` are deprecated and only read when `withinCredit` is absent (older servers). In that case a `false` aborts with exit 1 and shows `note`. Nothing is translated or billed.
 - `creditBalanceGBP` (if present) is printed next to the run's estimated cost.
@@ -120,7 +121,7 @@ type Job = {
   billedChars?: number;
 };
 ```
-CLI polls every 1 s (30 min timeout).
+CLI polls every 1 s (30 min timeout; `LOOMLOCALE_JOB_TIMEOUT`). A job whose `status` and `progress.done` do not change for 10 min (`LOOMLOCALE_JOB_STALL_TIMEOUT`) stops the run with `TONGUE_E_JOB_TIMEOUT` (run state kept, re-run resumes). Optional on failed jobs (1.0.1): `error` (string code or `{ code, message }`) and `message`; the CLI prints them. Without them it falls back to the first `errors[].message`.
 
 ## `POST /projects/:id/sync`
 ```json

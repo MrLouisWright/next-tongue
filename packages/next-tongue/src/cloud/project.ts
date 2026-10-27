@@ -19,6 +19,10 @@ export type CloudGlobals = {
   env?: NodeJS.ProcessEnv;
   store?: CredentialStore;
   pollIntervalMs?: number;
+  /** Per-job polling limit in ms (default 30 min; env `LOOMLOCALE_JOB_TIMEOUT` in seconds). */
+  jobTimeoutMs?: number;
+  /** Give up on a job with no status/progress change for this long, in ms (default 10 min). */
+  jobStallTimeoutMs?: number;
   /** Injected for tests (retry sleep/backoff). */
   clientOptions?: Partial<ClientOptions>;
 };

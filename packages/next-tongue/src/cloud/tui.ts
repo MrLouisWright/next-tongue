@@ -40,6 +40,98 @@ export class CancelledError extends Error {
 
 const bar = color.dim('│');
 
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
+export const stripAnsi = (s: string): string => s.replace(ANSI_RE, '');
+
+/** Terminal cells a string occupies (ANSI stripped; East Asian wide chars and most emoji count 2). */
+export function displayWidth(s: string): number {
+  let w = 0;
+  for (const ch of stripAnsi(s)) {
+    const cp = ch.codePointAt(0)!;
+    if (cp < 32 || (cp >= 0x300 && cp <= 0x36f) || cp === 0x200d || (cp >= 0xfe00 && cp <= 0xfe0f)) continue;
+    w +=
+      (cp >= 0x1100 && cp <= 0x115f) || (cp >= 0x2e80 && cp <= 0xa4cf) || (cp >= 0xac00 && cp <= 0xd7a3) || (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xfe30 && cp <= 0xfe4f) || (cp >= 0xff00 && cp <= 0xff60) || (cp >= 0xffe0 && cp <= 0xffe6) || (cp >= 0x1f300 && cp <= 0x1faff) || (cp >= 0x20000 && cp <= 0x3fffd)
+        ? 2
+        : 1;
+  }
+  return w;
+}
+
+/** Physical terminal rows `rows` occupy once soft-wrapped at `columns` (each logical line ≥ 1 row). */
+export function countTerminalRows(rows: string[], columns: number | undefined): number {
+  const cols = columns && columns > 0 ? columns : 80;
+  return rows.reduce((n, r) => n + Math.max(1, Math.ceil(displayWidth(r) / cols)), 0);
+}
+
+/** Truncate to at most `max` cells (ANSI-aware: escape sequences are kept, a reset is appended when cut). */
+export function truncateToWidth(s: string, max: number): string {
+  if (displayWidth(s) <= max) return s;
+  let out = '';
+  let w = 0;
+  let i = 0;
+  while (i < s.length) {
+    ANSI_RE.lastIndex = i;
+    const m = s[i] === '\x1b' ? ANSI_RE.exec(s) : null;
+    if (m && m.index === i) {
+      out += m[0];
+      i += m[0].length;
+      continue;
+    }
+    const ch = String.fromCodePoint(s.codePointAt(i)!);
+    const cw = displayWidth(ch);
+    if (w + cw > max - 1) break;
+    out += ch;
+    w += cw;
+    i += ch.length;
+  }
+  ANSI_RE.lastIndex = 0;
+  return `${out}…\x1b[0m`;
+}
+
+/** Minimal streams the TTY prompter needs (injectable for tests). */
+export type TtyInput = NodeJS.ReadableStream & { isTTY?: boolean; isRaw?: boolean; setRawMode?: (mode: boolean) => unknown; read(size?: number): unknown };
+export type TtyOutput = { write(s: string): unknown; columns?: number; on?(ev: 'resize', fn: () => void): unknown; off?(ev: 'resize', fn: () => void): unknown };
+
+/**
+ * While a long task runs after interactive prompts, keep the TTY in raw mode and swallow keypresses
+ * so arrow keys are not echoed as `^[[B^[[A`; Ctrl-C still interrupts. Returns a restore function.
+ */
+export function swallowInput(input: TtyInput = process.stdin as TtyInput): () => void {
+  if (!input.isTTY || !input.setRawMode) return () => {};
+  const wasRaw = input.isRaw === true;
+  input.setRawMode(true);
+  const onData = (d: Buffer | string) => {
+    if (String(d).includes('\x03')) {
+      restore();
+      process.kill(process.pid, 'SIGINT');
+    }
+  };
+  input.on('data', onData);
+  input.resume();
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    input.off('data', onData);
+    drainInput(input);
+    input.setRawMode?.(wasRaw);
+    input.pause();
+  };
+  return restore;
+}
+
+/** Discard any buffered keypresses so they do not leak into the shell after we exit. */
+function drainInput(input: TtyInput): void {
+  try {
+    while (input.read() != null) {
+      /* discard */
+    }
+  } catch {
+    /* not readable */
+  }
+}
+
 function progressBar(label: string, total: number, interactive: boolean): Progress {
   let done = 0;
   const width = 24;
@@ -47,8 +139,9 @@ function progressBar(label: string, total: number, interactive: boolean): Progre
     const pct = total ? done / total : 1;
     const filled = Math.round(pct * width);
     const line = `${color.cyan('◆')} ${label} ${color.green('█'.repeat(filled))}${color.dim('░'.repeat(width - filled))} ${done}/${total} ${color.dim(detail)}`;
-    if (interactive) process.stdout.write(`\r\x1b[2K${line}`);
+    if (interactive) process.stdout.write(`\r\x1b[2K${truncateToWidth(line, (process.stdout.columns || 80) - 1)}`);
   };
+  const restoreInput = interactive ? swallowInput() : () => {};
   render();
   return {
     tick(n = 1, detail) {
@@ -56,6 +149,7 @@ function progressBar(label: string, total: number, interactive: boolean): Progre
       render(detail);
     },
     done(message) {
+      restoreInput();
       if (interactive) process.stdout.write('\r\x1b[2K');
       console.log(`${color.green('◇')} ${message ?? `${label} ${done}/${total}`}`);
     },
@@ -139,27 +233,42 @@ export function createLinePrompter(answers?: string[]): Prompter {
 }
 
 /** Raw-mode interactive prompter (arrow keys, space to toggle, type to filter). */
-export function createTtyPrompter(): Prompter {
+export function createTtyPrompter(io: { input?: TtyInput; output?: TtyOutput } = {}): Prompter {
   const line = createLinePrompter();
-  const out = process.stdout;
+  const input = io.input ?? (process.stdin as TtyInput);
+  const out: TtyOutput = io.output ?? process.stdout;
 
   function withKeys<T>(render: () => string[], onKey: (str: string, key: readline.Key) => T | undefined): Promise<T> {
     return new Promise((resolve, reject) => {
-      readline.emitKeypressEvents(process.stdin);
-      process.stdin.setRawMode?.(true);
-      process.stdin.resume();
-      let lines = 0;
+      readline.emitKeypressEvents(input);
+      const wasRaw = input.isRaw === true;
+      input.setRawMode?.(true);
+      input.resume();
+      // Rows (as drawn) of the previous frame; re-measured at the current width on redraw.
+      let prev: string[] = [];
+      let prevCols = out.columns;
       const draw = () => {
-        if (lines) out.write(`\x1b[${lines}A`);
-        out.write('\x1b[0J');
-        const rows = render();
+        const cols = out.columns || 80;
+        // Rows are truncated to the width so they never soft-wrap; still measure the previous frame
+        // at the width it was drawn with (and at the new width after a resize), whichever is larger.
+        const up = prev.length ? Math.max(countTerminalRows(prev, prevCols), countTerminalRows(prev, cols)) : 0;
+        if (up) out.write(`\r\x1b[${up}A`);
+        out.write('\r\x1b[0J');
+        const rows = render().map((r) => truncateToWidth(r, cols - 1));
         out.write(rows.join('\n') + '\n');
-        lines = rows.length;
+        prev = rows;
+        prevCols = cols;
       };
+      const onResize = () => draw();
+      out.on?.('resize', onResize);
+      out.write('\x1b[?25l');
       const finish = () => {
-        process.stdin.off('keypress', handler);
-        process.stdin.setRawMode?.(false);
-        process.stdin.pause();
+        input.off('keypress', handler);
+        out.off?.('resize', onResize);
+        out.write('\x1b[?25h');
+        drainInput(input);
+        input.setRawMode?.(wasRaw);
+        input.pause();
       };
       const handler = (str: string, key: readline.Key) => {
         if (key?.ctrl && key.name === 'c') {
@@ -167,13 +276,13 @@ export function createTtyPrompter(): Prompter {
           reject(new CancelledError());
           return;
         }
-        const r = onKey(str, key);
+        const r = onKey(str, key ?? ({} as readline.Key));
         if (r !== undefined) {
           finish();
           resolve(r);
         } else draw();
       };
-      process.stdin.on('keypress', handler);
+      input.on('keypress', handler);
       draw();
     });
   }

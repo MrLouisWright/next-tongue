@@ -4,7 +4,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { creditExpiryWarning, localCostGBP, lowCreditHint, type Estimate, type Me } from '../cloud/api.js';
+import { creditExpiryWarning, describeEstimate, localCostGBP, lowCreditHint, type Estimate, type Me } from '../cloud/api.js';
 import { createCredentialStore, resolveToken } from '../cloud/credentials.js';
 import { detectFramework, detectLayouts, readCatalog } from '../cloud/dictionaries.js';
 import { countChars } from '../cloud/engine.js';
@@ -137,16 +137,17 @@ export async function runWizard(opts: WizardOptions): Promise<void> {
     let est: Estimate | null = null;
     try {
       est = await client.estimate(projectId, { sourceLocale, targetLocales: targets, items: Object.entries(source.flat).map(([key, text]) => ({ key, text })) });
-      estimateLine += est.withinAllowance
-        ? `\n${color.green('Included in your plan')} (${(est.allowanceRemaining ?? 0).toLocaleString('en-GB')} chars left after this run would be ${Math.max(0, (est.allowanceRemaining ?? 0) - est.billableChars).toLocaleString('en-GB')})`
-        : `\nEstimated cost ${color.bold(formatGBP(est.costGBP))} (${est.billableChars.toLocaleString('en-GB')} billable chars)`;
+      // Prefer the server's figures: it dedupes identical texts and applies the allowance.
+      if (est.chars !== totalChars) estimateLine += `\n${color.dim(`Loomlocale counts ${est.chars.toLocaleString('en-GB')} chars (identical texts are counted once)`)}`;
+      const d = describeEstimate(est, formatGBP);
+      estimateLine += `\n${d.included ? color.green(d.text) : d.text}`;
     } catch {
       estimateLine += `\n≈ ${color.bold(formatGBP(localCostGBP(totalChars, me?.plan.paygPerMillionGBP ?? 25)))} at PAYG £25 / 1M chars ${color.dim('(local estimate)')}`;
     }
     if (me) estimateLine += `\n${color.dim(`${me.user.email} · ${describePlan(me)}`)}`;
     const expiryWarn = creditExpiryWarning(me) ?? creditExpiryWarning(est);
     if (expiryWarn) estimateLine += `\n${color.yellow(expiryWarn)}`;
-    const low = lowCreditHint(me);
+    const low = lowCreditHint(me, est ?? { chars: totalChars });
     if (low) estimateLine += `\n${color.yellow(low)}`;
     pr.note(estimateLine, 'Estimate');
     if (!opts.yes && !(await pr.confirm(`Translate into ${targets.join(', ')}?`, true))) {
