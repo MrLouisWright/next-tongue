@@ -91,6 +91,8 @@ export type Me = {
   cardSetupUrl?: string | null;
   allowanceType?: 'once' | 'monthly' | (string & {});
   allowanceRemaining?: number | null;
+  /** Bonus characters (promotions/referrals) on top of the allowance. Optional. */
+  bonusCharsRemaining?: number | null;
   /** Published batch/rate limits. Optional. */
   limits?: Limits;
   /** Prepaid credit balance (upcoming). Optional. */

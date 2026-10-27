@@ -107,7 +107,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<'/[
 
 ## 5. Write messages and use them
 
-ICU treats `'` as a quote. Literal apostrophes must be doubled: `Let's` → `Let''s`, `couldn't` → `couldn''t`, French `l'été` → `l''été`. An undoubled `'` before a letter can swallow `{placeholders}` so EN looks arg-free while ES mismatches. `tongue check` warns for fr/it/… always, and for English when `{…}` is present.
+ICU treats `'` as a quote only when it comes right before `{`, `}`, `<`, or `#` inside a plural. Any other `'` is a plain apostrophe (since 1.0.6), so `d'un {email}`, `l'été` and `couldn't` work as written. `''` is always one apostrophe. Doubling (`Let''s`) is still valid and the safest choice right before a placeholder: write `l''{app}`, because `l'{app}` quotes the `{`. `tongue check` warns for fr/it/… always, and for English when `{…}` is present.
 
 ```json
 // messages/en.json

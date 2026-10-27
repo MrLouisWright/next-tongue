@@ -23,6 +23,7 @@ import {
   type Glossary,
   type KeyMeta,
   type PlanItem,
+  maskIcu,
 } from '../cloud/engine.js';
 import { formatGBP, loadProject, makeClient, type CloudGlobals, type ProjectContext } from '../cloud/project.js';
 import { color, createPrompter, type Prompter, type Progress } from '../cloud/tui.js';
@@ -303,7 +304,7 @@ async function runUpdateInner(opts: UpdateOptions, where: RunWhere): Promise<Upd
     const byLocale = new Map<string, PlanItem[]>();
     for (const p of plan) byLocale.set(p.locale, [...(byLocale.get(p.locale) ?? []), p]);
     const ests = await Promise.all(
-      [...byLocale].map(([l, items]) => client.estimate(projectId, { sourceLocale: ctx.sourceLocale, targetLocales: [l], items: items.map((p) => ({ key: p.key, text: p.source })), glossary: glossary.terms })),
+      [...byLocale].map(([l, items]) => client.estimate(projectId, { sourceLocale: ctx.sourceLocale, targetLocales: [l], items: items.map((p) => ({ key: p.key, text: maskIcu(p.source).masked })), glossary: glossary.terms })),
     );
     const est = aggregateEstimates(ests);
     runEstimate = est;
@@ -538,7 +539,9 @@ async function runUpdateInner(opts: UpdateOptions, where: RunWhere): Promise<Upd
 
   if (opts.json) console.log(JSON.stringify({ ...summary, plan: undefined, planned: plan.length }));
   else {
-    log(formatDoneSummary({ summary, startedAt, now: Date.now(), estimate: runEstimate, lockPath: ctx.lockPath, synced: sync }));
+    // Allowance left comes from a fresh /me after the jobs finished (not the pre-run estimate); omitted if /me fails.
+    const after = client && summary.translated + summary.failed.length > 0 ? await client.me().catch(() => null) : null;
+    log(formatDoneSummary({ summary, startedAt, now: Date.now(), estimate: runEstimate, allowanceLeft: allowanceLeftFrom(after), lockPath: ctx.lockPath, synced: sync }));
     for (const f of summary.failed) console.error(`  ${color.red('✗')} ${f.locale} ${f.key}: ${f.reason}`);
   }
   if (summary.failed.length) process.exitCode = 1;
@@ -602,12 +605,22 @@ const fmtDuration = (ms: number): string => {
   return m < 60 ? `${m}m ${sec % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
 };
 
+/** allowanceRemaining + bonusCharsRemaining from a /me response; null when neither is a number. */
+export function allowanceLeftFrom(me: Pick<Me, 'allowanceRemaining' | 'bonusCharsRemaining'> | null | undefined): number | null {
+  if (!me) return null;
+  const a = typeof me.allowanceRemaining === 'number' && Number.isFinite(me.allowanceRemaining) ? me.allowanceRemaining : null;
+  const b = typeof me.bonusCharsRemaining === 'number' && Number.isFinite(me.bonusCharsRemaining) ? me.bonusCharsRemaining : null;
+  return a === null && b === null ? null : (a ?? 0) + (b ?? 0);
+}
+
 /** Final human summary for `tongue update` (not used with --json). */
 export function formatDoneSummary(a: {
   summary: Pick<UpdateSummary, 'translated' | 'failed' | 'removed' | 'pulled' | 'billedChars' | 'plannedChars' | 'files' | 'changes'>;
   startedAt: number;
   now: number;
-  estimate?: { chars: number; billableChars: number; costGBP: number; allowanceRemaining?: number | null } | null;
+  estimate?: { chars: number } | null;
+  /** allowanceRemaining + bonusCharsRemaining from GET /me after the jobs finished; null/undefined = omit. */
+  allowanceLeft?: number | null;
   lockPath?: string;
   synced?: boolean;
 }): string {
@@ -626,12 +639,10 @@ export function formatDoneSummary(a: {
   const extra = [s.pulled && `${n(s.pulled)} pulled from web`, s.removed && `${n(s.removed)} removed`].filter(Boolean);
   if (extra.length) lines.push(`  ${extra.join(', ')}`);
   const usage: string[] = [];
-  if (a.estimate) {
-    const covered = Math.max(0, a.estimate.chars - a.estimate.billableChars);
-    if (covered) usage.push(`${n(covered)} chars from allowance${typeof a.estimate.allowanceRemaining === 'number' ? ` (${n(Math.max(0, a.estimate.allowanceRemaining - covered))} left)` : ''}`);
-    if (a.estimate.costGBP > 0) usage.push(`~${formatGBP(a.estimate.costGBP)} credit`);
-  }
-  if (s.billedChars) usage.push(`${n(s.billedChars)} chars billed`);
+  // Billed = sum of the jobs' billedChars (placeholders are not billed server-side since 64dbb9e).
+  if (s.billedChars || s.translated) usage.push(`${n(s.billedChars)} chars billed`);
+  if (a.estimate && a.estimate.chars) usage.push(`est. ${n(a.estimate.chars)}`);
+  if (typeof a.allowanceLeft === 'number' && Number.isFinite(a.allowanceLeft)) usage.push(`${n(Math.max(0, a.allowanceLeft))} chars allowance left`);
   if (usage.length) lines.push(`  Usage: ${usage.join(' · ')}`);
   if (s.files.length) lines.push(`  Wrote ${s.files.length} file(s)${a.lockPath ? ` + ${a.lockPath}` : ''}: ${s.files.slice(0, 4).join(', ')}${s.files.length > 4 ? ` and ${s.files.length - 4} more` : ''}`);
   if (s.failed.length) lines.push(color.dim('  Next: fix the errors below and re-run `tongue update` (finished strings are not re-billed).'));

@@ -20,6 +20,9 @@ import { createHash, randomUUID } from 'node:crypto';
 const sha = (t) => `sha256:${createHash('sha256').update(t, 'utf8').digest('hex')}`;
 const canon = (g) => JSON.stringify(Object.fromEntries(Object.keys(g ?? {}).sort().map((k) => [k, Object.fromEntries(Object.keys(g[k]).sort().map((f) => [f, g[k][f]]))])));
 
+// 64dbb9e/aa241ad: __TONGUE_n__ placeholders are not billed (estimate chars + job billedChars).
+const billable = (t) => [...t.replace(/__TONGUE_\d+__/g, '')].length;
+
 export function createMockLoomlocale(opts = {}) {
   const state = {
     token: opts.token ?? 'llt_test',
@@ -147,12 +150,12 @@ export function createMockLoomlocale(opts = {}) {
         // Identical texts are counted once; like a5fb584, translation-memory hits (per locale, same glossary) are excluded.
         state.estimates.push({ sourceLocale: body.sourceLocale, targetLocales: body.targetLocales, items: body.items, glossary: body.glossary });
         const unique = [...new Set(body.items.map((i) => i.text))];
-        const grossChars = unique.reduce((n, t) => n + [...t].length, 0) * body.targetLocales.length;
+        const grossChars = unique.reduce((n, t) => n + billable(t), 0) * body.targetLocales.length;
         const perLocale = {};
         let chars = 0;
         for (const l of body.targetLocales) {
           const miss = unique.filter((t) => t !== '' && !memHit(l, t, body.glossary));
-          const c = miss.reduce((n, t) => n + [...t].length, 0);
+          const c = miss.reduce((n, t) => n + billable(t), 0);
           perLocale[l] = { chars: c, texts: miss.length, memoryHits: unique.length - miss.length };
           chars += c;
         }
@@ -216,7 +219,7 @@ export function createMockLoomlocale(opts = {}) {
           }
         }
         const total = results.length;
-        state.jobs.set(id, { hash, polls: 0, job: { id, status: 'succeeded', progress: { done: total, total }, results, errors: [], billedChars: body.items.reduce((n, i) => n + [...i.text].length, 0) * body.targetLocales.length } });
+        state.jobs.set(id, { hash, polls: 0, job: { id, status: 'succeeded', progress: { done: total, total }, results, errors: [], billedChars: body.items.reduce((n, i) => n + billable(i.text), 0) * body.targetLocales.length } });
         return json(res, 202, { job: { id, status: 'queued', progress: { done: 0, total } } });
       }
       // sync

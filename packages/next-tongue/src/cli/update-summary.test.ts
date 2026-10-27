@@ -20,13 +20,14 @@ describe('1.0.3 update output', () => {
       summary: { translated: 5980, failed: [], removed: 0, pulled: 0, billedChars: 1200, plannedChars: 9000, files: ['messages/de.json', 'messages/fr.json'], changes: [...ch('de', 2990), ...ch('fr', 2990)] },
       startedAt: 0,
       now: 134_000,
-      estimate: { chars: 9000, billableChars: 1200, costGBP: 0.5, allowanceRemaining: 10000 },
+      estimate: { chars: 9000 },
+      allowanceLeft: 2200,
       lockPath: 'tongue.lock',
     });
     expect(out).toContain('✔ Done — translated 5,980 strings into 2 languages in 2m 14s');
     expect(out).toContain('de 2,990 · fr 2,990');
-    expect(out).toContain('7,800 chars from allowance (2,200 left)');
-    expect(out).toContain('~£0.50 credit');
+    expect(out).toContain('Usage: 1,200 chars billed · est. 9,000 · 2,200 chars allowance left');
+    expect(out).not.toContain('from allowance');
     expect(out).toContain('Wrote 2 file(s) + tongue.lock');
     expect(out).toContain('git diff');
   });
