@@ -272,6 +272,7 @@ export async function pool<T>(items: T[], limit: number, fn: (item: T) => Promis
  * `waitForJob`. A 404 or other error rejects only that job's waiter.
  */
 export class JobPoller {
+  private readonly pollTimeouts = new Map<string, number>();
   private readonly waiting = new Map<string, Array<{ onJob: (j: Job) => void; resolve: (j: Job) => void; reject: (e: unknown) => void }>>();
   private readonly seen = new Map<string, { start: number; sig: string; changed: number }>();
   private running = false;
@@ -314,9 +315,18 @@ export class JobPoller {
             try {
               job = await this.client.job(id);
             } catch (err) {
+              // A poll that times out (30s) is not retried by the client; the next round polls again, up to 2 in a row.
+              const isTimeout = err instanceof Error && (err as { code?: string }).code === 'timeout';
+              const n = (this.pollTimeouts.get(id) ?? 0) + 1;
+              if (isTimeout && n <= 2) {
+                this.pollTimeouts.set(id, n);
+                return;
+              }
+              this.pollTimeouts.delete(id);
               settle((w) => w.reject(err));
               return;
             }
+            this.pollTimeouts.delete(id);
             const t = now();
             for (const w of this.waiting.get(id) ?? []) w.onJob(job);
             if (job.status !== 'queued' && job.status !== 'running') return settle((w) => w.resolve(job));

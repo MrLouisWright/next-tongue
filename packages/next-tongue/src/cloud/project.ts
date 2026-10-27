@@ -45,9 +45,9 @@ export async function makeClient(opts: CloudGlobals, config?: ResolvedTongueConf
     token,
     ...(opts.fetchImpl ? { fetchImpl: opts.fetchImpl } : {}),
     ...(maxRetries != null ? { maxRetries } : {}),
-    onRetry: ({ attempt, waitMs, status }) => {
+    onRetry: ({ attempt, waitMs, status, message }) => {
       if (!opts.quiet && !opts.json) {
-        console.error(`  ${status === 0 ? 'connection dropped' : `HTTP ${status}`} — retrying in ${(waitMs / 1000).toFixed(1)}s (attempt ${attempt})`);
+        console.error(`  ${message ?? (status === 0 ? 'Loomlocale connection failed' : `HTTP ${status}`)} — retrying in ${(waitMs / 1000).toFixed(1)}s${message ? '' : ` (attempt ${attempt})`}`);
       }
     },
     ...opts.clientOptions,
