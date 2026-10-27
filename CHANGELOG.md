@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file. The format 
 
 ## [Unreleased]
 
-## [1.0.1] — Unreleased
+## [1.0.1] — 2026-10-27
 
 ### Fixed
 - **Interactive prompts:** multi-select (and other raw-mode prompts) no longer leave duplicated, truncated header lines (`◆ Target languages (type to search… en` repeated) when moving or toggling. Each frame is measured in terminal cells at the current width (wide characters, wrapped lines, resizes) and rows are truncated to the terminal width so they never soft-wrap; the cursor is hidden while a prompt is open. Raw mode is restored to its previous state, buffered input is drained, and keypresses during the translation progress bar are swallowed, so raw escape codes (`^[[B^[[A`) no longer leak into the terminal.
