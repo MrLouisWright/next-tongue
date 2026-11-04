@@ -17,6 +17,16 @@
   "bugs": {
     "url": "https://github.com/MrLouisWright/next-tongue/issues"
   },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/MrLouisWright"
+    },
+    {
+      "type": "stripe",
+      "url": "https://donate.stripe.com/aFa00lek3cvX4Ds2Fk9EI0b"
+    }
+  ],
   "keywords": [
     "i18n",
     "l10n",
